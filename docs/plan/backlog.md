@@ -54,7 +54,7 @@
 
 ### 候选评估中（待评估 / 本阶段延后项）
 
-> **候选池概览（2026-11-15 复算，第二次）**：本区 **32 项**（`### 候选评估中` 段内 `^- \*\*` 逐行计数）；M58 规划阶段上收 6 条为 5 原子（47 → 41）；M59 规划上收 4 条（沙箱 fix 出站策略 / 取消落定与清理 / force-fail 与续用起点写 / 资源采集扩展；41 → 37），另聚合 1 条 M57.1/M58.4 残余（镜像内 sandbox 双架构冒烟），不占候选计数；2026-11-12 运行日志复盘登记 2 条 P1（红仓库 baseline 短路 / 子进程 OOM 信号分离；37 → 39）；2026-11-13 追加 1 条 P2（peer-only 同 major 修复回退；39 → 40）；2026-11-13 M59 插队再平衡移出 M59.5（40 → 41；该项原为「聚合 1 条 M57.1/M58.4 残余、不占候选计数」，移出后转为正式候选并计入），「无写入」结论语义与状态一致性已按用户授权作为 M59 追加临时待办，不占候选计数。2026-11-14 另追加 3 条（沙箱 install 不可达快速失败 P2 / 执行子进程 env 硬化 P1 / 沙箱启用与故障排查文档 P2）；**概览此时已漂移**（上述链 41 + 3 = 44，段内实测 47，差额 3 条为此前未入式子的候选），故以段内实测校正为 47；同日 M60 规划上收 8 条（页面体量 / 闲置解构 / 死代码 / 筛选抽取 / 标签 helper / severity 单点化 / 容器部署启用沙箱 / 启用与排障文档）→ 段内 `^- \*\*` 实测终态 **39 项**（单一口径，概览首句与本处一致）；2026-11-15 M61 规划上收 8 条（归档链接前缀治本 / `caomei-ui-migration` 保序拆分 / 设计快照陈旧 / 经验分片范围口径 / `architecture` 复用项口径 / M44 条款挂接 / AI 基建机检 / REFERENCES 过期）→ 段内 `^- \*\*` 实测终态 **31 项**；2026-11-15 定时发布评估追加 1 条（无变更周空跑短路）→ 段内实测终态 **32 项**（单一口径，概览首句与本处一致；文档体量健康带回归由上收规则触发、1.1.0 发布执行与定时发布启用登记在「待上收候选」段，均不占本计数）。P 标签覆盖不全（未标注者评估时补 P 标签，不默认升级）；本文件不维护分档统计，1.0 分档只见 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)。
+> **候选池概览（2026-11-15 复算，第二次）**：本区 **32 项**（`### 候选评估中` 段内 `^- \*\*` 逐行计数）；M58 规划阶段上收 6 条为 5 原子（47 → 41）；M59 规划上收 4 条（沙箱 fix 出站策略 / 取消落定与清理 / force-fail 与续用起点写 / 资源采集扩展；41 → 37），另聚合 1 条 M57.1/M58.4 残余（镜像内 sandbox 双架构冒烟），不占候选计数；2026-11-12 运行日志复盘登记 2 条 P1（红仓库 baseline 短路 / 子进程 OOM 信号分离；37 → 39）；2026-11-13 追加 1 条 P2（peer-only 同 major 修复回退；39 → 40）；2026-11-13 M59 插队再平衡移出 M59.5（40 → 41；该项原为「聚合 1 条 M57.1/M58.4 残余、不占候选计数」，移出后转为正式候选并计入），「无写入」结论语义与状态一致性已按用户授权作为 M59 追加临时待办，不占候选计数。2026-11-14 另追加 3 条（沙箱 install 不可达快速失败 P2 / 执行子进程 env 硬化 P1 / 沙箱启用与故障排查文档 P2）；**概览此时已漂移**（上述链 41 + 3 = 44，段内实测 47，差额 3 条为此前未入式子的候选），故以段内实测校正为 47；同日 M60 规划上收 8 条（页面体量 / 闲置解构 / 死代码 / 筛选抽取 / 标签 helper / severity 单点化 / 容器部署启用沙箱 / 启用与排障文档）→ 段内 `^- \*\*` 实测终态 **39 项**（单一口径，概览首句与本处一致）；2026-11-15 M61 规划上收 8 条（归档链接前缀治本 / `caomei-ui-migration` 保序拆分 / 设计快照陈旧 / 经验分片范围口径 / `architecture` 复用项口径 / M44 条款挂接 / AI 基建机检 / REFERENCES 过期）→ 段内 `^- \*\*` 实测终态 **31 项**；2026-11-15 定时发布评估追加 1 条（无变更周空跑短路）→ 段内实测终态 **32 项**（单一口径，概览首句与本处一致；文档体量健康带回归由上收规则触发，`git-signing.ts` 更名 / 定时发布启用 / 批次级续跑入口登记在「待上收候选」段，均不占本计数）。P 标签覆盖不全（未标注者评估时补 P 标签，不默认升级）；本文件不维护分档统计，1.0 分档只见 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)。
 > **1.0 门槛与分档**：分档、门槛判定与批次计划单点声明于 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)（2026-10-30 冻结口径，不随候选上收收缩；本文件不重复维护数字）。
 
 - **备份 `.tmp` 清扫缺年龄门槛（P3 🛠️，2026-10-31 M53.2 收口登记）** —— `cleanupOldBackups` 对 `*.bak.tmp` 无条件回收；单实例串行路径不可达冲突，但并发 `db:restore` 或多实例共卷启动时可能删掉对端正在写的临时文件（rename ENOENT → 该轮快照丢失，fail-open 后仅剩日志）。待评估：加入 `mtime < now - 10min` 年龄门槛或按 PID 命名临时文件。触发：启用多实例 / 多容器共享数据卷，或出现并发恢复需求时。
@@ -174,12 +174,6 @@
   - **待评估点**：是否将 `packages/engine/src/github/git-signing.ts` 更名为 `git-isolation.ts` 并同步 `github/index.ts` re-export（公开 API）、平台侧 import、测试与 `git.md §3.8` 的路径引用。**未纳入 M43.5** 的理由：触及公开 API re-export 与平台侧多处 import，宜单独批次以保持改动面可控。
   - **触发条件**：下次改动该模块 / 公开 API 面时；或治理批次收敛模块命名时。
   - **按 [规划规范 §3.1](../standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
-
-- **1.1.0 发布执行（2026-11-15 评估完成，待用户授权）**（P1 🚀）—— `pnpm release:plan` 实测：5 个发布包 minor（`dependfix` / `@dependfix/core` / `@dependfix/engine` / `@dependfix/mcp` / `@dependfix/platform`），`@dependfix/skills` 不发（`v1.0.0..HEAD` 内该路径 0 变更）；同窗口 282 commits（feat 53 / fix 35，无 `!` 与 `BREAKING CHANGE:`）。安全门禁本地实跑 `check:release-security` PASS（critical 0 / high 0 / moderate 1 / low 1；code scanning open 0）。
-  - **取数命令（可复现）**：`git rev-list --count v1.0.0..HEAD`（282）；`git log --format=%s v1.0.0..HEAD | rg '^feat' | wc -l`（53）、同法 `^fix`（35）、`git log --oneline v1.0.0..HEAD -- packages/skills skills | wc -l`（0）；`git log --format=%s%n%b v1.0.0..HEAD | rg 'BREAKING CHANGE|^\w+(\(.+\))?!:'`（0 命中）；`pnpm release:plan`（5 包 minor）；`pnpm run check:release-security`（PASS）。
-  - **执行清单**：`release:plan` → `release:version` → `pnpm changelog` → 提交 `chore(release): 1.1.0` → `release:preflight` → 本地质量门 → 推送 → `gh workflow run release.yml`；发布后复核 npm 5 包 / 6 tag / GitHub Release / `platform-1.1.0` 镜像。
-  - **首次真实验证**：`post-release-smoke`（arm64 原生 runner / 私有 GHCR `packages: read` / 全量历史 tag 巡检）三项目前均为未证实项（M58.4 登记），1.1.0 是首个可回填窗口。
-  - **触发条件**：用户授权发布窗口；建议在 M61 规划批次推送并确认 CI 绿之后。
 
 - **定时发布启用（2026-11-15 评估完成；用户选方案 A：先发 1.1.0，观察 2 周后启用）**（P2 🚀）—— 启用清单 8 项现状（2026-11-15 实测）：① 1.0 门槛（1.0 已发布，G3 pending / G4 豁免延续）；② 安全告警门禁（本地 PASS，CI 有 `GH_PAT`）；③ Trusted Publisher（1.0.0 OIDC 发布成功）；④ Workflow 权限就位；⑤ **直推 master 未实测**（`gh api` 实测 master 无分支保护，机制可行）；⑥ 版本与日志一致（`verify:changelog` 绿、`release:plan` 可推导）；⑦ 回滚预案未演练；⑧ `@v1` 已创建。
   - **已知口径**：发布提交 `chore(release): x.y.z [skip ci]` 由 `GITHUB_TOKEN` 推送，不触发 Test / CodeQL / Pages（GitHub 防递归 + `[skip ci]`），发布内容只由 `release.yml` 内部门禁覆盖。
@@ -327,12 +321,13 @@
 - **影响**：类型侧由 `nuxt typecheck` 覆盖；但涉及 `packages/*/dist`（如 engine chunk 结构）变更后，容器 / 运行时冒烟前需重建 `apps/platform/.output`，否则可能引用旧产物。
 - **触发条件**：① 需要容器 / 运行时冒烟验证依赖 `packages/*/dist` 的变更时；② 跑 `apps/platform` e2e 或**视觉回归**（`pnpm --filter @dependfix/platform test:visual`，M32.5）前——两者都跑 `.output` 产物，源码改动不重建则验证的是旧产物（假绿；M32.1 / M32.5 均实证）。
 
-### 发布后镜像冒烟与历史 tag 巡检的真实性待首个发布 run 验证（持续观察）
+### 发布后镜像冒烟与历史 tag 巡检：主通道已证实、失败分支待样本（持续观察）
 
-- **背景**：M58.4 新增 `docker.yml` 的 `post-release-smoke`（amd64 / arm64 原生 runner 拉镜像跑 `/api/health` 断言 + 历史 tag 巡检），本环境无法真实派发发布工作流（会实际发版）。
-- **未证实项**：① `ubuntu-24.04-arm` 原生 runner 首次运行；② 私有 GHCR 包 `packages: read` 读取；③ 历史 tag 巡检在全量历史 checkout 下的实际输出；④ 冒烟失败时 Job Summary / `::warning::` 的可见性。
-- **回填方式**：首个带 `platform_version` 的发布派发后，把 run id 与两架构结论回填 [发布管线设计 §4.6](../design/governance/release-pipeline.md#_4-6-发布后镜像冒烟与历史-tag-巡检-2026-11-12-m58-4)；未回填前该面不得记为「已验证」。
-- **触发条件**：下一次 `release.yml` 派发 `docker.yml`（`platform_version` 非空）。
+- **背景**：M58.4 新增 `docker.yml` 的 `post-release-smoke`（amd64 / arm64 原生 runner 拉镜像跑 `/api/health` 断言 + 历史 tag 巡检）。
+- **已验证（2026-11-15，1.1.0 发布 run `43696172095`）**：① `ubuntu-24.04-arm` 原生 runner 实跑 success；② 私有 GHCR `packages: read` 登录与拉取 success；③ 历史 tag 巡检在 **amd64 腿** success（工作流条件 `matrix.arch == 'amd64'`，arm64 腿不执行该步；全量历史 checkout；summary 正文 API 不可读）；④ 两架构 `/api/health` 均为 `{"version":"1.1.0","commit":"80883880…","schema":"ok"}`。
+- **仍未证实**：冒烟失败分支的 Job Summary / `::warning::` 可见性（本轮无失败样本）。
+- **回填方式**：下次出现失败样本时补该分支证据；在此之前不得把「失败可见性」记为已验证。
+- **触发条件**：出现冒烟失败 run 时，取该 run 的 Job Summary 与 `::warning::` 输出回填 [发布管线设计 §4.6](../design/governance/release-pipeline.md#_4-6-发布后镜像冒烟与历史-tag-巡检-2026-11-12-m58-4)。
 
 ### ACR 个人版在 arm64 主机的按 tag 拉取未实测（持续观察）
 
@@ -393,7 +388,7 @@
 | 内容类型 | 位置 |
 |:--|:--|
 | 当前阶段活跃任务 | **M61 文档与 AI 治理**（第四期；2026-11-15 规划，6 原子，见 [todo.md](todo.md)）；插队容量治理见 [planning.md §3.1.1](../standards/planning.md#_3-1-1-插队后的阶段容量再平衡-hard-requirement-2026-10-19) |
-| 下一阶段（未规划） | M61 归档后再评估下一方向；M59 / M60 残余（交付载体 / 视觉抖动 / env 硬化 / registry 预检 / 沙箱取证）留在本文件；**1.1.0 发布与定时发布启用**已评估完成，登记在「待上收候选」段等待授权 |
+| 下一阶段（未规划） | M61 归档后再评估下一方向；M59 / M60 残余（交付载体 / 视觉抖动 / env 硬化 / registry 预检 / 沙箱取证）留在本文件；**1.1.0 已于 2026-11-15 发布**，定时发布启用仍在「待上收候选」段等待观察窗口 |
 | 已完成阶段归档 | [todo-archive.md](todo-archive.md)（阶段索引 + [archive/](archive/) 分片） |
 | 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M0-M60 已归档；M61 进行中） |
 | 长期主线 / 候选 / 待人工验收 / 已知边界 | 本文档（按四象限结构） |

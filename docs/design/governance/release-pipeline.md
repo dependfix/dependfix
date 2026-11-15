@@ -224,7 +224,7 @@ release.yml Push release tags（全量推送，含 v tag，推送后核验）
 
 巡检只读 manifest，不拉取、不运行（运行时证据在冒烟矩阵）。
 
-**未证实项（2026-11-12）**：arm64 原生 runner 首次真实运行与私有 GHCR 包读取（`packages: read`）待首个 release 派发实测；本地无 GHCR 凭证时巡检输出 401 Unauthorized 的「未证实」（已实跑，fail-open 生效）。
+**已验证（2026-11-15，1.1.0 发布 run `43696172095`）**：`ubuntu-24.04-arm` 原生 runner 实跑 success；私有 GHCR `packages: read` 登录与拉取 success；历史 tag 巡检在 amd64 腿 success（工作流条件 `matrix.arch == 'amd64'`，arm64 腿不执行该步；全量历史 checkout）；两架构 `/api/health` 均为 `{"version":"1.1.0","commit":"80883880…","schema":"ok"}`。**仍未证实**：冒烟失败分支的 Job Summary / `::warning::` 可见性（本轮无失败样本）。本地无 GHCR 凭证时巡检输出 401 Unauthorized 的「未证实」（已实跑，fail-open 生效）。
 
 ### 4.7 镜像通道矩阵与 ACR 架构边界（2026-11-12，M58.5）
 

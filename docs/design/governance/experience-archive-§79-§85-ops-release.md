@@ -119,7 +119,7 @@
 - **验证**：最终发布 run `42376735406` 全绿——三 registry × 4 tag 回读 **12/12 双架构**；无 `platform_version` 的验证派发 `42376062304`（master，3 tag × 3 仓库 9/9，且无 `platform-` 标签）。过程中三次迭代各暴露一个真问题：① `sync-readme` 缺 `actions/checkout`（`ERR: './README.md' file doesn't exit`）；② `imagetools create` **不支持** `--annotation`（`annotations are not supported yet`），OCI 标签必须在构建阶段用 `labels` 写入；③ 单架构耗时波动极大（热缓存 amd64 2m21s / arm64 1m10s，冷缓存 amd64 9m37s，最慢 41m32s），60 分钟预算对冷缓存偏紧，已提到 90 分钟。
 - **启示**：多架构构建不要依赖 QEMU 跑完整构建链，尤其中间有前端打包 / 原生编译；原生 arm runner 把 4 小时压到 1 分钟级。另：那条"上次 22 分钟"的对照只能证明链路可用，**不能**证明下次也在预算内——并行度、共享 runner 负载都会改变结果，预算与拆分要按最坏情况设计。
 - **边界**：`ubuntu-24.04-arm` 需仓库为公开或已开通 arm runner 额度；`imagetools create` 生成的是新 index，**原单架构 manifest 上的 attestation 不会保留**（provenance 需单独设计，见 security.md 供应链条目）。
-- **落点**：`.github/workflows/docker.yml`（原生 amd64/arm64 矩阵 + digest 合成 + 双架构回读门禁，L1 机检）；[发布指南 §1.0.0 发布记录](../../guide/release.md#_1-0-0-发布记录-m54-6-2026-11-07-已执行)（L2 记录与限制）。后续新增多架构发布单元照此矩阵模板实现，不再回到单 job QEMU。
+- **落点**：`.github/workflows/docker.yml`（原生 amd64/arm64 矩阵 + digest 合成 + 双架构回读门禁，L1 机检）；[发布记录 §1.0.0](../../guide/release-records.md#_1-0-0-发布记录-m54-6-2026-11-07-已执行)（L2 记录与限制）。后续新增多架构发布单元照此矩阵模板实现，不再回到单 job QEMU。
 
 ## 八十四、M55 归档批次经验沉淀（引擎判定真实形态 / schema 默认值 / 预算夹取 / 状态口径）
 

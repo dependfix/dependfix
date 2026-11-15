@@ -1,5 +1,12 @@
 # @dependfix/mcp
 
+# [1.1.0](https://github.com/dependfix/dependfix/compare/@dependfix/mcp@1.0.0...@dependfix/mcp@1.1.0) (2026-11-15)
+
+
+### ✨ 新功能
+
+* **engine:** 验证三态收口 0 写入运行跳过后验证 ([7a3df7f](https://github.com/dependfix/dependfix/commit/7a3df7f))
+
 ## [1.0.0](https://github.com/dependfix/dependfix/compare/@dependfix/mcp@0.3.1...@dependfix/mcp@1.0.0) (2026-11-06)
 
 ### ⚙️ 依赖更新

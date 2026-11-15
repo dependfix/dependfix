@@ -1,5 +1,24 @@
 # @dependfix/core
 
+# [1.1.0](https://github.com/dependfix/dependfix/compare/@dependfix/core@1.0.0...@dependfix/core@1.1.0) (2026-11-15)
+
+
+### ✨ 新功能
+
+* **core:** 报告契约新增附交付记录 ([00eac4c](https://github.com/dependfix/dependfix/commit/00eac4c))
+* **core:** 报告契约纳入外联审计结果 ([516782b](https://github.com/dependfix/dependfix/commit/516782b))
+* **core:** 新增按包聚合的告警拦截汇总 ([b50e3a9](https://github.com/dependfix/dependfix/commit/b50e3a9))
+* **core:** 新增时长解析与格式化工具 ([5aaf655](https://github.com/dependfix/dependfix/commit/5aaf655))
+* **engine:** 验证三态收口 0 写入运行跳过后验证 ([7a3df7f](https://github.com/dependfix/dependfix/commit/7a3df7f))
+
+
+### 🐛 Bug 修复
+
+* **engine:** 外联违规证据统一脱敏 ([c0c1d50](https://github.com/dependfix/dependfix/commit/c0c1d50))
+* **engine:** 版本化 override 的来源版本与策略展示同源 ([3cdb99a](https://github.com/dependfix/dependfix/commit/3cdb99a))
+* **engine:** 识别 peer-only 实例并按跳过归因 ([7f2c28f](https://github.com/dependfix/dependfix/commit/7f2c28f))
+* **platform:** 外联违规判定覆盖全部执行器并本地化失败横幅 ([ba3f906](https://github.com/dependfix/dependfix/commit/ba3f906))
+
 # [1.0.0](https://github.com/dependfix/dependfix/compare/@dependfix/core@0.7.0...@dependfix/core@1.0.0) (2026-11-06)
 
 ### ⚙️ 运行时基线更新

@@ -1,5 +1,13 @@
 # dependfix
 
+# [1.1.0](https://github.com/dependfix/dependfix/compare/dependfix@1.0.0...dependfix@1.1.0) (2026-11-15)
+
+
+### ✨ 新功能
+
+* **cli:** 新增 --push 参数 ([6203012](https://github.com/dependfix/dependfix/commit/6203012))
+* **cli:** 新增沙箱自包含入口与显式结果契约 ([b470f88](https://github.com/dependfix/dependfix/commit/b470f88))
+
 ## [1.0.0](https://github.com/dependfix/dependfix/compare/dependfix@0.7.0...dependfix@1.0.0) (2026-11-06)
 
 ### ⚙️ 依赖更新

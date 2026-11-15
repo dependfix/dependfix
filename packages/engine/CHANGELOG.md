@@ -1,5 +1,39 @@
 # @dependfix/engine
 
+# [1.1.0](https://github.com/dependfix/dependfix/compare/@dependfix/engine@1.0.0...@dependfix/engine@1.1.0) (2026-11-15)
+
+
+### ✨ 新功能
+
+* **core:** 新增按包聚合的告警拦截汇总 ([b50e3a9](https://github.com/dependfix/dependfix/commit/b50e3a9))
+* **engine:** fix 模式支持自包含推送并记录交付 ([b57a5b5](https://github.com/dependfix/dependfix/commit/b57a5b5))
+* **engine:** 安装类命令超时按仓库配置生效 ([7831d96](https://github.com/dependfix/dependfix/commit/7831d96))
+* **engine:** 时长环境变量支持单位写法 ([abd13cc](https://github.com/dependfix/dependfix/commit/abd13cc))
+* **engine:** 暴露受管命令与取消现场快照 ([f5d0313](https://github.com/dependfix/dependfix/commit/f5d0313))
+* **engine:** 运行级外联审计覆盖安装与交付命令 ([70d3954](https://github.com/dependfix/dependfix/commit/70d3954))
+* **engine:** 运行级收官输出按包拦截构成 ([3388b60](https://github.com/dependfix/dependfix/commit/3388b60))
+* **engine:** 验证三态收口 0 写入运行跳过后验证 ([7a3df7f](https://github.com/dependfix/dependfix/commit/7a3df7f))
+* **platform:** 执行上限与验证超时透传到执行面 ([0a1b228](https://github.com/dependfix/dependfix/commit/0a1b228))
+
+
+### 🐛 Bug 修复
+
+* **engine:** checkpoint 建立失败按分类降级或中止 ([ea323c1](https://github.com/dependfix/dependfix/commit/ea323c1))
+* **engine:** push 必须与 commit 同时启用 ([b936ef2](https://github.com/dependfix/dependfix/commit/b936ef2))
+* **engine:** 保留 NO_PROXY 并补调用点护栏 ([abc7c20](https://github.com/dependfix/dependfix/commit/abc7c20))
+* **engine:** 基线采样与快速验证接入运行预算 ([97d92c0](https://github.com/dependfix/dependfix/commit/97d92c0))
+* **engine:** 外联违规证据统一脱敏 ([c0c1d50](https://github.com/dependfix/dependfix/commit/c0c1d50))
+* **engine:** 注入审计代理时保留基础环境 ([35b764d](https://github.com/dependfix/dependfix/commit/35b764d))
+* **engine:** 父级限定 override 键随同包目标提升 ([d7f7b5f](https://github.com/dependfix/dependfix/commit/d7f7b5f))
+* **engine:** 版本化 override 的来源版本与策略展示同源 ([3cdb99a](https://github.com/dependfix/dependfix/commit/3cdb99a))
+* **engine:** 识别 peer-only 实例并按跳过归因 ([7f2c28f](https://github.com/dependfix/dependfix/commit/7f2c28f))
+* **engine:** 锁文件修复拒绝「基线已判失败仍报合规」 ([01883c6](https://github.com/dependfix/dependfix/commit/01883c6))
+
+
+### 📦 代码重构
+
+* **engine:** 接线自包含交付并拆出启动自检与中止入口 ([906e36d](https://github.com/dependfix/dependfix/commit/906e36d))
+
 ## [1.0.0](https://github.com/dependfix/dependfix/compare/@dependfix/engine@0.6.0...@dependfix/engine@1.0.0) (2026-11-06)
 
 ### ⚙️ 依赖更新

@@ -142,8 +142,8 @@ importers:
         specifier: ^6.7.5
         version: 6.7.5(ioredis@6.0.0(supports-color@10.2.2))(pg@8.23.1)
       caomei-ui:
-        specifier: 1.0.0
-        version: 1.0.0(@nuxt/kit@4.6.4(@nuxt/schema@4.6.4)(confbox@0.3.2)(dotenv@18.0.10)(giget@3.3.1)(jiti@2.7.0)(magic-string@1.4.5)(mlly@1.8.2)(oxc-parser@0.141.0)(rolldown@1.2.19)(unplugin@3.7.0(esbuild@0.25.12)(rolldown@1.2.19)(rollup@4.67.5)(vite@8.3.8(@types/node@26.6.6)(esbuild@0.25.12)(jiti@2.7.0)(sass@1.108.2)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))))(vue@3.5.45(typescript@6.0.3))
+        specifier: 1.2.0
+        version: 1.2.0(@nuxt/kit@4.6.4(@nuxt/schema@4.6.4)(confbox@0.3.2)(dotenv@18.0.10)(giget@3.3.1)(jiti@2.7.0)(magic-string@1.4.5)(mlly@1.8.2)(oxc-parser@0.141.0)(rolldown@1.2.19)(unplugin@3.7.0(esbuild@0.25.12)(rolldown@1.2.19)(rollup@4.67.5)(vite@8.3.8(@types/node@26.6.6)(esbuild@0.25.12)(jiti@2.7.0)(sass@1.108.2)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))))(vue@3.5.45(typescript@6.0.3))
       chart.js:
         specifier: ^4.6.1
         version: 4.6.1
@@ -3924,8 +3924,8 @@ packages:
   caniuse-lite@1.0.30001822:
     resolution: {integrity: sha512-Y3fvWQWzc69dlCyr07tuNrEhotv+db5FpMSPD3slZnkPKwRNOKwFBz2dP966XUmWMXLTOt+YShkFoQoom3U7hg==}
 
-  caomei-ui@1.0.0:
-    resolution: {integrity: sha512-yuFHSnyjH5E6LJxZNDabY+RZHpY86xdOmlzDwseS2Z4DL0dc52E3VDBznfVi7O2tRLUMS1jHPZAN46rIO/1BaA==}
+  caomei-ui@1.2.0:
+    resolution: {integrity: sha512-j6jLEMtFFPDOz5X96LfJbU4ec3p6qJo0OQDSBa2VWosWuXm1DGCBlte/3ZNUZeI4wOGPO4p3Gx7kahkCsv1C0w==}
     engines: {node: '>=22'}
     peerDependencies:
       '@nuxt/kit': ^4.0.0
@@ -11912,7 +11912,7 @@ snapshots:
 
   caniuse-lite@1.0.30001822: {}
 
-  caomei-ui@1.0.0(@nuxt/kit@4.6.4(@nuxt/schema@4.6.4)(confbox@0.3.2)(dotenv@18.0.10)(giget@3.3.1)(jiti@2.7.0)(magic-string@1.4.5)(mlly@1.8.2)(oxc-parser@0.141.0)(rolldown@1.2.19)(unplugin@3.7.0(esbuild@0.25.12)(rolldown@1.2.19)(rollup@4.67.5)(vite@8.3.8(@types/node@26.6.6)(esbuild@0.25.12)(jiti@2.7.0)(sass@1.108.2)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))))(vue@3.5.45(typescript@6.0.3)):
+  caomei-ui@1.2.0(@nuxt/kit@4.6.4(@nuxt/schema@4.6.4)(confbox@0.3.2)(dotenv@18.0.10)(giget@3.3.1)(jiti@2.7.0)(magic-string@1.4.5)(mlly@1.8.2)(oxc-parser@0.141.0)(rolldown@1.2.19)(unplugin@3.7.0(esbuild@0.25.12)(rolldown@1.2.19)(rollup@4.67.5)(vite@8.3.8(@types/node@26.6.6)(esbuild@0.25.12)(jiti@2.7.0)(sass@1.108.2)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))))(vue@3.5.45(typescript@6.0.3)):
     dependencies:
       '@internationalized/date': 3.12.4
       '@lucide/vue': 1.72.0(vue@3.5.45(typescript@6.0.3))

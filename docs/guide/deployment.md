@@ -466,6 +466,8 @@ docker compose up -d
 3. 叠加沙箱覆盖文件启动（uid/gid 取宿主用户，与 rootless socket 属主一致；镜像用第 2 步的本地 tag）：`DEPENDFIX_IMAGE=caomeiyouren/dependfix:local SANDBOX_DOCKER_UID=$(id -u) SANDBOX_DOCKER_GID=$(id -g) docker compose -f docker-compose.yml -f docker-compose.sandbox.yml --profile sandbox up -d`；
 4. 管理员调用 `GET /api/sandbox/self-check` 核对 `available` / `reason` / 镜像候选 / 出站白名单。
 
+部署形态矩阵与错误码判读以 [快速开始 §sandbox 执行](./quick-start.md) 为单一事实源（本页只保留容器 opt-in 命令）。
+
 **安全边界**：只允许 rootless socket，禁止挂载宿主 `/var/run/docker.sock`；自检端点只读且不返回凭据。完整口径见 [安全规范 §5.3](../standards/security.md) 与 [快速开始](./quick-start.md)。
 
 ## 安全注意

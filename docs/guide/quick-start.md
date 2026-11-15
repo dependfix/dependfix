@@ -232,6 +232,14 @@ jobs:
 - `/etc/subuid` 与 `/etc/subgid` 中当前用户有 ≥ 65,536 个从属 UID/GID（`grep ^$(whoami): /etc/subuid` 应返回非空）
 - 系统已启用 user namespace（多数发行版默认开启；WSL2 / 容器内运行需额外配置）
 
+**部署形态与可行执行器**（启用前先核对形态；`GET /api/sandbox/self-check` 可返回 `available` 与结构化 `reason`）：
+
+| 部署形态 | 可行执行器 | 启用方式 | 说明 |
+|:--|:--|:--|:--|
+| 宿主 Dev（`pnpm dev` / 裸进程） | container / sandbox | 宿主启动 rootless daemon 后：`DOCKER_HOST=unix:///run/user/$(id -u)/docker.sock pnpm dev` | 自检应为 `available: true` |
+| 容器默认（`docker-compose.yml`） | container | `docker compose up -d` | 平台镜像**不含** docker CLI；`executorKind=sandbox` 的仓库启动即降级 `container`（`sandbox_unavailable`） |
+| 容器 opt-in | container / sandbox | `WITH_DOCKER_CLI=true docker compose -f docker-compose.yml -f docker-compose.build.yml build`，再 `DEPENDFIX_IMAGE=caomeiyouren/dependfix:local SANDBOX_DOCKER_UID=$(id -u) SANDBOX_DOCKER_GID=$(id -g) docker compose -f docker-compose.yml -f docker-compose.sandbox.yml --profile sandbox up -d` | 只挂 rootless socket；完整步骤见 [部署指南](./deployment.md#沙箱执行器-可选) |
+
 **启动 rootless Docker daemon**（参考 [Docker 官方 rootless 文档](https://docs.docker.com/engine/security/rootless/)）：
 
 ```bash
@@ -259,15 +267,15 @@ docker --context rootless info --format '{{.SecurityOptions}}'
 **启用 sandbox 执行**：
 
 ```bash
-# 1) 平台可访问 rootless daemon：给平台容器设置 DOCKER_HOST（示例见
-#    docs/design/governance/executor-sandbox-implementation.md §7.3）
+# 1) 平台可访问 rootless daemon：容器形态直接使用 apps/platform/docker-compose.sandbox.yml
+#    （DOCKER_HOST + rootless socket；步骤见 docs/guide/deployment.md）
 # 2) 仓库级覆盖：执行方式改为 sandbox（report-only / fix 均在独立容器内执行）
 curl -X PUT /api/repos/{id} \
   -H 'Content-Type: application/json' \
   -d '{"executorKind": "sandbox"}'
 
 # 3) 镜像：默认跟随平台镜像的 registry（如平台用 ACR 则沙箱也走 ACR），再回退 Docker Hub / ghcr / ACR；
-#    每个源先 inspect 再限时 pull，首个可用即用。可用 SANDBOX_IMAGE 或 SANDBOX_IMAGE_REPO + TAG 固定单源。
+#    每个源先 inspect 再限时 pull，首个可用即用。可用 SANDBOX_IMAGE 或 SANDBOX_IMAGE_REPO + SANDBOX_IMAGE_TAG 固定单源。
 #    原生模块需源码编译时改用 -full 变体；镜像内已含 /app/sandbox/bin.mjs + skills。
 # 4) 自定义运行时（默认 runc；如部署了 Sysbox 可切换）——模块级读取，须在平台启动前设置
 # export SANDBOX_RUNTIME=sysbox-runc
@@ -278,13 +286,18 @@ curl -X PUT /api/repos/{id} \
 >
 > **网络**：report-only 访问 GitHub API；fix 类在容器内 clone + 安装 + 验证，出站由容器内 CLI 的运行级审计代理按 `DEPENDFIX_ALLOWED_DOMAINS`（平台注入）deny-by-default 约束——非白名单外联直接 502，运行判 `failed`（`network_violation`）。clone 基地址可用 `SANDBOX_CLONE_BASE_URL` 指向企业镜像 / 自建 Git（仅 GitHub 源注入凭据头，其它源匿名 clone），且该 host 必须命中同一白名单。
 
-**降级与失败行为**：
+**降级与错误码判读**（同一事实只在本表定义；运行详情会展示 `sandbox_unavailable` 的原因与排障链接）：
 
-- `executorKind=sandbox` + `report-only` → 真实执行；daemon 不可用（启动探测失败）→ **降级 `container` + `degraded`**（`sandbox_unavailable`，业务结果完整）。
-- `executorKind=sandbox` + `fix` / `fix-and-pr` → 出站策略就位时在沙箱内执行；**审计关闭**（`DEPENDFIX_NETWORK_AUDIT=false`）→ **`failed`**（`sandbox_fix_requires_egress_policy`，落 `sandbox_egress_blocked` 审计事件，不通知）。
-- clone 基地址非法或不在出站白名单内（`SANDBOX_CLONE_BASE_URL` 的 host 未加入 `DEPENDFIX_ALLOWED_DOMAINS`）→ **`failed`**（`sandbox_clone_host_not_allowed`，不 clone、不执行）。
-- daemon 启动可用但运行时 errno（ENOENT / ENOTCONN / EACCES / ECONNREFUSED）→ **run 标 `failed`**（`sandbox_unavailable`），不静默降级、不掩盖真实环境异常。
-- 降级目标 container 也不可用 → **run 标 `failed`**（`container_unavailable`）。
+| 错误码 | 现象 | 根因 | 处置 |
+|:--|:--|:--|:--|
+| `sandbox_unavailable` | 启动探测失败 → `degraded`（业务结果完整，降级 container）；运行时 errno → `failed` | daemon 不可达 / docker CLI 缺失 / socket 权限不足 / 探测超时 | 调 `GET /api/sandbox/self-check` 看 `reason`：按上表启用；容器 opt-in 时确认 `WITH_DOCKER_CLI=true`、`PUID/PGID` 与 socket 属主一致 |
+| `sandbox_image_unavailable` | `failed`，未启动容器 | 三源镜像均不可拉取 / daemon 内不存在 | 配置 `SANDBOX_IMAGE`（或 `SANDBOX_IMAGE_REPO` + `SANDBOX_IMAGE_TAG` / 仓库级「沙箱镜像」）；确认 daemon 可访问 registry |
+| `sandbox_fix_requires_egress_policy` | `failed`，未 clone | `DEPENDFIX_NETWORK_AUDIT=false`（或运维经实例 options 显式清空白名单） | 保持审计开启（默认）并配置 `DEPENDFIX_ALLOWED_DOMAINS` |
+| `sandbox_clone_host_not_allowed` | `failed`，未 clone | `SANDBOX_CLONE_BASE_URL` 非 https 或其 host 不在白名单 | 改为 https 并加入 `DEPENDFIX_ALLOWED_DOMAINS` |
+| `sandbox_alert_source_unsupported` | `failed`，未执行 | 非 `github-dependabot` 告警源（`pnpm-audit` 会执行仓库代码） | 改用 dependabot 源，或该仓库走 container 执行 |
+| `sandbox_mode_unsupported` | `failed`，未执行 | 扫描模式不在 `report-only` / `fix` / `fix-and-pr` | 修正扫描模式 |
+
+降级目标 container 也不可用 → `failed`（`container_unavailable`）。
 
 A/B 场景差异化见 [executor-sandbox.md §7.8.1](../design/governance/executor-sandbox-implementation.md)；治理登记见 [sandbox-security-governance.md §5 G5](../design/governance/sandbox-security-governance.md#_5-治理决议与登记) + [§7.2 降级场景验收](../design/governance/sandbox-security-governance.md#_7-2-降级场景验收-t1005-c-2026-08-20-已闭环——函数体-聚合-14-个新断言落地)。
 

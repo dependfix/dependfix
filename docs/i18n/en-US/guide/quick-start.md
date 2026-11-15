@@ -240,6 +240,14 @@ After the run, the report content is written to the workflow summary and can be 
 - ≥ 65,536 subordinate UIDs/GIDs for the current user in `/etc/subuid` and `/etc/subgid` (`grep ^$(whoami): /etc/subuid` should return a non-empty line)
 - User namespaces enabled on the system (on by default in most distributions; WSL2 / in-container setups need extra configuration)
 
+**Deployment shapes and feasible executors** (check the shape first; `GET /api/sandbox/self-check` returns `available` and a structured `reason`):
+
+| Shape | Feasible executors | How to enable | Notes |
+|:--|:--|:--|:--|
+| Host dev (`pnpm dev` / bare process) | container / sandbox | Start the rootless daemon, then `DOCKER_HOST=unix:///run/user/$(id -u)/docker.sock pnpm dev` | Self-check should report `available: true` |
+| Container default (`docker-compose.yml`) | container | `docker compose up -d` | The platform image does **not** ship the Docker CLI; sandbox repos degrade to `container` immediately (`sandbox_unavailable`) |
+| Container opt-in | container / sandbox | `WITH_DOCKER_CLI=true docker compose -f docker-compose.yml -f docker-compose.build.yml build`, then `DEPENDFIX_IMAGE=caomeiyouren/dependfix:local SANDBOX_DOCKER_UID=$(id -u) SANDBOX_DOCKER_GID=$(id -g) docker compose -f docker-compose.yml -f docker-compose.sandbox.yml --profile sandbox up -d` | Mounts the rootless socket only; full steps in the [deployment guide](./deployment.md#sandbox-executor-optional) |
+
 **Starting the rootless Docker daemon** (see the [official Docker rootless docs](https://docs.docker.com/engine/security/rootless/)):
 
 ```bash
@@ -267,8 +275,8 @@ docker --context rootless info --format '{{.SecurityOptions}}'
 **Enabling sandbox execution**:
 
 ```bash
-# 1) Let the platform reach the rootless daemon: set DOCKER_HOST on the platform container
-#    (example in docs/design/governance/executor-sandbox-implementation.md §7.3)
+# 1) Let the platform reach the rootless daemon: containers use apps/platform/docker-compose.sandbox.yml
+#    (DOCKER_HOST + rootless socket; steps in docs/guide/deployment.md)
 # 2) Repository-level override: switch the executor to sandbox (report-only only)
 curl -X PUT /api/repos/{id} \
   -H 'Content-Type: application/json' \
@@ -276,7 +284,7 @@ curl -X PUT /api/repos/{id} \
 
 # 3) Image: the sandbox follows the platform image registry first (ACR platform → ACR sandbox),
 #    then falls back across Docker Hub / ghcr / ACR; each source is inspected and pulled with a
-#    timeout, first hit wins. Pin one source with SANDBOX_IMAGE or SANDBOX_IMAGE_REPO + TAG.
+#    timeout, first hit wins. Pin one source with SANDBOX_IMAGE or SANDBOX_IMAGE_REPO + SANDBOX_IMAGE_TAG.
 #    Use the -full variant when target native modules need source builds.
 # 4) Custom runtime (default runc; switch to Sysbox if deployed) — read at module level, set before platform start
 # export SANDBOX_RUNTIME=sysbox-runc
@@ -287,13 +295,18 @@ curl -X PUT /api/repos/{id} \
 >
 > **Network**: report-only reaches the GitHub API; fix modes clone + install + verify inside the container, with egress constrained by the CLI's run-level audit proxy using `DEPENDFIX_ALLOWED_DOMAINS` (injected by the platform) on a deny-by-default basis — non-allowlisted traffic gets 502 and the run is marked `failed` (`network_violation`). `SANDBOX_CLONE_BASE_URL` can point clone at an enterprise mirror / self-hosted Git (the credential header is only injected for GitHub sources; other sources clone anonymously) and that host must be in the same allowlist.
 
-**Degraded / failed behavior**:
+**Degradation and error-code reference** (this table is the single definition; the run detail shows the reason and a troubleshooting link for `sandbox_unavailable`):
 
-- `executorKind=sandbox` + `report-only` → real execution; daemon unavailable at startup → **degrade to `container` + `degraded`** (`sandbox_unavailable`, business results complete).
-- `executorKind=sandbox` + `fix` / `fix-and-pr` → real execution inside the sandbox when the egress policy is in place; **audit disabled** (`DEPENDFIX_NETWORK_AUDIT=false`) → **`failed`** (`sandbox_fix_requires_egress_policy`, recorded as a `sandbox_egress_blocked` audit event, not notified).
-- The clone base URL is invalid or its host is not in the outbound allowlist (the `SANDBOX_CLONE_BASE_URL` host is missing from `DEPENDFIX_ALLOWED_DOMAINS`) → **`failed`** (`sandbox_clone_host_not_allowed`, no clone, no execution).
-- Daemon available at startup but a runtime errno occurs (ENOENT / ENOTCONN / EACCES / ECONNREFUSED) → **run marked `failed`** (`sandbox_unavailable`), no silent fallback and no masking of real environment errors.
-- The fallback `container` is also unavailable → **run marked `failed`** (`container_unavailable`).
+| Error code | Symptom | Root cause | Fix |
+|:--|:--|:--|:--|
+| `sandbox_unavailable` | Startup probe fails → `degraded` (results complete, falls back to container); runtime errno → `failed` | Daemon unreachable / Docker CLI missing / socket permission / probe timeout | Call `GET /api/sandbox/self-check` and read `reason`: enable per the matrix above; for container opt-in verify `WITH_DOCKER_CLI=true` and that `PUID/PGID` match the socket owner |
+| `sandbox_image_unavailable` | `failed`, no container started | None of the image candidates can be pulled / present in the daemon | Set `SANDBOX_IMAGE` (or `SANDBOX_IMAGE_REPO` + `SANDBOX_IMAGE_TAG` / repo-level image); confirm the daemon can reach a registry |
+| `sandbox_fix_requires_egress_policy` | `failed`, no clone | `DEPENDFIX_NETWORK_AUDIT=false` (or an allowlist explicitly cleared via instance options) | Keep audit enabled (default) and configure `DEPENDFIX_ALLOWED_DOMAINS` |
+| `sandbox_clone_host_not_allowed` | `failed`, no clone | `SANDBOX_CLONE_BASE_URL` is not https or its host is missing from the allowlist | Use https and add the host to `DEPENDFIX_ALLOWED_DOMAINS` |
+| `sandbox_alert_source_unsupported` | `failed`, no execution | Alert source is not `github-dependabot` (e.g. `pnpm-audit` executes repo code) | Use the Dependabot source, or run this repository with the container executor |
+| `sandbox_mode_unsupported` | `failed`, no execution | Scan mode is not `report-only` / `fix` / `fix-and-pr` | Correct the scan mode |
+
+If the fallback `container` is also unavailable → `failed` (`container_unavailable`).
 
 A/B scenario differences are described in [executor-sandbox.md §7.8.1](https://github.com/dependfix/dependfix/blob/master/docs/design/governance/executor-sandbox-implementation.md); governance registration in [sandbox-security-governance.md §5 G5](https://github.com/dependfix/dependfix/blob/master/docs/design/governance/sandbox-security-governance.md).
 

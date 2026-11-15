@@ -81,23 +81,9 @@ export interface SandboxHandle {
 - platform 镜像默认拉取已发布 tag（`docker compose pull && docker compose up -d`），本地构建经 `docker-compose.build.yml` 覆盖文件显式开启；运行身份默认 `dependfix`（uid 100 / gid 101），`PUID`/`PGID` 可对齐宿主用户以控制数据卷 / `$HOME` 所有权，且对 0 值 fail-closed（保持非 root 基线）
 - **不需要**在宿主与平台容器间共享 `runs` 目录：沙箱容器不挂载宿主目录，结果经 stdout 哨兵回传（见 §7.2 / §7.8）；沙箱镜像须在目标 rootless daemon 内可拉取 / 已存在（独立精简镜像，解析顺序见 §7.2）
 - socket 属主是宿主启动 daemon 的用户（常见 uid 1000）；平台容器默认 uid 100 / gid 101 需通过 `PUID`/`PGID` 或 `group_add` 对齐，否则 `DockerAdapter` 探测失败 → 启动降级 `container`
+- 平台镜像**默认不内置 docker CLI**；容器形态 opt-in、覆盖文件与安全边界见 §7.10（不在此重复），部署形态矩阵与错误码表见 [quick-start.md §sandbox 执行](../../guide/quick-start.md)
 
-**可选 `sandbox-daemon` compose 片段（示例级，不纳入 M57.1 验收）**：
-
-rootless daemon 由宿主启动，平台只挂载其 socket：
-
-```yaml
-services:
-  platform:
-    environment:
-      # 宿主 rootless daemon 的 socket（不是 /var/run/docker.sock）
-      DOCKER_HOST: unix:///run/user/1000/docker.sock
-      # 沙箱镜像与平台容器镜像同源（compose 默认已注入；此处显式说明依赖关系）
-      DEPENDFIX_IMAGE: ${DEPENDFIX_IMAGE:-caomeiyouren/dependfix:latest}
-    volumes:
-      - /run/user/1000/docker.sock:/run/user/1000/docker.sock
-      - dependfix-data:/app/data
-```
+**容器 opt-in**：覆盖文件与启动命令见 §7.10 与 [部署指南](../../guide/deployment.md)；启用前后用 §7.10 的自检端点核对可用性。
 
 > 不要改为挂载宿主 `/var/run/docker.sock`（等价宿主 root），也不要在平台容器内启动 rootless daemon 自身作为 sandbox。真实生产请按 [Docker rootless 官方文档](https://docs.docker.com/engine/security/rootless/) 在宿主启动 daemon。
 

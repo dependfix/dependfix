@@ -463,6 +463,8 @@ Enable it:
 3. Start with the sandbox override (uid/gid must match the rootless socket owner; use the local tag built in step 2): `DEPENDFIX_IMAGE=caomeiyouren/dependfix:local SANDBOX_DOCKER_UID=$(id -u) SANDBOX_DOCKER_GID=$(id -g) docker compose -f docker-compose.yml -f docker-compose.sandbox.yml --profile sandbox up -d`.
 4. As an admin, call `GET /api/sandbox/self-check` and check `available` / `reason` / image candidates / egress hosts.
 
+The deployment-shape matrix and error-code reference live in [Quick Start § sandbox execution](./quick-start.md) (single source); this page keeps only the container opt-in commands.
+
 **Security boundary**: only the rootless socket is allowed; never mount the host `/var/run/docker.sock`. The self-check endpoint is read-only and returns no credentials. See [security standard §5.3](https://github.com/dependfix/dependfix/blob/master/docs/standards/security.md) and [Quick Start](./quick-start.md).
 
 ## Security notes

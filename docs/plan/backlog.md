@@ -300,7 +300,13 @@
 - 需真实 GitHub token + 可达出站网络（`github.com` / registry）环境跑一次完整 `fix-and-pr`：容器内 clone → 安装 → 修复 → 验证 → 推送 → 建 PR，核对 `runUrl` / `prNumber` / 网络审计记录。
 - 现有证据仅到 bootstrap 级（gated `sandbox-fix-real.test.ts`，占位 token 走 401），本机 `github.com` 出站被阻断，CI 无 token。
 - **M59.2 残余（同批登记）**：沙箱自包含交付的 gated e2e 两分支（fix 无 PR / fix-and-pr 建 PR）与交付失败分支清理，均需真实容器 + token 取证；实现已交付，未取得证据即不得声称已闭环。
-- 前置：先在目标环境确认沙箱可用（实现与自检端点见 [todo.md](todo.md) M60.4）。
+- 前置：先在目标环境确认沙箱可用（自检端点与部署形态见 [执行器设计 §7.10](../design/governance/executor-sandbox-implementation.md)）。
+
+### 沙箱可用性自检与 opt-in 构建取证（2026-11-15 M60.4 归档登记）
+
+- **gated report-only**：需 rootless daemon + `SANDBOX_E2E_TOKEN`，在 `WITH_DOCKER_CLI=true` 镜像下跑通一次 report-only 并核对 `GET /api/sandbox/self-check` 返回 `available: true`；当前环境无 rootless socket（仅 rootful daemon）且无 token，`sandbox-report` gated 用例按 env skip（未证实项）。
+- **opt-in 构建取证**：`WITH_DOCKER_CLI=true` 真实构建平台镜像，核对容器内 `docker --version`、默认构建 `docker_cli_missing` 与 opt-in 后自检可用；Dockerfile 分支尚未实跑。
+- 前置：部署形态矩阵与命令见 [quick-start.md](../guide/quick-start.md)「部署形态与可行执行器」。
 
 ### 发布管线收尾（P3）
 
@@ -404,9 +410,9 @@
 
 | 内容类型 | 位置 |
 |:--|:--|
-| 当前阶段活跃任务 | **M60 平台减法与沙箱可用性**（2026-11-14 规划，混合方案 C：减法 3 原子 + 沙箱 2 原子，见 [todo.md](todo.md)）；插队容量治理见 [planning.md §3.1.1](../standards/planning.md#_3-1-1-插队后的阶段容量再平衡-hard-requirement-2026-10-19) |
+| 当前阶段活跃任务 | 无活跃阶段（M60 已于 2026-11-15 归档；第四期「文档与 AI 治理」待规划）；插队容量治理见 [planning.md §3.1.1](../standards/planning.md#_3-1-1-插队后的阶段容量再平衡-hard-requirement-2026-10-19) |
 | 下一阶段（未规划） | 用户 2026-11-12 决策第四期「文档与 AI 治理」；M59 残余（交付载体 / 视觉抖动 / env 硬化 / registry 预检）留在本文件 |
 | 已完成阶段归档 | [todo-archive.md](todo-archive.md)（阶段索引 + [archive/](archive/) 分片） |
-| 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M0-M59 已归档；M60 进行中） |
+| 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M0-M60 已归档；当前无进行中阶段） |
 | 长期主线 / 候选 / 待人工验收 / 已知边界 | 本文档（按四象限结构） |
 | 历史归档索引 | [archive/index.md](archive/index.md) |

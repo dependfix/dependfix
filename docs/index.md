@@ -40,7 +40,7 @@ features:
       details: 模块边界、依赖分组升级、依赖图与执行矩阵；系统级设计见架构文档。
       link: /design/governance/architecture
     - title: 路线图
-      details: M0-M59 已全部归档；**1.0.0 已于 2026-11-07 发布**（npm 5 包 + `v1.0.0` + `@v1` + 镜像 `platform-1.0.0`）；**M59 沙箱 fix 与执行可靠性已于 2026-11-14 归档**（4 原子 + 5 批插队；M59.2 真实容器取证待补，沙箱在容器化部署下仍会降级 container）；下一阶段「平台减法与页面治理」待规划，其后为「文档与 AI 治理」；1.0 门槛终态见 design/governance/release-1.0-readiness，插队容量治理规则见规划规范 §3.1.1。
+      details: M0-M60 已全部归档；**1.0.0 已于 2026-11-07 发布**（npm 5 包 + `v1.0.0` + `@v1` + 镜像 `platform-1.0.0`）；**M60 平台减法与沙箱可用性已于 2026-11-15 归档**（5 原子：页面体量 / 死代码 / 筛选与级别单源 / 沙箱自检与 opt-in / 启用排障文档；M60.4 gated 真实容器取证仍为未证实项）；下一阶段为第四期「文档与 AI 治理」，待用户决策后规划；1.0 门槛终态见 design/governance/release-1.0-readiness，插队容量治理规则见规划规范 §3.1.1。
       link: /plan/roadmap
     - title: 当前任务
       details: 查看下一阶段规划与归档历史、验收指标与依赖；待办积压与已知边界。

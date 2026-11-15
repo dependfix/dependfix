@@ -68,26 +68,24 @@
 | M57: 执行面可信与发布验证收口 | 沙箱执行器复用（report-only 真实执行）+ 队列终态条件写 + 回归与审计真实性 + 平台 typecheck 覆盖 node config + 列表并列次键；插队 2 批：生产事故 schema 漂移恢复 + 仓库表单错误定位与时长单位（含同批跨大版本默认值）；发布冒烟已再平衡移出 | P1-P2 | 已完成（2026-11-09 规划 / 2026-11-10 已闭环归档，见 [M57 详情分片](archive/roadmap-phases-m57.md) + [M57 归档分片](archive/todo-archive-phases-m57.md)） |
 | M58: 发布链可信收口 | 本地发布通道安全门禁 + release 依赖审计与构建面同口径 + CHANGELOG 新鲜度 + 发布后镜像运行时冒烟与历史 tag 巡检 + ACR 架构边界 | P1-P2 | 已完成（2026-11-12 规划 / 2026-11-12 已闭环归档，见 [M58 详情分片](archive/roadmap-phases-m58.md) + [M58 归档分片](archive/todo-archive-phases-m58.md)） |
 | M59: 沙箱 fix 与执行可靠性 | 沙箱 fix 自包含执行与出站策略 + 自包含交付与失败副作用 + 取消落定与起点条件写 + 执行资源采集扩展（原镜像双架构冒烟与安全姿态已于 2026-11-13 再平衡移出 backlog） | P1-P2 | 已归档（2026-11-12 规划 / 2026-11-14 归档；M59.2 真实容器取证转 backlog，见 [M59 详情分片](archive/roadmap-phases-m59.md) + [M59 归档分片](archive/todo-archive-phases-m59.md)） |
-| M60: 平台减法与沙箱可用性 | 大页面体量拆分 + 死代码清理 + 筛选与标签单点化 + 沙箱执行器可用性收口 + 沙箱启用与排障文档（用户 2026-11-14 选混合方案 C） | P1-P3 | 进行中（2026-11-14 规划；3 原子减法 + 2 原子沙箱，见 [todo.md](todo.md)） |
+| M60: 平台减法与沙箱可用性 | 大页面体量拆分 + 死代码清理 + 筛选与标签单点化 + 沙箱执行器可用性收口 + 沙箱启用与排障文档（用户 2026-11-14 选混合方案 C） | P1-P3 | 已归档（2026-11-14 规划 / 2026-11-15 归档；5 原子闭环，见 [M60 详情分片](archive/roadmap-phases-m60.md) + [M60 归档分片](archive/todo-archive-phases-m60.md)） |
 
 > **本路线图定位**：按 [规划规范 §2.1](../standards/planning.md) 仅维护阶段概览（目标 / 优先级 / 状态）。详细实施记录 / commit 引用 / 关键决策 / 经验教训见对应归档段（详见下方"## 详细任务"索引）。
 
 > **M0 - M38 阶段详情已迁出**：见 [archive/roadmap-phases-m0-m38.md](archive/roadmap-phases-m0-m38.md)（2026-10-15 M44.4 批次③ 迁出；主文档保留概述表与最近阶段）。
 
-> **M39-M59 阶段详情已迁出**：M39-M48 见 [archive/roadmap-phases-m39-m48.md](archive/roadmap-phases-m39-m48.md)（2026-10-26 文档治理批次迁出）；M49 见 [archive/roadmap-phases-m49.md](archive/roadmap-phases-m49.md)（2026-10-29 归档批次迁出）；M50 见 [archive/roadmap-phases-m50.md](archive/roadmap-phases-m50.md)（2026-10-30 归档批次迁出）；M51 见 [archive/roadmap-phases-m51.md](archive/roadmap-phases-m51.md)（2026-10-30 归档批次迁出）；M52 见 [archive/roadmap-phases-m52.md](archive/roadmap-phases-m52.md)（2026-10-31 归档批次迁出）；M53 见 [archive/roadmap-phases-m53.md](archive/roadmap-phases-m53.md)（2026-11-01 归档批次迁出）；M54 见 [archive/roadmap-phases-m54.md](archive/roadmap-phases-m54.md)（2026-11-07 归档批次迁出）；M55 见 [archive/roadmap-phases-m55.md](archive/roadmap-phases-m55.md)（2026-11-08 归档批次迁出）；M56 见 [archive/roadmap-phases-m56.md](archive/roadmap-phases-m56.md)（2026-11-09 归档批次迁出）；M57 见 [archive/roadmap-phases-m57.md](archive/roadmap-phases-m57.md)（2026-11-10 归档批次迁出）；M58 见 [archive/roadmap-phases-m58.md](archive/roadmap-phases-m58.md)（2026-11-12 归档批次迁出）；M59 见 [archive/roadmap-phases-m59.md](archive/roadmap-phases-m59.md)（2026-11-14 归档批次迁出）。主文档保留里程碑概述表与当前阶段状态。
+> **M39-M60 阶段详情已迁出**：M39-M48 见 [archive/roadmap-phases-m39-m48.md](archive/roadmap-phases-m39-m48.md)（2026-10-26 文档治理批次迁出）；M49 见 [archive/roadmap-phases-m49.md](archive/roadmap-phases-m49.md)（2026-10-29 归档批次迁出）；M50 见 [archive/roadmap-phases-m50.md](archive/roadmap-phases-m50.md)（2026-10-30 归档批次迁出）；M51 见 [archive/roadmap-phases-m51.md](archive/roadmap-phases-m51.md)（2026-10-30 归档批次迁出）；M52 见 [archive/roadmap-phases-m52.md](archive/roadmap-phases-m52.md)（2026-10-31 归档批次迁出）；M53 见 [archive/roadmap-phases-m53.md](archive/roadmap-phases-m53.md)（2026-11-01 归档批次迁出）；M54 见 [archive/roadmap-phases-m54.md](archive/roadmap-phases-m54.md)（2026-11-07 归档批次迁出）；M55 见 [archive/roadmap-phases-m55.md](archive/roadmap-phases-m55.md)（2026-11-08 归档批次迁出）；M56 见 [archive/roadmap-phases-m56.md](archive/roadmap-phases-m56.md)（2026-11-09 归档批次迁出）；M57 见 [archive/roadmap-phases-m57.md](archive/roadmap-phases-m57.md)（2026-11-10 归档批次迁出）；M58 见 [archive/roadmap-phases-m58.md](archive/roadmap-phases-m58.md)（2026-11-12 归档批次迁出）；M59 见 [archive/roadmap-phases-m59.md](archive/roadmap-phases-m59.md)（2026-11-14 归档批次迁出）；M60 见 [archive/roadmap-phases-m60.md](archive/roadmap-phases-m60.md)（2026-11-15 归档批次迁出）。主文档保留里程碑概述表与当前阶段状态。
 
-## 当前阶段：M60 平台减法与沙箱可用性
+## 当前阶段
 
-用户 2026-11-14「开始下阶段规划」并选择混合方案 C：**减法 3 原子**（M60.1 大页面体量拆分 / M60.2 死代码与闲置绑定清理 / M60.3 列表筛选与标签展示单点化）+ **沙箱 2 原子**（M60.4 执行器可用性收口 / M60.5 启用与故障排查文档）；交付载体（issue / 草稿 PR）与视觉抖动治理留在 backlog。执行顺序 1 → 2 → 3 → 4 → 5；容量基线 18-27 commits / 37-54 files / 1950-3010 行（逐原子求和）；详细任务与验收见 [todo.md](todo.md)。
-
-M59（沙箱 fix 与执行可靠性）已于 2026-11-14 归档，详情见 [archive/roadmap-phases-m59.md](archive/roadmap-phases-m59.md)，执行记录见 [archive/todo-archive-phases-m59.md](archive/todo-archive-phases-m59.md)。
+**无活跃阶段**。M60 已于 2026-11-15 归档（详情见 [archive/roadmap-phases-m60.md](archive/roadmap-phases-m60.md)，执行记录见 [archive/todo-archive-phases-m60.md](archive/todo-archive-phases-m60.md)）。下一阶段为第四期「文档与 AI 治理」，待用户决策后规划。
 
 ---
 
 ## 详细任务
 
-- 当前阶段任务：[todo.md](todo.md)（M60 平台减法与沙箱可用性，3 原子减法 + 2 原子沙箱）
-- 已归档阶段：[todo-archive.md](todo-archive.md)（阶段索引 + 分片；M0-M59 全部已归档；分片治理见 [archive/index.md](archive/index.md)）
+- 当前阶段任务：无活跃阶段（第四期「文档与 AI 治理」待规划；见 [todo.md](todo.md)）
+- 已归档阶段：[todo-archive.md](todo-archive.md)（阶段索引 + 分片；M0-M60 全部已归档；分片治理见 [archive/index.md](archive/index.md)）
 - 下一阶段（未规划）：用户 2026-11-12 决策第四期「文档与 AI 治理」；M59 残余（交付载体 / 视觉抖动 / env 硬化 / registry 预检等）见 [backlog.md](backlog.md)
 - 后续阶段任务（延期项 + 未排期增强候选）：[backlog.md](backlog.md)
 

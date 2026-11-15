@@ -46,7 +46,7 @@
     "@nuxtjs/i18n": "^10.6.0",
     "@octokit/rest": "^22.0.1",
     "better-auth": "^1.7.22",
-    "better-sqlite3": "^13.0.3",
+    "better-sqlite3": "^13.1.1",
     "bullmq": "^6.7.5",
     "caomei-ui": "1.0.0",
     "chart.js": "^4.6.1",

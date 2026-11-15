@@ -65,7 +65,7 @@
     "sass": "^1.107.1",
     "typeorm": "^1.1.2",
     "vue": "^3.5.45",
-    "vue-router": "^5.4.0",
+    "vue-router": "^5.5.0",
     "winston": "^3.19.0",
     "winston-daily-rotate-file": "^5.0.0",
     "zod": "^4.6.7"

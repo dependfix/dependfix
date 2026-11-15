@@ -27,6 +27,10 @@ vi.mock('./executor/sandbox-executor', () => ({
 
         isAvailable = sandboxIsAvailable
         execute = sandboxExecute
+
+        async probeAvailability() {
+            return { available: await sandboxIsAvailable(), serverVersion: 'test' }
+        }
     },
 }))
 vi.mock('./executor/container-executor', () => ({

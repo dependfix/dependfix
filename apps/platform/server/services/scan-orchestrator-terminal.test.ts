@@ -36,6 +36,13 @@ vi.mock('./executor/sandbox-executor', () => ({
     SandboxExecutor: class {
         isAvailable = sandboxIsAvailable
         execute = vi.fn()
+
+        async probeAvailability() {
+            const available = await sandboxIsAvailable()
+            return available
+                ? { available: true, serverVersion: 'test' }
+                : { available: false, reason: 'daemon_unreachable', detail: 'test daemon down' }
+        }
     },
 }))
 

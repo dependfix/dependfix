@@ -1,5 +1,6 @@
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
+import { sanitizeString } from '../../utils/sanitize'
 
 const execFileAsync = promisify(execFile)
 
@@ -62,12 +63,32 @@ export interface ContainerRunResult {
     truncated?: boolean
 }
 
+/** daemon 探测失败原因（结构化，供自检端点与降级提示复用） */
+export type RuntimeProbeReason =
+    | 'docker_cli_missing'
+    | 'daemon_unreachable'
+    | 'socket_permission_denied'
+    | 'daemon_timeout'
+    | 'runtime_error'
+
+/** daemon 探测结果（available=false 时 reason/detail 必填，便于给出可操作提示） */
+export interface RuntimeProbe {
+    available: boolean
+    reason?: RuntimeProbeReason
+    detail?: string
+    serverVersion?: string
+}
+
 /** 抽象接口——任何 OCI 兼容 runtime 实现该契约即可被 sandbox-executor 复用 */
 export interface RuntimeAdapter {
     /** adapter 名称（用于日志 / 调试） */
     readonly name: string
     /** 探测 daemon/runtime 可用性（不抛错，返回布尔） */
     isAvailable(): Promise<boolean>
+    /** 结构化探测（可选；未实现时调用方回退 isAvailable，reason 记为 unknown） */
+    probe?(): Promise<RuntimeProbe>
+    /** 仅检查镜像是否已存在于本地（不拉取；可选，自检端点用于「只读」概览） */
+    imagePresent?(image: string): Promise<boolean>
     /**
      * 确保镜像可用（可选能力）：本地存在直接返回 true，否则尝试拉取。
      * 未实现的 adapter（测试替身）视为「跳过预检」，由 `run` 的镜像错误兜底。
@@ -118,14 +139,53 @@ export class DockerAdapter implements RuntimeAdapter {
      * maxBuffer 1 KiB：`{{.ServerVersion}}` 输出远小于此。
      */
     async isAvailable(): Promise<boolean> {
+        return (await this.probe()).available
+    }
+
+    /**
+     * 结构化探测：`docker info` 成功且 ServerVersion 非空即可用；失败按 errno / stderr 归类，
+     * 供自检端点与「降级原因」提示给出可操作信息（不抛错）。
+     *
+     * 超时 5s：docker daemon 健康检查经验值（daemon 卡死多在 1-3s 内可见）。
+     * maxBuffer 1 KiB：`{{.ServerVersion}}` 输出远小于此。
+     */
+    async probe(): Promise<RuntimeProbe> {
         try {
             const { stdout } = await execFileAsync(this.options.dockerBin ?? 'docker', ['info', '--format', '{{.ServerVersion}}'], {
                 timeout: 5000,
                 maxBuffer: 1024,
             })
             const version = stdout.trim()
+            if (!version) {
+                return { available: false, reason: 'runtime_error', detail: 'docker info 返回空 ServerVersion（daemon 未就绪）' }
+            }
             // ServerVersion 存在即 daemon 运行中（rootless/rootful 都通过——本探测不区分）
-            return version.length > 0
+            return { available: true, serverVersion: version }
+        } catch (error) {
+            const err = error as { code?: string | number, killed?: boolean, stderr?: string, message?: string }
+            const text = `${err.stderr ?? ''} ${err.message ?? ''}`.toLowerCase()
+            const detail = sanitizeString((err.stderr ?? '').trim()).slice(0, 200) || sanitizeString(err.message ?? '').slice(0, 200)
+            if (err.code === 'ENOENT') {
+                return { available: false, reason: 'docker_cli_missing', detail: '未找到 docker CLI' }
+            }
+            if (err.code === 'EACCES' || text.includes('permission denied')) {
+                return { available: false, reason: 'socket_permission_denied', detail: detail || '无权限访问 docker socket' }
+            }
+            if (err.killed || err.code === 'ETIMEDOUT' || text.includes('timed out')) {
+                return { available: false, reason: 'daemon_timeout', detail: detail || 'docker info 超时（daemon 无响应）' }
+            }
+            if (err.code === 'ECONNREFUSED' || text.includes('cannot connect') || text.includes('is the docker daemon running')) {
+                return { available: false, reason: 'daemon_unreachable', detail: detail || '无法连接 docker daemon' }
+            }
+            return { available: false, reason: 'runtime_error', detail: detail || 'docker 探测失败' }
+        }
+    }
+
+    /** 仅检查本地是否已有该镜像（不拉取；自检端点保持只读）。 */
+    async imagePresent(image: string): Promise<boolean> {
+        try {
+            await execFileAsync(this.options.dockerBin ?? 'docker', ['image', 'inspect', image], { timeout: 10_000, maxBuffer: 64 * 1024 })
+            return true
         } catch {
             return false
         }
@@ -253,6 +313,18 @@ export class SpyRuntimeAdapter implements RuntimeAdapter {
 
     // eslint-disable-next-line @typescript-eslint/require-await -- interface RuntimeAdapter 契约要求 async;spy 内部同步即可
     async isAvailable(): Promise<boolean> {
+        return this.availability
+    }
+
+    // eslint-disable-next-line @typescript-eslint/require-await -- 同上:契约要求 async 返回 Promise
+    async probe(): Promise<RuntimeProbe> {
+        return this.availability
+            ? { available: true, serverVersion: 'spy' }
+            : { available: false, reason: 'daemon_unreachable', detail: 'spy: daemon unavailable' }
+    }
+
+    // eslint-disable-next-line @typescript-eslint/require-await -- 同上
+    async imagePresent(_image: string): Promise<boolean> {
         return this.availability
     }
 

@@ -5,7 +5,8 @@ import { buildLogsJson, lastLines, registryHostname } from './sandbox-diagnostic
 import { classifyError, withTimeout } from './sandbox-errors'
 
 export { deriveSandboxRepoFromPlatformImage, resolveDefaultSandboxImage, resolveSandboxImageCandidates } from './sandbox-image'
-import { DockerAdapter, SANDBOX_DEFAULTS, type ContainerRunResult, type ContainerSpec, type RuntimeAdapter } from './runtime-adapter'
+import { DockerAdapter, SANDBOX_DEFAULTS, type ContainerRunResult, type ContainerSpec, type RuntimeAdapter, type RuntimeProbe } from './runtime-adapter'
+import { buildSandboxSelfCheck, probeRuntime, type SandboxSelfCheck } from './sandbox-self-check'
 import { sanitizeString } from '#server/utils/sanitize'
 import {
     buildSandboxResourceUsage,
@@ -120,8 +121,21 @@ export function resolveEgressPolicy(overrides?: { enabled?: boolean, allowlist?:
     if (overrides?.allowlist) {
         return { enabled, allowlist: [...overrides.allowlist] }
     }
+    // 只接受主机名 / 通配主机名：拒绝 URL、内嵌凭据、路径与空白（避免把完整 URL 或凭据写入白名单 /
+    // 自检端点展示面）；非法项忽略并告警，合法项去重。
     const configured = (process.env.DEPENDFIX_ALLOWED_DOMAINS ?? '')
-        .split(',').map((item) => item.trim()).filter(Boolean)
+        .split(',')
+        .map((item) => item.trim())
+        .filter((item) => {
+            if (!item) {
+                return false
+            }
+            if (/^(?:\*\.)?[a-z0-9][a-z0-9.-]*$/i.test(item)) {
+                return true
+            }
+            console.warn('[sandbox] DEPENDFIX_ALLOWED_DOMAINS 项已忽略（只接受主机名 / *.host）:', sanitizeString(item).slice(0, 80))
+            return false
+        })
     return {
         enabled,
         allowlist: [...new Set([...SANDBOX_REQUIRED_EGRESS_DOMAINS, ...configured])],
@@ -198,6 +212,28 @@ export class SandboxExecutor implements ScanExecutor {
      */
     async isAvailable(): Promise<boolean> {
         return this.adapter.isAvailable()
+    }
+
+    /**
+     * 只读自检：daemon 探测 + 镜像候选 + 出站白名单概览 + 降级原因。
+     *
+     * 不拉取镜像（`imagePresent` 仅 `docker image inspect`），不返回任何 token / 凭据；
+     * 白名单只保留主机名（registry host 已在构造期做过 https + 无内嵌凭据校验）。
+     * adapter 未实现 `probe` / `imagePresent` 时分别回退 `isAvailable` / `null`（未探测）。
+     */
+    /** 仅探测 daemon（编排层降级路径用；不做镜像概览，避免额外的 docker inspect） */
+    async probeAvailability(): Promise<RuntimeProbe> {
+        return probeRuntime(this.adapter)
+    }
+
+    /** 只读自检：daemon + 镜像候选 / 本地存在性 + 出站白名单概览 + 降级原因。 */
+    async getSelfCheck(): Promise<SandboxSelfCheck> {
+        return buildSandboxSelfCheck({
+            adapter: this.adapter,
+            imageCandidates: this.imageCandidates,
+            egress: this.egress,
+            modes: [...SANDBOX_ALLOWED_MODES],
+        })
     }
 
     async execute(ctx: ScanExecutorContext): Promise<ScanExecutorResult> {

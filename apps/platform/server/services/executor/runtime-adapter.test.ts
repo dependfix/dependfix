@@ -119,6 +119,24 @@ describe('DockerAdapter', () => {
             const available = await adapter.isAvailable()
             expect(available).toBe(false)
         })
+
+        it('probe 归类 CLI 缺失（结构化原因，不抛错）', async () => {
+            const adapter = new DockerAdapter({ dockerBin: '/nonexistent/docker-binary-for-test' })
+            const probe = await adapter.probe()
+            expect(probe.available).toBe(false)
+            expect(probe.reason).toBe('docker_cli_missing')
+            expect(probe.detail).toContain('docker CLI')
+        })
+
+        it('spy probe / imagePresent 与 availability 同源', async () => {
+            const up = new SpyRuntimeAdapter({ available: true })
+            expect(await up.probe()).toMatchObject({ available: true, serverVersion: 'spy' })
+            expect(await up.imagePresent('any:tag')).toBe(true)
+
+            const down = new SpyRuntimeAdapter({ available: false })
+            expect(await down.probe()).toMatchObject({ available: false, reason: 'daemon_unreachable' })
+            expect(await down.imagePresent('any:tag')).toBe(false)
+        })
     })
 
     describe('run spec / cmd forwarding', () => {

@@ -7,6 +7,7 @@ import { withRepoLock } from './repo-lock'
 import { decryptToken, getEncryptionKey } from './credential.service'
 import { ContainerExecutor } from './executor/container-executor'
 import { SandboxExecutor } from './executor/sandbox-executor'
+import { sandboxUnavailableReasonLabel } from './executor/sandbox-self-check'
 import { ActionTriggerExecutor } from './executor/action-trigger-executor'
 import { ActionResultFetcher } from './executor/action-result-fetcher'
 import type { ExecutorResourceUsage, ScanExecutorContext } from './executor/types'
@@ -459,7 +460,9 @@ const runScanInternal = async (
                     sandboxLimits: parseSandboxLimits(repository.sandboxLimits),
                     timeoutMs: executionLimits.executionTimeoutMs,
                 })
-                if (await sandbox.isAvailable()) {
+                // 单次探测：同一结果既决定路由，也作为降级原因来源（避免二次 probe 给出矛盾原因）
+                const availability = await sandbox.probeAvailability()
+                if (availability.available) {
                     const execResult = await sandbox.execute(ctx)
                     result = execResult.result
                     error = execResult.error
@@ -471,9 +474,13 @@ const runScanInternal = async (
                     resource = execResult.resource
                     sandboxHandled = true
                 } else {
+                    // 结构化原因：自检与运行详情共用同一口径（reason/detail 来自同一次 daemon 探测）
+                    const reasonLabel = sandboxUnavailableReasonLabel(availability.reason)
+                    // CLI 缺失的 reason 文案已含构建参数提示，不再重复 detail
+                    const detailText = availability.detail && availability.reason !== 'docker_cli_missing' ? `（${availability.detail}）` : ''
                     degradedReason = {
                         code: 'sandbox_unavailable',
-                        message: `沙箱执行器启动时不可用（无 rootless daemon / user namespace 受限），已自动降级到平台容器（${repository.owner}/${repository.name}）`,
+                        message: `沙箱执行器启动时不可用：${reasonLabel}${detailText}，已自动降级到平台容器（${repository.owner}/${repository.name}）`,
                     }
                 }
             }

@@ -505,6 +505,10 @@ watch(() => props.runId, (runId) => {
                     {{ t('runs.resultMissingHint') }}
                 </p>
             </CaomeiMessage>
+            <sandbox-degraded-banner
+                v-if="detail.status === 'degraded' && detail.error?.code === 'sandbox_unavailable'"
+                :message="detail.error.message"
+            />
             <CaomeiMessage
                 v-if="detail.status === 'failed'"
                 tone="danger"

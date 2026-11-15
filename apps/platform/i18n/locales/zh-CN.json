@@ -998,6 +998,9 @@
         "networkViolationsHint": "非白名单外联已被本地审计代理拦截（502）；出现违规时该运行不得判定为验证通过",
         "networkAudited": "已审计 {count} 条",
         "networkViolationFailure": "本次运行拦截到非白名单外联，已判定失败（详见外联违规与报告）",
+        "sandboxDegradedTitle": "沙箱不可用，已在平台容器中完成本次运行",
+        "sandboxDegradedHint": "业务结果完整，但执行路径与配置不一致；请按下方说明启用或修复沙箱。",
+        "sandboxDocsLink": "查看沙箱启用与排障说明",
         "deliveryLabel": "交付",
         "deliveryBranch": "分支 {branch}"
     },

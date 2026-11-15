@@ -369,6 +369,11 @@ watch(() => route.query[props.queryKey], async (newVal) => {
                     </template>
                     {{ t('runs.backToList') }}
                 </CaomeiButton>
+                <sandbox-degraded-banner
+                    v-if="detail.status === 'degraded' && detail.error?.code === 'sandbox_unavailable'"
+                    :message="detail.error.message"
+                    class="repo-history__error-banner"
+                />
                 <CaomeiMessage
                     v-if="detail.status === 'failed'"
                     tone="danger"

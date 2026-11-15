@@ -998,6 +998,9 @@
         "networkViolationsHint": "Non-allowlisted outbound requests were blocked by the local audit proxy (502); such a run must not be reported as verified",
         "networkAudited": "audited {count}",
         "networkViolationFailure": "Non-allowlisted outbound traffic was blocked; this run is marked as failed (see blocked egress and the report)",
+        "sandboxDegradedTitle": "Sandbox unavailable; this run completed in the platform container",
+        "sandboxDegradedHint": "The business result is complete, but the execution path differs from configuration; see the guide to enable or fix the sandbox.",
+        "sandboxDocsLink": "Sandbox setup and troubleshooting",
         "deliveryLabel": "Delivery",
         "deliveryBranch": "Branch {branch}"
     },

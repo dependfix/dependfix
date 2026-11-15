@@ -493,6 +493,41 @@ test('case 10: /scans 运行详情展示验证跳过与原因', async ({ page })
 })
 
 /**
+ * 沙箱启动时降级（A 场景）：运行详情需展示结构化原因与处置链接。
+ * 用 fixtures 注入 degraded + sandbox_unavailable，覆盖 UI 可见性（非仅状态标签）。
+ */
+test('case 11: 沙箱降级运行详情显示原因与文档链接', async ({ page }) => {
+    const stamp = Date.now()
+    const owner = `e2e-scans-degraded-${stamp}`
+    const name = `repo-${stamp}`
+    const message = '沙箱执行器启动时不可用：无法连接 docker daemon（connection refused），已自动降级到平台容器'
+    const seeded = await page.request.post('/api/e2e/fixtures', {
+        data: {
+            repos: [{ owner, name, executorKind: 'sandbox' }],
+            scanRuns: [{
+                repositoryOwner: owner,
+                repositoryName: name,
+                executorKind: 'sandbox',
+                status: 'degraded',
+                error: { code: 'sandbox_unavailable', message },
+                summary: { alertsFound: 1, alertsFixed: 0 },
+            }],
+        },
+    })
+    expect(seeded.ok()).toBeTruthy()
+    const runId = ((await seeded.json()) as { scanRuns: { id: string }[] }).scanRuns[0]!.id
+
+    await page.goto(`/scans?run=${runId}`)
+    await waitForHydration(page)
+    const dialog = page.getByRole('dialog', { name: /扫描历史/ })
+    await expect(dialog).toBeVisible({ timeout: 15000 })
+    await expect(dialog.getByText('沙箱不可用，已在平台容器中完成本次运行')).toBeVisible()
+    await expect(dialog.getByText(message)).toBeVisible()
+    const docsLink = dialog.getByRole('link', { name: '查看沙箱启用与排障说明' })
+    await expect(docsLink).toHaveAttribute('href', /docs\/guide\/quick-start\.md$/)
+})
+
+/**
  * viewer 角色可见性：阶段扫描历史是只读数据，viewer 应可见（与 batch-runs 一致）；
  * 菜单项 + 页面均可访问。
  */

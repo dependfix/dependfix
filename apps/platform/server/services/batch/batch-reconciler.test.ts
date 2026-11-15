@@ -214,6 +214,9 @@ describe('reconcileRunningBatchRuns', () => {
         const ds = await ensureDatabaseInitialized()
         const organizationId = await resolveOrganizationId(ds)
         const batch = await createBatchRun(organizationId, 'running', 3)
+        // 把 createdAt 拨到阈值之外：阈值 1ms 时若创建与对账落在同一毫秒，
+        // createdAt === cutoff 不满足严格小于，用例会随机得到 orphaned=0（CI 实测偶发）。
+        await backdateBatchRun(batch.id, new Date(Date.now() - 1000))
 
         const result = await reconcileRunningBatchRuns({ batchRunTimeoutMs: 1 })
         expect(result.orphaned).toBe(1)

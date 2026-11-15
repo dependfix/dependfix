@@ -296,6 +296,25 @@ if (executorKind === 'sandbox') {
 - 超时 / 异常 / 容器整体 OOM 被杀：采样器随容器终止，无法回传 → 平台写 `unavailable` + 原因（sandbox 侧无法像 container 那样保留进程内快照，属设计边界）。
 - 采样停止后才回传（`touch` 停止标记 + `wait`），CLI 退出码先于停止标记保存。
 
+### 7.10 可用性自检与降级原因（M60.4，2026-11-15）
+
+**端点**：`GET /api/sandbox/self-check`（admin / org_admin，只读）。返回：
+
+- daemon 可用性 + 结构化原因（`docker_cli_missing` / `daemon_unreachable` / `socket_permission_denied` / `daemon_timeout` / `runtime_error`）+ `detail` + `serverVersion`；
+- 平台侧镜像候选与该镜像**本地是否存在**（`docker image inspect`，不拉取）；
+- 出站白名单主机概览（`enabled` / `allowlist` / `fixRequiresEgress`）与支持的执行模式。
+
+**边界**：不返回 token / 凭据 / 完整 URL；不拉镜像、不起容器。
+
+**降级原因**：编排层在 `isAvailable()` 失败时用同一探测结果生成 `sandbox_unavailable` 的 message
+（原因 + detail + 自动降级说明），落 `errorJson`；运行详情对 `degraded + sandbox_unavailable` 展示
+原因横幅与排障文档链接（`run-detail-dialog` 与 `repo-history-dialog` 两处入口同口径）。
+
+**部署开关**：平台镜像 `WITH_DOCKER_CLI=false`（默认不安装 docker CLI）；opt-in 构建
+`--build-arg WITH_DOCKER_CLI=true`，并叠加 `docker-compose.sandbox.yml`（`--profile sandbox`）
+只挂载 rootless socket（`/run/user/<uid>/docker.sock`）。**禁止**宿主 `/var/run/docker.sock`，
+安全边界见 [security.md §5.3](../../standards/security.md)。
+
 ## 8. A 模式 push + PR 推送机制
 
 > 状态：✅ 设计落盘（C53，2026-08-20 实施）——A 模式（`ContainerExecutor`）fix / fix-and-pr 完成后新增推送修复分支到远程 + 创建 PR 两条链路，落盘 commit `83ec736` / `46b7c15` / `3ed8303`。

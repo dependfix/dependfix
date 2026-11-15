@@ -663,7 +663,7 @@ diff 包含大范围替换（脚本/正则批量改写、多文件机械变更�
 
 改动涉及执行路径（Executor、验证 runner、安装参数、镜像配置、凭据传递、供应链披露）时，对照 [security.md §5.3 修复执行安全](../../../../docs/standards/security.md) 逐项核验（dependfix 自身不得成为漏洞扩散工具）：
 
-- **非 root 执行**: 执行不可信代码的进程/容器是否以非 root 用户运行？容器是否挂载 `docker.sock` / 授予额外特权？
+- **非 root 执行**: 执行不可信代码的进程/容器是否以非 root 用户运行？是否挂载宿主 `/var/run/docker.sock`（禁止）或授予额外特权？沙箱 opt-in 仅允许 rootless socket（`/run/user/<uid>/docker.sock`）且镜像默认不内置 docker CLI（`WITH_DOCKER_CLI=false`）。
 - **工作目录隔离**: 执行工作目录是否为独立临时目录（如 `runs/{runId}/`）且执行后清理？
 - **超时兜底**: 新增命令/子进程是否自带单命令超时（不得依赖外层总超时兜底）？
 - **保持 pnpm 默认脚本防护**: 是否扩大依赖 lifecycle scripts 执行面（保持仅 `allowBuilds`/`onlyBuiltDependencies` 批准包执行）？是否代目标仓库追加批准？

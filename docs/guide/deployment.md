@@ -455,6 +455,19 @@ docker compose up -d
 
 数据库自检（源码环境）：`pnpm --filter @dependfix/platform db:doctor`，可输出文件元信息、PRAGMA、各表行数与「数据正常 / 被清空 / schema 从未建立」结论。
 
+## 沙箱执行器（可选）
+
+平台镜像默认不内置 docker CLI（`WITH_DOCKER_CLI=false`）；未启用时沙箱运行会以 `sandbox_unavailable` 降级到平台容器，并在运行详情显示原因。
+
+启用步骤：
+
+1. 宿主启动 **rootless** Docker daemon（`dockerd-rootless-setuptool.sh install`），socket 位于 `/run/user/<uid>/docker.sock`；
+2. 以 `WITH_DOCKER_CLI=true` 本地构建平台镜像（已发布镜像**不含** docker CLI）：`WITH_DOCKER_CLI=true docker compose -f docker-compose.yml -f docker-compose.build.yml build`；
+3. 叠加沙箱覆盖文件启动（uid/gid 取宿主用户，与 rootless socket 属主一致；镜像用第 2 步的本地 tag）：`DEPENDFIX_IMAGE=caomeiyouren/dependfix:local SANDBOX_DOCKER_UID=$(id -u) SANDBOX_DOCKER_GID=$(id -g) docker compose -f docker-compose.yml -f docker-compose.sandbox.yml --profile sandbox up -d`；
+4. 管理员调用 `GET /api/sandbox/self-check` 核对 `available` / `reason` / 镜像候选 / 出站白名单。
+
+**安全边界**：只允许 rootless socket，禁止挂载宿主 `/var/run/docker.sock`；自检端点只读且不返回凭据。完整口径见 [安全规范 §5.3](../standards/security.md) 与 [快速开始](./quick-start.md)。
+
 ## 安全注意
 
 - **不要挂载宿主 `/var/run/docker.sock`**、不要授予容器特权（`privileged`）；执行不可信代码的进程默认非 root。

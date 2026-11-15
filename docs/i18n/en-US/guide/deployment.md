@@ -452,6 +452,19 @@ See the [release guide](../../../guide/release.md) "Auto-release enablement chec
 
 Database self-check (source environment): `pnpm --filter @dependfix/platform db:doctor` prints file metadata, PRAGMAs, per-table row counts and a "data normal / cleared / schema never created" verdict.
 
+## Sandbox executor (optional)
+
+The platform image does not ship the Docker CLI by default (`WITH_DOCKER_CLI=false`). Without it, sandbox runs degrade to the platform container with `sandbox_unavailable` and the run detail shows the reason.
+
+Enable it:
+
+1. Start a **rootless** Docker daemon on the host (`dockerd-rootless-setuptool.sh install`); its socket lives at `/run/user/<uid>/docker.sock`.
+2. Build the platform image locally with `WITH_DOCKER_CLI=true` (released images do **not** include the Docker CLI): `WITH_DOCKER_CLI=true docker compose -f docker-compose.yml -f docker-compose.build.yml build`.
+3. Start with the sandbox override (uid/gid must match the rootless socket owner; use the local tag built in step 2): `DEPENDFIX_IMAGE=caomeiyouren/dependfix:local SANDBOX_DOCKER_UID=$(id -u) SANDBOX_DOCKER_GID=$(id -g) docker compose -f docker-compose.yml -f docker-compose.sandbox.yml --profile sandbox up -d`.
+4. As an admin, call `GET /api/sandbox/self-check` and check `available` / `reason` / image candidates / egress hosts.
+
+**Security boundary**: only the rootless socket is allowed; never mount the host `/var/run/docker.sock`. The self-check endpoint is read-only and returns no credentials. See [security standard §5.3](https://github.com/dependfix/dependfix/blob/master/docs/standards/security.md) and [Quick Start](./quick-start.md).
+
 ## Security notes
 
 - **Never mount the host `/var/run/docker.sock`** and do not grant the container privileges; the process executing untrusted code is non-root by default.

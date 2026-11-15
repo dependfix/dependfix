@@ -148,7 +148,7 @@ CI（schedule）：release:plan → release:version → pnpm changelog
 
 - 由 `release:publish` 在**全部包发布成功后**创建（与 `<pkg>@<version>` 包 tag 同批，锚版本 = 本轮发布锚包版本），指向发布提交
 - **时机约束**：v tag 必须在 `Push release tags` 步骤**之前**创建，随现有全量推送（`git push --tags`）带出并核验（经验归档 §二十六：创建 → 推送 → 核验三环闭环）——`release:github` 步骤在其后，只做 GitHub Release 创建，**不创建/不推送 tag**
-- 与 1.0.0 后规划的 `v1` 滚动 tag 命名空间兼容（固定 tag + 移动 tag 共存）
+- `v1` 滚动别名 tag 与聚合 tag 命名空间不冲突；该别名的冻结与引用策略见 [发布指南 §Action 引用策略](../../guide/release.md#action-引用策略)（单点声明，此处不重复）
 - 幂等：v tag 已存在 → 跳过打 tag（不覆盖历史 tag），Release 复用该 tag 或跳过
 
 **Notes 生成**（项目 changelog 格式）：

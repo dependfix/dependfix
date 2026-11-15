@@ -38,7 +38,7 @@
 - **0.x 即预览版**：当前处于开发阶段，`0.1.0` 及后续 `0.x` 版本直接作为 `latest` 发布，**不加 `beta` 等预发布后缀**。理由：
   - `0.x` 在 semver 中本身就是"初始开发、API 不稳定"语义，已充分表达预览状态；
   - npm 默认不安装带预发布后缀的版本（需显式 `dependfix@beta`），会给预览测试设置障碍。
-- **稳定信号来自 `1.0.0`**：`1.0.0` 已于 2026-11-07 发布，`@v1` 滚动 tag 已启用（GitHub Action 引用写作 `@v1`）。
+- **稳定信号来自 `1.0.0`**：`1.0.0` 已于 2026-11-07 发布。**Action 引用使用具体版本**（示例 `uses: dependfix/dependfix@v1.1.0`）；`v1` 滚动 tag 已于 2026-11-15 冻结在 `1.1.0`，**不再随发布移动**——版本更新由目标仓库的 Dependabot / Renovate 自动 bump 引用完成（详见「Action 引用策略」）。
 - **tag 推送纪律**：git 默认不推送 tag——本地开发建议 `git config --global push.followTags true`（日常 push 自动带 annotated tag）；补打 tag 后必须显式 `--tags` 推送并核验（教训见 [经验归档 §二十六](../design/governance/experience-archive.md)）。
 - 版本号由自研 release 脚本管理：`pnpm release:plan` 基于 git log 自动推导各包 bump 级别（见"release:plan 生成规则"），可人工修正；`pnpm release:version` 执行版本提升（含依赖传导）；CHANGELOG 由 `pnpm changelog` 基于 conventional commits 生成（见"CHANGELOG 策略"）。设计文档见 [release-pipeline.md](../design/governance/release-pipeline.md)。
 
@@ -107,7 +107,7 @@
 
 ### 3. CI 环境要求
 
-- **pnpm 版本**：发布走 `pnpm publish` 的 OIDC 路径。pnpm 11.0.3 存在 OIDC 回归（pnpm/pnpm#11566，已修复），CI 使用 `pnpm/action-setup@v4` 默认解析的最新 pnpm（11.x 后期 / 12.x）即可；
+- **pnpm 版本**：发布走 `pnpm publish` 的 OIDC 路径。pnpm 11.0.3 存在 OIDC 回归（pnpm/pnpm#11566，已修复），CI 使用 `pnpm/action-setup@v6` 默认解析的最新 pnpm（11.x 后期 / 12.x）即可；
 - `release.yml` 已配置 `permissions: id-token: write` + `security-events: read`（Code Scanning 读取）。
 - **`GH_PAT` secret（Dependabot alerts）**：Dependabot alerts API 无法用 `GITHUB_TOKEN` 读取（恒 403 `Resource not accessible by integration`），需在 Settings → Secrets and variables → Actions 配置 `GH_PAT`（fine-grained 仅 `Dependabot alerts: read`，classic 需 `security_events`）。缺失时发布前安全门禁 fail-closed，发布中止。
 
@@ -293,9 +293,9 @@ pnpm release:preflight --out-dir=artifacts/release-preflight   # 额外写 prefl
 
 ### 自动发布启用清单（1.0.0 后）
 
-> **现状（2026-11-02）**：`release.yml` 的 `on:` 只有 `workflow_dispatch`；`schedule`（每周六 UTC+0 12:00）与 `push`（master）两段**保留为注释**，0.x 阶段刻意不启用（预览期发布节奏由人控制），1.0.0 发布后也须另行授权。启用前逐项确认下表，**缺一项就不要取消注释**。
+> **现状（末次复核 2026-11-15）**：`release.yml` 的 `on:` 只有 `workflow_dispatch`；`schedule`（每周六 UTC+0 12:00）与 `push`（master）两段**保留为注释**，0.x 阶段刻意不启用（预览期发布节奏由人控制），1.0.0 发布后也须另行授权。启用前逐项确认下表，**缺一项就不要取消注释**。
 
-| # | 前置项 | 要求 | 现状（2026-11-02 复核） |
+| # | 前置项 | 要求 | 现状（以各行标注日期为准） |
 |:--|:--|:--|:--|
 | 1 | 1.0 门槛 | G1-G8 全绿（见[就绪度台账](../design/governance/release-1.0-readiness.md)） | G2 ✅；G1 · G4 · G5 · G6 · G7 ◐（G7 运维四项已实测，但第 5 项「直推 master」未验证；回滚已 drill 三面、**Docker 面 blocked**；G4 为 1.0 发布豁免，2026-11-02 读数 = 最近 10 次 push 的 Test 9/10、0.6.0 起 30/38）；G3 ❌（待外部资源，1.0 发布豁免）；G8 ◐（2026-11-02 复算：30 PR / 绿率 25/30 · 介入 0% · 误关 0%；发布说明引用后转 ✅） |
 | 2 | 安全告警门禁 | 仓库 secret `GH_PAT` 存在（Dependabot alerts 只读）；`check:release-security` 在 release 流程绿 | 已配置并在 `release.yml` 强制（fail-closed） |
@@ -304,7 +304,9 @@ pnpm release:preflight --out-dir=artifacts/release-preflight   # 额外写 prefl
 | 5 | 直推 master | 自动版本的 `chore(release): x.y.z [skip ci]` 提交需能直推 master（或改为 PR + 自动合并） | **未验证**：仓库当前无 required status checks，直推可行；若日后开启保护需改流程 |
 | 6 | 版本与日志一致 | `pnpm verify:changelog` 绿；`release:plan` 能推导计划（无变更时自动 no-op） | 已绿（release 前置步骤 + 本地预演见下） |
 | 7 | 回滚预案 | 镜像 tag / npm 版本 / git tag 均可回退；发布后 3 天观察窗口 | 见本文「tag 策略与包版本不同步」与「已知限制与排查」 |
-| 8 | `@v1` 滚动 tag | 仅 `1.0.0` 发布后启用；启用前 Action 引用保持具体版本 | **已创建（2026-11-07，`097723a7` → `83c966fd`）**；用户可见示例已切换（README / 首页 / quick-start 中英）；**1.1.0 发布未移动 `v1`（仍指 `83c966fd`），是否随 minor 移动待用户决策**（移动属破坏性操作，见[发布记录](release-records.md#_1-1-0-发布记录-2026-11-15-已执行)） |
+| 8 | Action 引用 | 用户示例使用具体版本；滚动 tag 可选 | 示例已改 `@v1.1.0`（README / 首页 / quick-start 中英）；**`v1` 于 2026-11-15 补移到 `80883880`（1.1.0）后冻结，不再随发布漂移**（决策：标签漂移不是好事，版本更新交给 Dependabot，见[发布记录](release-records.md#_1-1-0-发布记录-2026-11-15-已执行) 与「Action 引用策略」） |
+
+> **示例版本同步**：用户可见入口（README / 首页 / quick-start 中英）与设计稿示例的 Action 版本号需随发布更新——发布流程里与 CHANGELOG 同批做（`rg -n "dependfix@v1\.[0-9]+\.[0-9]+" README.md docs/` 逐处核对）。
 
 启用步骤：
 
@@ -359,9 +361,17 @@ git status --porcelain           # 空（无版本 / 日志副作用）
 
 - **发布不需要手动打 `v*` tag**：`release:publish` 只发布有变更的包，包版本不同步（例如只 bump 了 `dependfix`，`@dependfix/core` 未变）时未变更的包会被自动跳过，不存在"一个 tag 表达不了多版本"的问题；
 - `release:publish` 成功后会为每个发布的包创建 `<pkg>@<version>` 格式的 git tag（changesets / lerna 生态惯例，沿用），由 CI 的 `Push release tags` 步骤推送到 GitHub，供 GitHub Release 关联与后续精确回溯；
-- `v<锚版本>` 聚合 tag 用于 GitHub Release 关联（锚版本 = 主交付物优先，见"GitHub Release 自动化"）；与 1.0.0 后规划的 `v1` 滚动 tag 命名空间兼容（固定 tag + 移动 tag 共存）；
+- `v<锚版本>` 聚合 tag 用于 GitHub Release 关联（锚版本 = 主交付物优先，见"GitHub Release 自动化"）；`v1` 滚动别名 tag 与聚合 tag 命名空间不冲突（该别名已于 2026-11-15 冻结在 1.1.0、不再移动，策略见 [Action 引用策略](#action-引用策略)）；
 - 注意：若发布成功但后续步骤失败导致重跑（如 CI git identity 缺失致 tag 创建失败，见 [经验归档 §三十七](../design/governance/experience-archive.md)），`release:publish` 会自动检测"npm 已发布但本地无 tag"的中间态并补打 annotated tag（HEAD 锚点校验通过时，校验失败则安全跳过）——重跑即可全链路恢复（`<pkg>@<version>` tag + `v<锚版本>` tag + GitHub Release）；仅当 HEAD 不 touch 包路径时才需手动 `pnpm tag:released` 补打；
-- 首次发布的 `v0.1.0` tag 仅用于 GitHub Release 展示；`uses: dependfix/dependfix@v1` 滚动 tag 已于 `1.0.0` 发布后创建（2026-11-07），用户可见示例已切到 `@v1`。
+- 首次发布的 `v0.1.0` tag 仅用于 GitHub Release 展示；`v1` 滚动 tag 已于 `1.0.0` 发布后创建（2026-11-07），并于 **2026-11-15 补移到 `1.1.0` 后冻结**（不再随发布移动）。
+
+### Action 引用策略
+
+- **推荐写法**：`uses: dependfix/dependfix@v1.1.0`（具体版本）或完整 commit SHA。**不推荐** `@v1` 作为长期引用——它已冻结，后续版本不会自动生效。
+- **为什么不用移动 tag**：GitHub 官方确实以「发布后把 `vN` 移到当前发布提交」为推荐流程（major 变更时新建 `vN+1`，见 [官方文档](https://docs.github.com/en/actions/how-tos/create-and-publish-actions/manage-custom-actions#using-tags-for-release-management)），主流 action（`actions/checkout` / `actions/setup-node` / `docker/build-push-action` 等）也这样维护。官方同页还建议**使用方**指定 major 版本以持续获得补丁；本项目在**使用方体验**上刻意偏离该建议（优先可复现性与供应链可审计，升级靠依赖机器人 PR），并非认为官方做法有误。滚动 tag 是**可变引用**，且每次发布都要 force push。本项目用户面较小，采用「具体版本 + 依赖机器人 bump」：
+  - 目标仓库启用 Dependabot 的 `github-actions` 生态后，`uses:` 引用会被自动提 PR 升级（与依赖升级同一机制，可审计、可回滚）；
+  - 需要最大确定性时钉完整 SHA（Dependabot 也会为 SHA 引用保留可读注释并 bump）。
+- **回滚**：回滚 `v1` 属破坏性操作（`git tag -f` + force push），仅在确认无消费者时执行；正常回滚走「发布说明 + 具体版本回退」，不改 tag。
 
 ## CHANGELOG 策略
 

@@ -143,7 +143,7 @@ jobs:
   scan:
     runs-on: ubuntu-latest
     steps:
-      - uses: dependfix/dependfix@v1
+      - uses: dependfix/dependfix@v1.1.0
         with:
           # mode already defaults to fix-and-pr (can be omitted); declared explicitly here
           mode: fix-and-pr
@@ -449,7 +449,7 @@ Report files live in `./dependfix-reports/`.
 | Scenario | Recommendation |
 |------|------|
 | CLI quickstart (`npx dependfix`) | PAT |
-| GitHub Action (`uses: dependfix/dependfix@v1`) | PAT |
+| GitHub Action (`uses: dependfix/dependfix@v1.1.0`) | PAT |
 | Single-repository debugging | PAT (lowest friction) |
 | Self-hosted platform multi-repository org patrol | GitHub App (installation-scoped) |
 | Self-hosted platform needing short-lived token rotation + a real `[bot]` identity | GitHub App |

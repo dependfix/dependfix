@@ -140,9 +140,9 @@ dependfix@1.0.0          sha512-F3KrS2AQjio1kG49zlchTudnr+j8yEq09rcbCfUL804TSt6c
 
 **回滚**：逐面命令与判据见 [1.0.0 发布清单 §5.1](release-1.0.md#_5-1-演练记录-m54-5-2026-11-02)（npm `deprecate` / tag / Release / 镜像 tag 回退）；本轮**未执行**任何回滚演练。
 
-**`@v1` 滚动标签状态**
+**`@v1` 标签状态（2026-11-15 冻结）**
 
-`v1` 仍指向 `83c966fd`（1.0.0 发布提交），**本轮未移动**。按 [1.0 清单 §5.1](release-1.0.md) 口径，移动滚动标签属破坏性操作、须确认无其它消费者后显式执行；`uses: dependfix/dependfix@v1` 当前解析到 1.0.0 的 Action 实现。是否随 1.1.0 移动待用户决策。
+`v1` 于 2026-11-15 由 `83c966fd`（1.0.0）**补移到 `80883880`（1.1.0）后冻结**（annotated tag 重建为 `a13fe3ac`，force push 推送）。此后 `v1` 不再随发布移动：用户示例改用具体版本 `@v1.1.0`，版本更新由目标仓库的 Dependabot / Renovate bump 引用（决策与理由见 [发布指南 Action 引用策略](release.md#action-引用策略)）。
 
 **产物校验和（官方 registry `dist.integrity`，2026-11-15）**
 

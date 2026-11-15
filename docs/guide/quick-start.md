@@ -143,7 +143,7 @@ jobs:
   scan:
     runs-on: ubuntu-latest
     steps:
-      - uses: dependfix/dependfix@v1
+      - uses: dependfix/dependfix@v1.1.0
         with:
           # mode 默认已是 fix-and-pr（可省略），此处显式声明
           mode: fix-and-pr
@@ -444,7 +444,7 @@ dependfix --history your-org/app
 | 场景 | 推荐 |
 |------|------|
 | CLI quickstart（`npx dependfix`）| PAT |
-| GitHub Action（`uses: dependfix/dependfix@v1`）| PAT |
+| GitHub Action（`uses: dependfix/dependfix@v1.1.0`）| PAT |
 | 单仓调试 | PAT（最低摩擦） |
 | 自部署平台多仓 org 巡检 | GitHub App（installation 范围限定） |
 | 自部署平台需要短时 token 轮换 + 真实 `[bot]` 身份 | GitHub App |

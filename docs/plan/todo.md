@@ -22,4 +22,4 @@ M61（文档与 AI 治理）已于 2026-11-16 归档。下一阶段待规划：�
 
 ## 上一阶段
 
-M61（文档与 AI 治理）已于 2026-11-16 归档：执行记录见 [archive/todo-archive-phases-m61.md](archive/todo-archive-phases-m61.md)，路线图详情见 [archive/roadmap-phases-m61.md](archive/roadmap-phases-m61.md)。M60（平台减法与沙箱可用性）已于 2026-11-15 归档：执行记录见 [archive/todo-archive-phases-m60.md](archive/todo-archive-phases-m60.md)，路线图详情见 [archive/roadmap-phases-m60.md](archive/roadmap-phases-m60.md)。M59（沙箱 fix 与执行可靠性）已于 2026-11-14 归档：执行记录见 [archive/todo-archive-phases-m59.md](archive/todo-archive-phases-m59.md)，路线图详情见 [archive/roadmap-phases-m59.md](archive/roadmap-phases-m59.md)。
+M61（文档与 AI 治理）已于 2026-11-16 归档：见[执行记录](archive/todo-archive-phases-m61.md) / [路线图](archive/roadmap-phases-m61.md)；更早阶段见 [todo-archive.md](todo-archive.md)。

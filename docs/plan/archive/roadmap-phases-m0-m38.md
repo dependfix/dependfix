@@ -376,7 +376,7 @@ per-alert 模型 + reconcile + API 简化 + UI 调整 + backfill 脚本。5 子�
 - **D2**：`--caomei-color-primary-solid` 覆盖为 `#0f766e`（teal-700）达 WCAG AA 4.5:1
 - **D3**：caomei-ui 精确锁定 `0.3.0`，避免 0.x API 漂移
 
-> 详细任务见 [todo-archive.md §M31](./todo-archive-phases-m31.md#m31-apps-platform-ui-组件库迁移-primevue-→-caomei-ui-m31-1-m31-6-全部已闭环-2026-09-29-归档)（6 原子条目摘要 + 关键决策 + 迁移期实证索引）；评估依据见 [caomei-ui-migration.md](../../design/governance/caomei-ui-migration.md)
+> 详细任务见 [todo-archive.md §M31](./todo-archive-phases-m31.md#m31-apps-platform-ui-组件库迁移-primevue-→-caomei-ui-m31-1-m31-6-全部已闭环-2026-09-29-归档)（6 原子条目摘要 + 关键决策 + 迁移期实证索引）；评估依据见 [caomei-ui-migration.md 映射与评估分片](../../design/governance/caomei-ui-migration-mapping.md)
 
 ---
 

@@ -33,7 +33,7 @@
 > - 🚀 能力扩展：0 项独立条目 —— ⚠️ 缺口显式标注（C85 / C89 等候选仍存 backlog）
 > - 📚 治理 / 文档：0 项独立条目 —— ⚠️ 随 M31.5 收口（platform.md / tech-stack.md / 评估文档同步）
 >
-> **迁移期关键实证**（细节见 [caomei-ui-migration.md](../../design/governance/caomei-ui-migration.md) §15.8-§15.13）：
+> **迁移期关键实证**（§15.8-§15.9 见 [映射与评估分片](../../design/governance/caomei-ui-migration-mapping.md)，§15.10-§15.13 见 [实施实证分片](../../design/governance/caomei-ui-migration-m31-proof.md)）：
 >
 > - 选择器 / 组件差异映射表（§15.8）+ 各批实证（§15.10 DataTable 核心页 / §15.11 其余表页 / §15.12 表单浮层导航 / §15.13 B3 收尾）
 > - **包体对比**：client raw 3282.9 → 1219.4 KiB（−62.8%）、gzip 1044.5 → 419.5 KiB（−59.8%）；primeicons 字体与 svg 归零；仅 CSS +59.1 KiB（caomei 静态 theme.css vs PrimeVue CSS-in-JS 按需注入）

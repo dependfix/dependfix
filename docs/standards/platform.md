@@ -114,7 +114,7 @@ Nuxt 4（全栈 SSR + API Routes，`app/` + `server/`）/ TypeScript strict / UI
 
 ### 7.4 caomei-ui 接线约定
 
-> 迁移缘由、分批计划与逐批结论见 [UI 组件库迁移评估](../design/governance/caomei-ui-migration.md)；token 覆盖 / 组件差异 / 选择器限宽 / DataTable 密度等接线细则见同文 §16。
+> 迁移缘由与分批计划见 [评估与映射分片](../design/governance/caomei-ui-migration-mapping.md)，逐批结论见 [实施实证分片](../design/governance/caomei-ui-migration-m31-proof.md) 与 [升级实证分片](../design/governance/caomei-ui-migration-upgrades.md)；token 覆盖 / 组件差异 / 选择器限宽 / DataTable 密度等接线细则见 [主档 §16](../design/governance/caomei-ui-migration.md#_16-caomei-ui-接线细则)。
 
 - **模块注册**：`modules: ['caomei-ui/nuxt', '@nuxtjs/i18n']` + `caomeiUI: { prefix: 'Caomei', darkMode: 'class', theme }`；组件名 `Caomei*` / 类名 `caomei-*` / token `--caomei-*`。
 - **受控状态必须回写**：DataTable 的展开行 / 多列排序 / 分页等受控 prop 须配 `@update:*`（细则见 [§16](../design/governance/caomei-ui-migration.md#_16-caomei-ui-接线细则)）。

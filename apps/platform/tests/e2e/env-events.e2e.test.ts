@@ -134,7 +134,7 @@ test.describe('C-ENV env-events UI', () => {
     })
 
     test('DataTable 滚动容器：60vh 滚动容器存在', async ({ page }) => {
-        // caomei DataTable 无 scrollable 能力，改用外层容器 + CSS 承接（见迁移评估 docs/design/governance/caomei-ui-migration.md §15.3/§15.10）：
+        // caomei DataTable 无 scrollable 能力，改用外层容器 + CSS 承接（见迁移评估 docs/design/governance/caomei-ui-migration-mapping.md §15.3 / caomei-ui-migration-m31-proof.md §15.10）：
         // 容器为页面自定义类 `.env-events__table-scroll`（max-height: 60vh; overflow: auto）
         await page.route('**/api/audit-events*', (route) => route.fulfill({
             status: 200,

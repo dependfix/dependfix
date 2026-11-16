@@ -102,7 +102,7 @@ export const useAlertGroups = <T extends AlertGroupRow>({ source, viewMode, t }:
      * 键组间唯一，任何排序下同包行都相邻 → 「一个包一组」为硬不变量。`alerts` 预排序提供同值内的稳定基线
      * （包名升序 → 组内 severity 降序）。「按仓库」视图沿用既有口径（服务端 `orderBy` + 行级 severity 降序），
      * 本条目不改其分组行为。
-     * 详见 docs/design/governance/caomei-ui-migration.md §15.10
+     * 详见 docs/design/governance/caomei-ui-migration-m31-proof.md §15.10
      */
     const multiSortMeta = ref<DataTableSortMeta[]>([
         { field: '_severityRank', order: -1 },

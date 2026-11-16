@@ -28,7 +28,7 @@ import { requireAuth } from '#server/utils/guard'
  * 提供（主防线），二者不要互相替代。
  *
  * rowGroup 语义：用户切换其他列排序时，迁移前组件库多列排序模式会自动把 groupRowsBy 保留为第一排序键，
- * 避免 group 顺序被破坏（上游多列排序实现约定，实证见迁移评估 §15.10）。
+ * 避免 group 顺序被破坏（上游多列排序实现约定，实证见迁移评估 m31-proof §15.10）。
  *
  * dedupe 参数（M20.5 移除）：
  * - 旧实现（[archive/todo-archive-phases-m13.md §M13.2 / T1306](../archive/todo-archive-phases-m13.md#m132-网络治理--告警去重-)）按 fingerprint (repositoryId + packageName + ruleId) 应用层聚合

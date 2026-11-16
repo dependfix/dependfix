@@ -375,6 +375,8 @@ PrimeTek 已公告 PrimeVue 5.x 起转入 PrimeUI 商业许可（Community 免�
 
 ---
 
+> §12-§15 已按保序拆分外移，见文末[分片索引](#分片索引-迁移补记与实施实证)。
+
 ## 16. caomei-ui 接线细则
 
 > 本节是接线细则的唯一完整声明；两条严格约束摘要（`SelectItem` 空串值 / `--caomei-dialog-width`）仍以 [平台规范 §7.4](../../standards/platform.md#_7-4-caomei-ui-接线约定) 为准。迁移缘由与逐批结论见 §15。

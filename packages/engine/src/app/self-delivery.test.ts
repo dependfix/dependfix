@@ -62,7 +62,7 @@ describe('recordFixModeDelivery', () => {
 
     it('pushes the current branch and records a pushed delivery', async () => {
         const delivery = await recordFixModeDelivery({ ...baseInput(), push: true, headBeforeCommit: 'old' })
-        expect(mocks.pushBranch).toHaveBeenCalledWith('main', '/tmp/work')
+        expect(mocks.pushBranch).toHaveBeenCalledWith('main', '/tmp/work', logger)
         expect(delivery).toEqual({
             deliveredBy: 'engine',
             status: 'pushed',

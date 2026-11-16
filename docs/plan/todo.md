@@ -124,6 +124,7 @@
 - **依赖**：[AI 资产治理规范](../standards/ai-governance.md) §2.1 / §3 / §5；backlog 候选「AI 基建机检补强」（2026-11-08 登记）。
 - **交付物**：3-4 commits / 6-8 files / 350-500 行。
 - **风险与缓解**：门禁过严误伤 → 软链缺失只 warning、`references` 有引用即通过、规则集与 ai-governance 条文逐条对应；扫描面与 CI 差异 → 只扫 `.github/`，不跟随软链。
+- **执行记录（2026-11-16，2 commits）**：`8e472728` 新增 `scripts/check-ai-governance.mjs` 与单测，六类规则（skill frontmatter / skill 命名 / agent / references 引用 / 文档相对链接 / 平台副本符号链接）逐条对应规范 §2.1 / §2.2 / §3 / §5；引用判定按 token 精确匹配（同名不顶替），索引源限定 SKILL.md 一跳可达（互引孤岛不算已引用）；接入 `DOC_GATES` 与 Test / 周回归同一入口，`package.json` 增 `check:ai-governance`。本条提交同步 `ai-governance.md §6` 机检入口与 §3.1 `description` 必填、`scripts/README.md` 注册表、`release-1.0.md` 与周回归注释的计数。AC 证据：正例 `skills 10 / agents 3 / 规则 6`；三类负例（删 `metadata.internal` / 注入死链 / 改 `name`）均 exit 1 并点名，还原后 md5 一致；`gates:docs` 21 项；定向 44 passed；`lint:check` 0 error / 2 存量 warning；`typecheck` 7 项目 Done；接线核对：`DOC_GATES` 与 `test.yml` 双向一致、weekly 步数 27 与 profile 实测一致。审计：A `standard` **Reject**（RG-B1 CI 步骤缺阻断强度 / 负例 / 自指面三件套；5W）→ 修复 → `quick` Pass（残余 W1-W4 同批收口：注释编号、token 边界、索引可达性、规范出处）；B `standard` **Reject**（RG-B1 周回归「共 26 步」未随集合更新；3W/2S）→ 修复 → `quick` Pass。偏差：脚本与单测合计超出交付物预估（规则面实现比预估更细），未触发拆分阈值；CI 环境因平台副本不入库会固定输出 6 条 warning（不阻断，属预期噪音）。
 
 ### M61.5 skill 分发面与 MCP 文档准确性（P2 📚）
 

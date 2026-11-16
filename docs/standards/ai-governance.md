@@ -40,6 +40,7 @@
 
 ### 3.1 Skills
 - 目录名使用 `kebab-case`，与 `SKILL.md` frontmatter `name` 一致。
+- frontmatter `description` 必填且非空（触发面核心，缺失即无法被发现）。
 - `references/` 存放清单、模板、示例。
 - `scripts/` 存放该 skill 独占的辅助脚本。
 
@@ -63,7 +64,13 @@
 - 外部模板被直接复制进仓库后未项目化改造
 - `description`、frontmatter、链接导致发现失败
 
-## 6. 相关文档
+## 6. 机检入口
+
+`pnpm run check:ai-governance`（`scripts/check-ai-governance.mjs`）覆盖本规范的可机检项：① skill frontmatter 必填字段（`description` / `metadata.internal`）；② skill 目录名 kebab-case 且与 `name` 一致；③ agent 文件名 kebab-case 与必填字段；④ `references/` 文件被 SKILL.md 或其一跳可达的 references 索引引用；⑤ skill / agent 文档相对链接 file-dead；⑥ 平台副本符号链接指向（缺失或非链接只给 warning）。出处为 §2.1 / §2.2 / §3 与 §5 的相关项。
+
+已接入 `DOC_GATES` 与 Test job；Test 内为 workflow 级阻断信号（仓库未配置 required status checks），与其它静态检查同口径。规则条数以脚本 `RULE_COUNT` 为准，本节只做枚举概述。
+
+## 7. 相关文档
 
 - [外部 Skills 准入清单](./external-skills-intake.md)
 - [AI 协同开发指南](../guide/ai-development.md)

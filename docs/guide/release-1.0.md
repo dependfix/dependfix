@@ -19,7 +19,7 @@
 ## 2. 发布前门禁
 
 1. `pnpm run check:release-security`：Dependabot alerts + Code Scanning 门禁（critical 含 dismissed 一律阻断，high 需台账豁免；token / API 异常 fail-closed）。发布链内已强制；**本地备用通道（`release:publish --otp`）会在发布前自动执行同一门禁**（`--skip-security=<理由>` 显式绕过并留痕），手动执行仍可用于提前核对。
-2. `pnpm run gates:docs`：20 项文档与治理门禁，含 `check:contract-freeze`（契约键位比对）与 `docs:check:anchors`。
+2. `pnpm run gates:docs`：21 项文档与治理门禁，含 `check:contract-freeze`（契约键位比对）与 `docs:check:anchors`。
 3. `pnpm run lint:check` + `pnpm run lint:css:check` + `pnpm typecheck` + `pnpm test` + `pnpm run build`。
 4. `pnpm verify:changelog --fresh`：七份日志均含当前版本段，且未发布段的条目集合与当前 git 历史一致。
 5. `pnpm release:preflight`：真实 tarball 三路安装，断言 `dependfix --version` 等于新版本；**必须在 `build` 之后执行**（`pnpm pack` 打包当前 `dist`）。

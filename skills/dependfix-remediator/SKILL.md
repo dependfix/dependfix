@@ -11,25 +11,27 @@ description: 自动拉取并修复 GitHub Dependabot / Code Scanning 安全告�
 
 本 skill 只依赖以下能力契约，不绑定具体实现：
 
-| 能力 | 当前后端（dependfix CLI） | MCP 预留位 |
+| 能力 | 当前后端（dependfix CLI） | MCP tool |
 |------|--------------------------|-----------|
 | 拉取告警 | `npx dependfix report-only` | fetch_alerts |
 | 修复依赖 | `npx dependfix fix` | run_scan / fix_dependency |
-| 修复并创建 PR | `npx dependfix fix-and-pr` | fix_dependency |
-| 查询历史报告 | `npx dependfix --history <owner/repo>` | get_last_report |
-| 清理已合并分支 | `npx dependfix cleanup-branches` | — |
+| 修复并创建 PR | `npx dependfix fix-and-pr` | run_scan（mode=fix-and-pr） |
+| 查询历史报告 | `npx dependfix --history <owner/repo>` | history / get_last_report |
+| 清理已合并分支 | `npx dependfix cleanup-branches` | cleanup_branches |
+| 按 owner / org 发现仓库 | `npx dependfix report-only --owner <owner>` | discover_repos |
+| 本地 pnpm audit 回退 | `npx dependfix report-only --alerts-source pnpm-audit` | pnpm_audit |
 
-未配置 MCP 时全部走 CLI；MCP 接入后（后续版本）探测到 MCP 工具则优先调用，两条后端输出保持一致。本 skill 当前不依赖 MCP，CLI 后端开箱即用。
+MCP Server 已发布（npm `@dependfix/mcp`，≥1.0.0）。探测到 MCP 工具时优先调用，两条后端输出保持一致；本 skill 不依赖 MCP，CLI 后端开箱即用。
 
 ## 执行后端探测
 
 开始编排前先确定执行后端（只需一次）：
 
-1. **检查当前会话是否已加载 dependfix MCP 工具**：工具列表中是否存在 `fetch_alerts` / `run_scan` / `fix_dependency` / `get_last_report`（server 前缀可能为 `dependfix` 或 `@dependfix/mcp`）。不确定时用命令确认：
+1. **检查当前会话是否已加载 dependfix MCP 工具**：工具列表中是否存在 `fetch_alerts` / `run_scan` / `fix_dependency` / `get_last_report` / `discover_repos` / `cleanup_branches` / `history` / `pnpm_audit`（server 前缀可能为 `dependfix` 或 `@dependfix/mcp`）。不确定时用命令确认：
    - Claude Code：`claude mcp list`（或检查项目根 `.mcp.json` 的 `mcpServers`）
    - OpenCode：检查 `opencode.json` / `~/.config/opencode/opencode.json` 的 `mcp` 配置
 2. **决策规则**：
-   - 4 个 MCP tool 均可用 → **MCP tool 优先**（按能力契约映射表调用，详见 [REFERENCES.md](REFERENCES.md)）
+   - 所需的 MCP tool 可用 → **MCP tool 优先**（按能力契约映射表调用，详见 [REFERENCES.md](REFERENCES.md)）
    - 未配置 MCP 或探测不到 → **CLI 后端**（本 skill 默认路径）
    - MCP 调用失败（tool 不存在 / 超时 / 报错）→ **降级 CLI 并告知用户**，不中断流程
 3. 两条后端的输出以同一份能力契约（报告结构见 [REFERENCES.md](REFERENCES.md) 一致性断言清单）为准，MCP 与 CLI 结果应一致；发现不一致时以 CLI 报告为准并记录。

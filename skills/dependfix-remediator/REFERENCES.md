@@ -100,10 +100,10 @@
 | 429 / rate limit | 默认指数退避重试 3 次；可调 `--max-retries` / `--max-backoff-ms` |
 | AI 研判开启但缺 Key | 设置 `DEPENDFIX_AI_API_KEY` 或 `--ai-api-key` |
 
-## MCP 双后端衔接（后续 MCP 交付扩展点）
+## MCP 双后端衔接
 
 > 本文档定义 SKILL.md"执行后端探测"的细节与双后端一致性验证基准。
-> 当前 MCP Server 未发布（规划于后续里程碑），本 skill 全部走 CLI；MCP 发布后无需改版即可双后端工作。
+> MCP Server 已发布（npm `@dependfix/mcp`，≥1.0.0），本 skill 默认 CLI、检测到 MCP 时自动双后端工作，无需改版。
 
 ### 探测方法明细
 
@@ -111,20 +111,24 @@
 |------|---------|
 | Claude Code | `claude mcp list`；或项目根 `.mcp.json` 的 `mcpServers` 字段含 dependfix server |
 | OpenCode | `opencode.json` / `~/.config/opencode/opencode.json` 的 `mcp` 配置含 dependfix server |
-| 通用 | 当前会话工具列表中存在以下 4 个 tool 即视为 MCP 后端可用 |
+| 通用 | 当前会话工具列表中存在以下 8 个 tool 即视为 MCP 后端可用 |
 
 ### MCP tool 映射明细
 
-| 能力 | MCP tool | 入参要点 | CLI 对应 |
-|------|----------|---------|---------|
-| 拉取告警 | `fetch_alerts` | `owner`、`repo`（或多仓库列表）、`severityThreshold`、`includeCodeScanning` | `dependfix report-only` |
-| 扫描并修复 | `run_scan` | `repo`、`mode`（fix / fix-and-pr）、`severityThreshold`、`dryRun` | `dependfix fix` / `fix-and-pr` |
-| 修复指定依赖 | `fix_dependency` | `repo`、`dependency`、`createPr`、`allowMajorUpgrade` | `dependfix fix`（分组指定） |
-| 查询历史报告 | `get_last_report` | `repo`（缺省取最近一次） | `dependfix --history <owner/repo>` |
+| 能力 | MCP tool | 入参（以实际 schema 为准） | CLI 对应 |
+|------|----------|---------------------------|---------|
+| 拉取告警 | `fetch_alerts` | `repo`（owner/repo）、`severity`（critical/high/medium/all，默认 high）、`code_scanning`? | `dependfix report-only` |
+| 扫描并修复 | `run_scan` | `repo`、`mode`（report-only/fix/fix-and-pr，默认 report-only）、`severity`、`code_scanning`?、`max_alerts`?、`max_concurrency`?、`dry_run`?、`allow_major_upgrade`?、`ai_enabled`? / `ai_provider`? / `ai_model`? / `ai_trigger`? | `dependfix fix` / `fix-and-pr` |
+| 修复指定依赖 | `fix_dependency` | `workDir`（本地已 clone）、`fix_type`（override/direct/lockfile，默认 override）、`packageName`?、`targetVersion`? | `dependfix fix --groups <name>:<pkg>` |
+| 查询最近报告 | `get_last_report` | 无参数（读取最近一次 JSON 报告） | 读取 `dependfix-reports/` 最近报告 |
+| 发现仓库 | `discover_repos` | `owner[]`、`topics[]`?、`include[]`?、`exclude[]`?、`probe_dependabot`?（默认 true）、`max_repos`?（默认 100） | `--owner` + `--repo-topics` / `--repo-include` / `--repo-exclude` / `--max-repos` |
+| 清理分支 | `cleanup_branches` | `repo`、`dry_run`? | `dependfix cleanup-branches` |
+| 历史摘要 | `history` | `repo` | `dependfix --history <owner/repo>` |
+| 本地审计 | `pnpm_audit` | `workDir`（本地已 clone）、`repository`（owner/repo 或 local） | `--alerts-source pnpm-audit` |
 
-> 说明：MCP tool 的最终入参 schema 以 MCP Server 实际交付为准；本表为能力契约映射的基准约定，MCP 实现不得改变各能力语义。MCP Server 交付时须与本表逐项核对（tool 名与入参 schema），确保"skill 无需改版"承诺闭环。
+> 入参名逐字对齐 `packages/mcp/src/tools/schemas.ts`（大小写敏感：snake_case 为主，`workDir` / `packageName` / `targetVersion` / `repository` 为 camelCase）；新增 / 改动 tool 时同批更新本表与 `packages/skills/test/sync-consistency.test.mjs` 覆盖的分发副本。
 
-### 双后端一致性断言清单（MCP 交付验证基准）
+### 双后端一致性断言清单（MCP 验证基准）
 
 以 `@dependfix/core` 报告契约为基准（RunResult JSON；`dependfix-reports/index.json` 历史条目为 CLI archiver 的派生格式），MCP tool 输出必须与 CLI 报告同源一致：
 
@@ -133,7 +137,11 @@
 | 拉取告警 | RunResult：`summary.alertsFound` / `summary.alertsFixable` / `repositories[].alertsCount` / `alerts[]` | `fetch_alerts` 返回的告警数与严重级别分布与 CLI 报告一致；`alerts[]` 明细字段（package/severity/manifest）与 RunResult 对齐 |
 | 扫描并修复 | RunResult：`summary.alertsFixed` / `alertsFailed` / `alertsSkipped` / `actions[]`（type=dependency-upgrade） | `run_scan` 返回的 fixed/failed/skipped 计数与 CLI 报告一致；`actions[]` 的 target/fromVersion/toVersion 对齐 |
 | 修复指定依赖 | RunResult：`actions[]` + `summary`（单仓库维度） | `fix_dependency` 返回的修复结果与 CLI 对同一依赖的修复记录一致（含 PR 链接如创建） |
-| 查询历史报告 | ArchiveRunEntry：`repoStats[]`（alertsCount/fixed/failed/durationMs）+ `runId` | `get_last_report` 返回与 `dependfix-reports/index.json` 对应条目同源（字段值一致） |
+| 查询最近报告 | 报告目录下最近的 JSON | `get_last_report` 返回报告目录最近的 JSON；平铺布局下等价于最近一次 RunResult，归档布局下为 `index.json` 趋势条目（与 `history` 同源） |
+| 发现仓库 | `--owner` 发现结果（topics / include / exclude 过滤后） | `discover_repos` 的仓库集合与 CLI 同参数发现结果一致 |
+| 清理分支 | `cleanup-branches` 删除集合（仅 `dependfix/` 前缀且 merged/closed） | `cleanup_branches` 的待删 / 已删集合与 CLI 一致，open PR 分支零触碰 |
+| 历史摘要 | ArchiveRunEntry：`repoStats[]`（alertsCount/fixed/failed/durationMs）+ `runId` | `history` 返回与 `dependfix-reports/index.json` 对应条目同源（字段值一致） |
+| 本地审计 | 包装对象 `{ ok, count, workDir, repository, alerts[] }`（`alerts[]` 为 `NormalizedSecurityAlert`：`packageName` / `severity` / `manifestPath`） | `pnpm_audit` 的告警集合与 CLI `--alerts-source pnpm-audit` 同源；audit 失败硬返回错误 |
 
 ### 降级路径规则
 

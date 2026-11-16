@@ -27,7 +27,7 @@
 ## 13. 关联文档
 
 - [apps/platform PrimeUI 主题库降级设计](./primeui-themes-v2-downgrade.md) —— License 治理前置（主题库 / 图标已降级 MIT）
-- [平台规范 §7.1 caomei-ui 集成实践](../../standards/platform.md#_7-1-caomei-ui-集成实践) —— 接线约定与通用实践；迁移期 PrimeVue 4 陷阱已随 M31 收口（多列排序等历史实证见 [§15.10](caomei-ui-migration.md#_15-10-datatable-核心页迁移实证-m31-2-2026-09-28) 起各节）
+- [平台规范 §7.1 caomei-ui 集成实践](../../standards/platform.md#_7-1-caomei-ui-集成实践) —— 接线约定与通用实践；迁移期 PrimeVue 4 陷阱已随 M31 收口（多列排序等历史实证见 [§15.10](caomei-ui-migration-m31-proof.md#_15-10-datatable-核心页迁移实证-m31-2-2026-09-28) 起各节）
 - [技术栈](../../guide/tech-stack.md) —— UI 选型登记处（已随 M31 同步为 caomei-ui）
 - [Backlog](../../plan/backlog.md) —— 候选已上收 M31 并从 backlog 移除（见 §12 / §14）
 - [规范与文档治理设计](./spec-and-doc-governance.md) —— 设计文档分流与硬阈值依据
@@ -46,9 +46,9 @@
 - **更新记录**：
   - 2026-09-27：新增 §15（caomei-ui 0.3.0 重新评估补记）
   - 2026-09-28（M31.1 B0 接线）：新增 [§15.8 选择器映射表更正](#_15-8-选择器映射表更正-2026-09-28-b0-接线实证) + [§15.9 B0 接线暴露的验证覆盖缺口](#_15-9-b0-接线暴露的验证覆盖缺口-m31-各批次须补齐)；§15.1「全绿」结论按 §15.9 修订为「能力存在、验证覆盖不足」
-  - 2026-09-28（M31.2 DataTable 核心页迁移）：新增 [§15.10 DataTable 核心页迁移实证](caomei-ui-migration.md#_15-10-datatable-核心页迁移实证-m31-2-2026-09-28)（含排序机制修正 / 分组列过滤 / 分组连续性 / 密度对齐 / 选择器与取证口径）；§15.1「降序优先」行按该节修订机制描述
-  - 2026-10-09（M39.3 告警「按包」聚合修正）：[§15.10 第 7 条](caomei-ui-migration.md#_15-10-datatable-核心页迁移实证-m31-2-2026-09-28) 由「服务端排序保证分组连续」修订为「组排序键」口径——「按包」下一个包一组，不再依赖服务端 `orderBy`
-  - 2026-09-28（M31.3 其余表页迁移）：新增 [§15.11 其余表页迁移实证](caomei-ui-migration.md#_15-11-其余表页迁移实证-m31-3-2026-09-28)（覆盖清单 / 行选择 / 内建与 lazy 分页 / 独立 Paginator / scrollable 与 ScrollPanel / 无表级 `#header` 槽的结构变化 / 遗留项）
+  - 2026-09-28（M31.2 DataTable 核心页迁移）：新增 [§15.10 DataTable 核心页迁移实证](caomei-ui-migration-m31-proof.md#_15-10-datatable-核心页迁移实证-m31-2-2026-09-28)（含排序机制修正 / 分组列过滤 / 分组连续性 / 密度对齐 / 选择器与取证口径）；§15.1「降序优先」行按该节修订机制描述
+  - 2026-10-09（M39.3 告警「按包」聚合修正）：[§15.10 第 7 条](caomei-ui-migration-m31-proof.md#_15-10-datatable-核心页迁移实证-m31-2-2026-09-28) 由「服务端排序保证分组连续」修订为「组排序键」口径——「按包」下一个包一组，不再依赖服务端 `orderBy`
+  - 2026-09-28（M31.3 其余表页迁移）：新增 [§15.11 其余表页迁移实证](caomei-ui-migration-m31-proof.md#_15-11-其余表页迁移实证-m31-3-2026-09-28)（覆盖清单 / 行选择 / 内建与 lazy 分页 / 独立 Paginator / scrollable 与 ScrollPanel / 无表级 `#header` 槽的结构变化 / 遗留项）
  
 ---
  
@@ -64,7 +64,7 @@
 | **可展开/折叠分组** | ✅ 内建折叠按钮 + 受控 `expandedRowGroups` | **已闭环** |
 | **行展开** | ✅ `expander: true` 列 + `expandedRows` + `#expansion` 槽 + `@update:expandedRows` | **已闭环** |
 | **多列排序** | ✅ `sortMode="multiple"` + `multiSortMeta` + `sortDescFirst` | **已闭环** |
-| **降序优先** | ✅ `sortDescFirst` / 默认排序键均可表达 | **已闭环**（机制修正：实测全局 `sortDescFirst` 会改变点击循环，最终由 `multi-sort-meta` 初值承载默认方向，见 [§15.10](caomei-ui-migration.md#_15-10-datatable-核心页迁移实证-m31-2-2026-09-28) 第 1 条） |
+| **降序优先** | ✅ `sortDescFirst` / 默认排序键均可表达 | **已闭环**（机制修正：实测全局 `sortDescFirst` 会改变点击循环，最终由 `multi-sort-meta` 初值承载默认方向，见 [§15.10](caomei-ui-migration-m31-proof.md#_15-10-datatable-核心页迁移实证-m31-2-2026-09-28) 第 1 条） |
  
 > **结论**：原评估中最大的结构性风险（DataTable 能力面）在 0.3.0 中**全部已由库侧闭环**。选项 A（库侧补齐）已完成，无需 dependfix 侧等待或结构性改写。
 >

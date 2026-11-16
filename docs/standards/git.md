@@ -143,7 +143,9 @@ commit message 应聚焦于"当次提交的改动"+"可供事后复查的信息"
 - 拦截失败时返回 exit=1，git commit 直接拒绝
 - 规则实现 + 单测详见 [scripts/commitlint/](../../scripts/commitlint/) 目录
 - **`no-diff-stats` 的误伤**：规则 `[+-]\d+(?=\s|$|[,，])` 会把**日期**（`2026-09-30` → 命中 `-30`）、**色号**（`teal-700` → 命中 `-700`）与**带连字符的代码 token**（`$space-1` → 命中 `-1`）判为 diff 行数 → 被 husky 拦截。**规避**：主题 / 正文避免「连字符 + 数字」紧跟空白；日期改写为「2026 年 9 月 30 日」，色号改写为 token 名（如 `primary-solid`）或让数字后紧跟非空白字符，代码常量改写为自然语言（如「4px 档 / 8px 档」）。**补充（2026-10-09 M38 归档批次蒸馏）**：除「连字符 + 数字」外，规则还会命中「**数字 + 可选空白 + diff 统计量词**」形态（量词为 `行` / `files` / `commits` 等，空白可缺省）——如 `M38 行` / `M38行`（编号尾部数字 + 量词「行」）、`19 commits`（数量 + `commits`）；非 diff 统计量词（如「5 个」）不受影响。**规避**：编号与量词避免紧邻（改写为「M38 条目」「19 条提交」），或调整语序让数字后紧跟非空白字符。
-- **同族规则清单（写正文前一次性规避）**：`no-diff-stats`（连字符 + 数字 / 改动行数）、`no-results-numbers`（百分比与执行结果数字，如「下降 12%」）、`no-exec-commands`（命令字面量，如「在包目录内运行测试」而非写出带 `--filter` 的命令）。三者都在 `commit-msg` 阶段拦截并 exit=1；被拦时按报错精确改写，不要重试原消息。
+- - **补充（2026-11-16 M61 批次）**：规则还会把「数字-数字」区间（如「第 16-20 条」）判为 diff 行数差（命中 `-20`）→ 规范条款区间写「第 16 至 20 条」或汉字区间。
+
+**同族规则清单（写正文前一次性规避）**：`no-diff-stats`（连字符 + 数字 / 改动行数）、`no-results-numbers`（百分比与执行结果数字，如「下降 12%」）、`no-exec-commands`（命令字面量，如「在包目录内运行测试」而非写出带 `--filter` 的命令）。三者都在 `commit-msg` 阶段拦截并 exit=1；被拦时按报错精确改写，不要重试原消息。
 
 **commit 前轻量级审核**：执行方 self-check 4 项必查 + 触发 code-auditor quick depth 条件详见 [ai-collaboration.md §2.5 commit 前轻量级审核流程](./ai-collaboration.md)。
 
@@ -161,6 +163,8 @@ commit message 应聚焦于"当次提交的改动"+"可供事后复查的信息"
 本仓 `package.json` 的 lint-staged 段曾在 `*.{js,ts}` / `*.<style>` / `*.md` 规则里配置无 pathspec 的 `git add`——lint-staged 自身会为改动文件重暂存，该任务额外把工作区其它已改文件一并入索引（实测：`test(platform)` 提交误入 `docs/standards/testing.md`，直到 `git show --stat` 才暴露）。**现行规则**：上述三条规则不再配置 `git add`，且改为**文件级任务**（lint-staged 传入文件列表：`eslint --fix` / `lint-md --fix`，不再带 `.` 或全仓 glob）——仓库级 formatter 会修改非暂存文件并被 lint-staged 连带暂存；`packages/skills/**` 因生成物落在 `skills/**`（超出 glob 范围），保留带 pathspec 的 `git add skills/dependfix-remediator`——这是唯一例外，husky 仍会打印 tasks use git add 告警。
 
 **做法**：① 提交前 `git status --short` 核对范围（多 commit 场景用下方 complement-stash 隔离）；② 每次提交后 `git show --stat HEAD` 逐条核对文件清单；③ 误入时用 `git reset --soft HEAD~1` + `git restore --staged .`。**文件级任务仍可能连带暂存文档**：即使已移除裸 `git add`，lint-staged 的「Staging changes from tasks」会按任务前后 `git diff` 差异重暂存，拆批提交时未暂存的文档可能被带入当前 commit（`docs/standards/platform.md` 被吞进 feat commit 两次复现）——拆批前先把未暂存文档 `git stash` 或还原到 HEAD，每组 `git add` 后 `git diff --cached --name-only` 核对，提交后再 `git show --stat HEAD` 复核；误入后按步骤 ③ 重做（重做前重新隔离工作区）。
+
+**行尾陷阱（2026-11-16 M61 批次）**：对 CRLF 文件仅改注释时，`lint-staged` 的 `eslint --fix` 会把整文件转 LF，产生数百行伪 diff——触及疑似 CRLF 文件前先检查行尾，注释级修订单独成格式化批次或登记残余。
 
 **多 commit 隔离用 complement-stash（补集非空判断 + 补集数组）**：多 atomic commit 场景需隔离其它改动时——① **stash 前必须判断补集数组非空**：若目标是当前全部改动（补集为空），`git stash push -m x --`（无路径）会**暂存全部改动**，随后 `git add` 落空、commit 报 `nothing to commit`（`git stash pop` 后无数据丢失）；补集为空时直接 `git add` 目标并提交。② 求补集：`git status --porcelain` 取全量路径 → `comm -23` 求补集 → `git stash push -u -- <补集>` 隔离，提交后 `git stash pop`（目标与补集不相交，pop 无冲突），再 `git show --stat HEAD` 核对文件数。
 - **配套操作陷阱（2026-10-14 M43.5 实测）**：① `git add -N`（intent-to-add）的新文件会让 `git stash push` 报 `Entry … not uptodate. Cannot merge` → 先 `git reset -- <新文件>` 退回未跟踪状态再 stash；② 多 commit 隔离脚本必须带 **EXIT trap 恢复补集**——commit 被 commitlint / hook 拒绝时 `set -e` 会在 `git stash pop` 之前退出，补集改动滞留 stash。

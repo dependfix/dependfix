@@ -9,7 +9,7 @@
 > **归档日期**：2026-08-30
 > **阶段摘要**：M17 闭环后承接 C22 GitHub App BYO App 模式（自部署平台 GitHub App 进阶选项；PAT 保留为默认快速上手路径，二者并存不替代）。M18 包含 5 子阶段 + 1 治理批次：M18.0（P0 docs only，PAT 无感升级评估）/ M18.1（P1，C22.1 基础层：credential 扩展 4 字段 + AuthProvider 抽象层 + installation token 缓存）/ M18.2（P1，C22.2 集成层：pushFixBranch token 切换 + commit author 动态化 + 审计字段）/ M18.3（P2，C22.3 表现层：UI GitHub App tab + 文档引导 + Manifest flow 可行性评估）/ M18.4（P1，C22.4 测试层：单测补强 + e2e mock JWT signing 全链路）/ M18.x 治理批次（P3 合并入 C22 子阶段顺手做：S-5/C39/C34/S1/S2/S-3/S-4/W3/W4）。
 >
-> **阶段边界**：M18 严格遵循 [规划规范 §1.1 任务粒度约束](../../docs/standards/planning.md)（≤5-6 项硬上限）+ C22 10 原子子任务按依赖关系拆 5 子阶段；PAT 保留为默认路径 + GitHub App 作为自部署平台进阶选项，二者并存不替代；fixtures 仅 mock 无真实 App（用户接受风险）。
+> **阶段边界**：M18 严格遵循 [规划规范 §1.1 任务粒度约束](../../standards/planning.md)（≤5-6 项硬上限）+ C22 10 原子子任务按依赖关系拆 5 子阶段；PAT 保留为默认路径 + GitHub App 作为自部署平台进阶选项，二者并存不替代；fixtures 仅 mock 无真实 App（用户接受风险）。
 >
 > **非目标**：不发布 dependfix 自身为官方 GitHub App（C22-future 单独战略候选）；不立即做 App 多 installation 编排自动化；B 模式（`github-action` executor）App 适配非阻塞；不破坏现有 PAT 路径；Manifest flow 一键创建暂不实施（A7b 仅评估，A7a 文档引导先落地）。
 >
@@ -81,7 +81,7 @@
 - [x] `pnpm lint` / `typecheck` 全绿 —— 0 error
 - [x] vitest 单测覆盖 + playwright e2e 覆盖 —— 全部通过
 - [x] `pnpm check:docs` 全过 —— 99 md links + 55 vue-interp OK
-- [x] 编号标记扫描 0 命中（无孤立 `C\d+` / `T\d+` / `M\d+` / `B\d` / `R\d` 等编号——按 [开发规范 §3 注释规范](../../docs/standards/development.md) 与 [code-auditor.agent.md 主责边界必查项](../../.github/agents/code-auditor.agent.md) 防御）
+- [x] 编号标记扫描 0 命中（无孤立 `C\d+` / `T\d+` / `M\d+` / `B\d` / `R\d` 等编号——按 [开发规范 §3 注释规范](../../standards/development.md) 与 [code-auditor.agent.md 主责边界必查项](../../../.github/agents/code-auditor.agent.md) 防御）
 - [x] CI 端到端裁决通过 —— ~24 commits 已全部推送至 origin/master，ahead=0
 
 ### 阶段治理记录

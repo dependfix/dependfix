@@ -219,7 +219,7 @@ CI Test workflow #664 Coverage job Branches 79.7% < 80% 失败。PDTFC+ 修复�
 - **A 阶段**：code-auditor quick depth Pass（0 blocker / 0 warning / 2 suggest）
 - **F 阶段**：conventional-committer atomic commit `a4a5680`
 
-**教训**：session 验证矩阵必须包含 pnpm test:coverage 不能只跑 pnpm test；新增 `scripts/**.mjs` CLI 工具必须配套 .test.mjs + 加 isDirectExecution 守卫 + 导出核心函数让 vitest 可 import 测试。已挂 [testing.md §6](../../standards/testing.md) + [ai-collaboration.md §2.0 PDTFC+ coverage 验证步骤](../../standards/ai-collaboration.md) + [code-auditor 主责边界](../../.github/agents/code-auditor.agent.md)「session 验证矩阵完整性必查项」。
+**教训**：session 验证矩阵必须包含 pnpm test:coverage 不能只跑 pnpm test；新增 `scripts/**.mjs` CLI 工具必须配套 .test.mjs + 加 isDirectExecution 守卫 + 导出核心函数让 vitest 可 import 测试。已挂 [testing.md §6](../../standards/testing.md) + [ai-collaboration.md §2.0 PDTFC+ coverage 验证步骤](../../standards/ai-collaboration.md) + [code-auditor 主责边界](../../../.github/agents/code-auditor.agent.md)「session 验证矩阵完整性必查项」。
 
 ### 8. anchor 实证 + looseNorm 规则（M26 P 阶段规划 实证）
 

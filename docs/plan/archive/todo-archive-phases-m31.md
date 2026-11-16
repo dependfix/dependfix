@@ -33,7 +33,7 @@
 > - 🚀 能力扩展：0 项独立条目 —— ⚠️ 缺口显式标注（C85 / C89 等候选仍存 backlog）
 > - 📚 治理 / 文档：0 项独立条目 —— ⚠️ 随 M31.5 收口（platform.md / tech-stack.md / 评估文档同步）
 >
-> **迁移期关键实证**（细节见 [caomei-ui-migration.md](../design/governance/caomei-ui-migration.md) §15.8-§15.13）：
+> **迁移期关键实证**（细节见 [caomei-ui-migration.md](../../design/governance/caomei-ui-migration.md) §15.8-§15.13）：
 >
 > - 选择器 / 组件差异映射表（§15.8）+ 各批实证（§15.10 DataTable 核心页 / §15.11 其余表页 / §15.12 表单浮层导航 / §15.13 B3 收尾）
 > - **包体对比**：client raw 3282.9 → 1219.4 KiB（−62.8%）、gzip 1044.5 → 419.5 KiB（−59.8%）；primeicons 字体与 svg 归零；仅 CSS +59.1 KiB（caomei 静态 theme.css vs PrimeVue CSS-in-JS 按需注入）
@@ -51,4 +51,4 @@
 >
 > **ahead commits 实证**：M31 的 17 commits 中 M31.1-M31.4（11 commits）已推送 `origin/master`；M31.5-M31.6（6 commits）归档时为本地 ahead（`git rev-list HEAD ^origin/master --count` 实测），待用户推送确认。
 >
-> **关联**：[roadmap.md §M31](roadmap-phases-m0-m38.md#m31-apps-platform-ui-组件库迁移-primevue-→-caomei-ui-2026-09-28-用户决策方案-b-2026-09-29-已闭环-归档) + [backlog.md](backlog.md)（C88 / C90 上收后已移除）+ [archive/index.md](archive/index.md) + [caomei-ui-migration.md](../design/governance/caomei-ui-migration.md)（§15 全部实施期实证）+ [platform.md §7.1 / §7.4](../standards/platform.md)（接线约定）
+> **关联**：[roadmap.md §M31](roadmap-phases-m0-m38.md#m31-apps-platform-ui-组件库迁移-primevue-→-caomei-ui-2026-09-28-用户决策方案-b-2026-09-29-已闭环-归档) + [backlog.md](../backlog.md)（C88 / C90 上收后已移除）+ [archive/index.md](index.md) + [caomei-ui-migration.md](../../design/governance/caomei-ui-migration.md)（§15 全部实施期实证）+ [platform.md §7.1 / §7.4](../../standards/platform.md)（接线约定）

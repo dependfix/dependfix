@@ -1,7 +1,7 @@
 # M13: 治理 + UX 反馈 + 网络治理 + Code Scanning（已归档）
 
 > **归档日期**：2026-08-26
-> **阶段摘要**：M12 闭环后承接 backlog 治理前置 + 2026-08-25~26 用户实测反馈 5 项 UX 问题 + 网络治理长期主线 #2（network-audit G1 治本）+ Code Scanning 规则化 + code-quality-findings 接入 + T1310 platform 进入 release 通道。按 [规划规范 §1.1 任务粒度约束](../../docs/standards/planning.md)（≤5-6 项硬上限 + A3 跨 packages+apps > 10 文件超阈值需拆分）拆 **4 子阶段独立闭环 + T1310 同步推进**：M13.1 治理 + UX / M13.2 网络治理 + 告警去重 / M13.3 Code Scanning 规则化 + CQL / M13.4 UX 反馈批次立刻做（低风险）。
+> **阶段摘要**：M12 闭环后承接 backlog 治理前置 + 2026-08-25~26 用户实测反馈 5 项 UX 问题 + 网络治理长期主线 #2（network-audit G1 治本）+ Code Scanning 规则化 + code-quality-findings 接入 + T1310 platform 进入 release 通道。按 [规划规范 §1.1 任务粒度约束](../../standards/planning.md)（≤5-6 项硬上限 + A3 跨 packages+apps > 10 文件超阈值需拆分）拆 **4 子阶段独立闭环 + T1310 同步推进**：M13.1 治理 + UX / M13.2 网络治理 + 告警去重 / M13.3 Code Scanning 规则化 + CQL / M13.4 UX 反馈批次立刻做（低风险）。
 > **状态**：✅ 全部完成（M13.1+M13.2+M13.3+M13.4 全部 12 子任务闭环；26 commits 已推送至 origin/master，含 M13.4 三 commits）
 
 ### 阶段闭环清单
@@ -10,7 +10,7 @@
 
 | 子任务 | 关键 commit | 完成要点 |
 |:--|:--|:--|
-| **T1301 C1 wisdom 蒸馏** | `b57b8d8` | `.session/wisdom.md` 27 条 → 14 条活跃 + 12 条压缩为已蒸馏摘要（迁移 30 条到 docs/standards/*.md）；`pnpm distill:wisdom --check --threshold=15` WISDOM_OK（活跃 14 条低于预警阈值 15，符合[规划规范 §4.3](../../docs/standards/planning.md) "活跃 ≥ 20 必须蒸馏"约束） |
+| **T1301 C1 wisdom 蒸馏** | `b57b8d8` | `.session/wisdom.md` 27 条 → 14 条活跃 + 12 条压缩为已蒸馏摘要（迁移 30 条到 docs/standards/*.md）；`pnpm distill:wisdom --check --threshold=15` WISDOM_OK（活跃 14 条低于预警阈值 15，符合[规划规范 §4.3](../../standards/planning.md) "活跃 ≥ 20 必须蒸馏"约束） |
 | **T1302 C2 neat-freak 批次** | `f43edf1` | 9 条新 wisdom pattern/principle 挂接到 standards（`development.md §5.1.12/§5.1.13/§5.1.14` + `ai-collaboration.md §4.4/§4.5/§4.6` + `git.md §3.4` + `testing.md §6.1`）+ `full-stack-master.agent.md` 新增 PDTFC+ 自检条目；Round 1 Reject 3 warning + 3 suggest → Round 2 Pass |
 | **T1303 单仓库扫描互斥修复**（实测反馈 5.1） | `c2e3d7b` + `7282f65` | `repos.vue:468-469` 删除全局 `:disabled="scanningId !== null && scanningId !== data.id"`，仅保留 `:loading="scanningId === data.id"` 单仓库扫描态指示；playwright e2e `history-dialog` 2/2 passed |
 | **T1304 历史 Dialog X 按钮修复**（实测反馈 5.2） | `25b46eb` | `RepoHistoryDialog.vue` 详情视图 `:closable="false"` + `:close-on-escape="false"`（PrimeVue 4 Dialog API 核验）；i18n 双语 +2 键；playwright e2e +1 case |
@@ -85,7 +85,7 @@
 - **T1309**：changelog 机制治本——参考 conventional-changelog-monorepo / lerna 标准实践 = 当 release 仅由传递依赖变更触发时，输出 `### Dependencies` 段列出依赖版本变化（社区标准答案）
 - **T1307**：模块级 active config 单例 + `afterEach(resetActiveRulesConfig)` 防止测试间相互污染；`DependfixApp` 构造时按 env 加载并先 reset 后 set（避免跨 app 残留）
 - **T1308**：复用 `NormalizedSecurityAlert` 模型（与 code-scanning 同源形态）；Octokit v17 类型未含 code-quality/findings 端点，使用 `client.request('GET ...', ...)` raw 端点；per-source 错误隔离（与 code-scanning 同模式，任一失败 → 记录 FETCH_FAILED + 保留成功源，全部失败才抛错）
-- **T1402**：仅前端轻量展示已有 ruleId 字段，不依赖 ScanResult schema 扩展；与 [backlog.md C66-C](backlog.md) 完整版（独立 Identifiers 列 + 多 CVE 展开）解耦
+- **T1402**：仅前端轻量展示已有 ruleId 字段，不依赖 ScanResult schema 扩展；与 [backlog.md C66-C](../backlog.md) 完整版（独立 Identifiers 列 + 多 CVE 展开）解耦
 - **T1403**：仅改前端默认，不改后端默认 false（保持向后兼容）；Code Auditor RG-B1 修复 dead ref + JSDoc 迁移
 
 ### 阶段关键经验（已沉淀至项目知识库）

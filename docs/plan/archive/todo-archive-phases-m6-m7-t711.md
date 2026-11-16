@@ -4,14 +4,14 @@
 >
 > 当前活跃任务见 [todo.md](../todo.md)；近期归档块见 [todo-archive.md](../todo-archive.md) 主窗口（M9 / 2026-08-19~20 三个新批次；M8 已迁出到本分片）。
 >
-> 更早期阶段分片：[M0 / M1](../todo-archive-phases-m0-m1.md)、[M2-M5.5](../todo-archive-phases-m2-m55.md)。
+> 更早期阶段分片：[M0 / M1](todo-archive-phases-m0-m1.md)、[M2-M5.5](todo-archive-phases-m2-m55.md)。
 
 ---
 
 ## M6: 最小平台 MVP（已归档）
 
 > 归档日期: 2026-08-08
-> 阶段摘要: 参见 [roadmap.md §M6](roadmap.md)
+> 阶段摘要: 参见 [roadmap.md §M6](../roadmap.md)
 > 状态: 已完成（T601-T605 + T607 全部完成；CI Test 端到端裁决通过；Docker 镜像构建 CI 链路未裁决通过，登记 backlog C30）
 > 最终提交: `7cb1ad22d` docs(plan): 登记 C29 平台 UI 暗色模式待修复问题（含 M6 收尾修复批次 ec7221fd / 6cfbcb3c / 6edb4ac7）
 
@@ -57,14 +57,14 @@
 ### T605 MCP Server（原 T605 + T606 合并）✅
 
 - **交付物**: `packages/mcp`（`@dependfix/mcp`）+ 4 个 tool + CLI 一致性断言
-- **实现内容**: `packages/mcp` 初始化（tsdown 构建 ESM + CJS + dts）；集成 `@modelcontextprotocol/sdk`（stdio 传输）；`fetch_alerts`（只读，schema 见 [mcp-server.md](../design/governance/mcp-server.md)）/ `get_last_report`（只读）/ `run_scan`（写入，复用 `DependfixApp` 默认 report-only）/ `fix_dependency`（写入，复用 `overrideTransitiveDependency`）；MCP tool 与 CLI 输出一致性断言（fetch-alerts nock 一致性断言 4 用例）
+- **实现内容**: `packages/mcp` 初始化（tsdown 构建 ESM + CJS + dts）；集成 `@modelcontextprotocol/sdk`（stdio 传输）；`fetch_alerts`（只读，schema 见 [mcp-server.md](../../design/governance/mcp-server.md)）/ `get_last_report`（只读）/ `run_scan`（写入，复用 `DependfixApp` 默认 report-only）/ `fix_dependency`（写入，复用 `overrideTransitiveDependency`）；MCP tool 与 CLI 输出一致性断言（fetch-alerts nock 一致性断言 4 用例）
 - **非目标**: npm 发布与 skill 双后端集成（M7 T706）、多传输（http/SSE）
 - **验收**: `npx @dependfix/mcp` 启动注册 4 个 tool（`dist/bin.mjs` 生成 + `createMcpServer` 冒烟测试）；一致性断言测试通过
 
 ### T607 执行器设计与沙箱评估（设计先行 + Action 触发实现）✅
 
 - **交付物**: 执行器/沙箱设计文档 + `ActionTriggerExecutor` + B 模式接入评估结论
-- **实现内容**: 设计文档（恶意依赖升级威胁建模 + 执行器方案矩阵 + Executor 接口契约）——见 [executor-sandbox.md](../design/governance/executor-sandbox.md)；`ActionTriggerExecutor`（对配置 action 的仓库触发 `workflow_dispatch`，凭据复用仓库关联 Credential，workflow 文件名仓库配置声明）；B 模式接入评估（使用方式/体验/成本写入设计文档 §5）；mcp-server.md 里程碑编号修正
+- **实现内容**: 设计文档（恶意依赖升级威胁建模 + 执行器方案矩阵 + Executor 接口契约）——见 [executor-sandbox.md](../../design/governance/executor-sandbox.md)；`ActionTriggerExecutor`（对配置 action 的仓库触发 `workflow_dispatch`，凭据复用仓库关联 Credential，workflow 文件名仓库配置声明）；B 模式接入评估（使用方式/体验/成本写入设计文档 §5）；mcp-server.md 里程碑编号修正
 - **非目标**: 独立沙箱容器执行实现（M7）、action 结果回填（M6 内由 C25 增强实现）
 - **验收**: 设计文档 Review Gate 通过；平台可触发 `workflow_dispatch` 并返回触发结果；B 模式接入成本评估结论落盘
 
@@ -92,8 +92,8 @@
 ## M7.1: 认证与用户体系（已归档）
 
 > 归档日期: 2026-08-10（T701/T707 代码交付完成，**剩余 3 项真实凭据人工验收**见下方「遗留登记」）
-> 阶段摘要: 参见 [roadmap.md §M7](roadmap.md)
-> 设计文档: [platform-auth-users.md](../design/governance/platform-auth-users.md)（Review Gate 两轮 Pass）
+> 阶段摘要: 参见 [roadmap.md §M7](../roadmap.md)
+> 设计文档: [platform-auth-users.md](../../design/governance/platform-auth-users.md)（Review Gate 两轮 Pass）
 
 ### T701 RBAC 权限管理 + 用户管理 + 个人界面 ✅
 
@@ -122,8 +122,8 @@
 ## M7.2: 平台能力深化（已归档）
 
 > 归档日期: 2026-08-12（T702/T704/T708/T709/T710 代码交付完成；T711 覆盖率冲刺进行中不归档；T705/T703 按用户指示延期至 backlog）
-> 阶段摘要: 参见 [roadmap.md §M7](roadmap.md)
-> 设计文档: [platform-scheduled-batch.md](../design/governance/platform-scheduled-batch.md)（T704，Review Gate Pass）
+> 阶段摘要: 参见 [roadmap.md §M7](../roadmap.md)
+> 设计文档: [platform-scheduled-batch.md](../../design/governance/platform-scheduled-batch.md)（T704，Review Gate Pass）
 
 ### T702 任务队列与并发控制（BullMQ + Redis + 渐进式降级） ✅
 
@@ -171,17 +171,17 @@
 
 ### 遗留登记（归档时点）
 
-- **转入当前任务 [todo.md](todo.md)**: T711 覆盖率冲刺（进行中，口径修正已完成，分阶段补测中）；T705 生产级部署 / T703 跨平台 Git（已延期，见 [backlog.md §M7.2](backlog.md#m72-平台能力深化)）
+- **转入当前任务 [todo.md](../todo.md)**: T711 覆盖率冲刺（进行中，口径修正已完成，分阶段补测中）；T705 生产级部署 / T703 跨平台 Git（已延期，见 [backlog.md §M7.2](../backlog.md)）
 - **待人工验收（真实环境）**: T701 真实凭据 3 项（OAuth 闭环 / OIDC 闭环 / 配置显示路径）；T702 HTTP 层状态流转 + 前端轮询；T704 async 定时触发集成测试 + Schedule CRUD e2e
-- **已知边界（归档时点）**: 见 [todo.md 已知边界](todo.md) 与 [backlog.md](backlog.md)（C26/C28/C29/C30、C33、C34、C36/C37、B1/B2、T904/T905/T906、D1/D2/D3/D8 触发条件项）
+- **已知边界（归档时点）**: 见 [todo.md 已知边界](../todo.md) 与 [backlog.md](../backlog.md)（C26/C28/C29/C30、C33、C34、C36/C37、B1/B2、T904/T905/T906、D1/D2/D3/D8 触发条件项）
 
 ---
 
 ## T711: 覆盖率口径修正 + 冲刺至 80%（已归档）
 
 > 归档日期: 2026-08-14（2026-08-12 启动 ~ 2026-08-13 达成，独立于里程碑的质量冲刺）
-> 阶段摘要: 参见 [roadmap.md](roadmap.md)
-> 完成记录: 见下方；冲刺执行方法见 [testing.md §5.1 覆盖率冲刺执行方法](../standards/testing.md)
+> 阶段摘要: 参见 [roadmap.md](../roadmap.md)
+> 完成记录: 见下方；冲刺执行方法见 [testing.md §5.1 覆盖率冲刺执行方法](../../standards/testing.md)
 
 **阶段成果**: 覆盖率统计口径修正（coverage.include 5 段 + thresholds 四维 80%）+ 分阶段补测至四维全部 ≥ 80%——**Statements 85.89% / Branches 80.6% / Functions 85.51% / Lines 85.96%**（2026-08-13 全量 checkpoint，`pnpm run test:coverage` 零 ERROR，1494 passed / 4 skipped，lint 0/0 + typecheck 全过）。
 
@@ -206,7 +206,7 @@
 ### 遗留登记（归档时点）
 
 - 补测候选（审计 suggest）：typeorm-adapter createdAt 同毫秒 flaky、transaction 回滚断言、redis error 监听断言、queue close disconnect 断言——按需随后续任务补
-- 待人工验收：见 [todo.md 待人工验收](todo.md)
+- 待人工验收：见 [todo.md 待人工验收](../todo.md)
 
 ---
 

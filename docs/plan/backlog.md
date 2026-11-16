@@ -54,7 +54,7 @@
 
 ### 候选评估中（待评估 / 本阶段延后项）
 
-> **候选池概览（2026-11-16 复算）**：本区 **41 项**（`### 候选评估中` 段内 `^- \*\*` 逐行计数）；每次上收 / 新增 / 移出后按段内实测更新本句与首行，不保留历史链路。P 标签覆盖不全（未标注者评估时补，不默认升级）；1.0 分档见 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)。
+> **候选池概览（2026-11-16 M62 规划后复算）**：本区 **35 项**（`### 候选评估中` 段内 `^- \*\*` 逐行计数）；每次上收 / 新增 / 移出后按段内实测更新本句与首行，不保留历史链路。P 标签覆盖不全（未标注者评估时补，不默认升级）；1.0 分档见 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)。
 > **1.0 门槛与分档**：分档、门槛判定与批次计划单点声明于 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)（2026-10-30 冻结口径，不随候选上收收缩；本文件不重复维护数字）。
 
 - **备份 `.tmp` 清扫缺年龄门槛（P3 🛠️，2026-10-31 M53.2 收口登记）** —— `cleanupOldBackups` 对 `*.bak.tmp` 无条件回收；单实例串行路径不可达冲突，但并发 `db:restore` 或多实例共卷启动时可能删掉对端正在写的临时文件（rename ENOENT → 该轮快照丢失，fail-open 后仅剩日志）。待评估：加入 `mtime < now - 10min` 年龄门槛或按 PID 命名临时文件。触发：启用多实例 / 多容器共享数据卷，或出现并发恢复需求时。
@@ -120,16 +120,10 @@
 
 **2026-10-30 批量运行超时复盘派生**（来源：`runs-logs-20261030-000646.txt` 第 1 页 10 条运行，2 条 `execution_timeout` + 1 条无日志失败；不占阶段编号）：
 
-- **Nuxt / 框架类仓库默认验证链缺 `prepare` 前置（待评估，P2 🛠️）** —— 现象：`quick-verify` 默认链 `install → lint → build → typecheck → test` 中 lint 早于 build，`.nuxt/tsconfig.json` 未生成，ESLint 在约 2GB 堆上限 OOM（momei 两次复现，GC 挣扎 4-5 分钟）。待评估：① 探测 `nuxt.config.*` 时插入 `nuxt prepare`；② 或在仓库创建 / 导入时按框架写 `verifyCommands` 模板；③ monorepo 根脚本下 prepare 的落点；④ OOM 是否作为独立诊断信号。验收（草案）：Nuxt 仓库默认链 lint 不再 OOM，prepare 失败有独立日志与报告条目。不做：不为单仓硬编码框架判断（探测失败安全回退）。触发：再次出现框架前置缺失导致的 OOM / 假红。
+- **Nuxt / 框架类仓库默认验证链缺 `prepare` 前置（待评估，P2 🛠️）** —— 现象：`quick-verify` 默认链 `install → lint → build → typecheck → test` 中 lint 早于 build，`.nuxt/tsconfig.json` 未生成，ESLint 在约 2GB 堆上限 OOM（momei 两次复现，GC 挣扎 4-5 分钟）。待评估：① 探测 `nuxt.config.*` 时插入 `nuxt prepare`；② 或在仓库创建 / 导入时按框架写 `verifyCommands` 模板；③ monorepo 根脚本下 prepare 的落点；④ OOM 是否作为独立诊断信号（命令级 OOM 独立诊断信号已随 M62.2 上收，本候选不重复验收）。验收（草案）：Nuxt 仓库默认链 lint 不再 OOM，prepare 失败有独立日志与报告条目。不做：不为单仓硬编码框架判断（探测失败安全回退）。触发：再次出现框架前置缺失导致的 OOM / 假红。
 
 - **契约抽取器覆盖 `@Column(() => X)` 嵌入列与 env 解构（P3 🛠️，2026-10-31 M53.1 收口登记）** —— `check-contract-freeze` 的实体抽取覆盖 `@Column` 系列 / `@ManyToOne`+`@JoinColumn` / `@Entity`，遇到 `@Embedded`、`@ManyToMany` join table、env 解构与非字面量 `readEnv` 实参已 fail-closed（`extractor-coverage`），但**无 `@Embedded` 的 `@Column(() => X)` 嵌入列**未进哨兵：抽取会产出错误列名并与清单产生差异（响亮失败，不会静默漏键）。待评估：扩展抽取器（递归嵌入类型 / `getMetadataArgsStorage` 元数据）或把该形态纳入 fail-closed 哨兵。触发：仓库首次引入嵌入实体或该形态列。
 - **en-US 设计文档全量镜像（P2 📚，2026-10-30 M52 规划登记）** —— 现状：en 设计镜像仅 4 篇，zh 设计文档 67 篇（含 M44.4 拆分分片）；M52.3 只做「结构映射 + 索引补全」，不重译全文。待评估：1.0 后是否按「分片 → 镜像」逐篇补齐（成本随拆分增加、双维护风险高），或长期维持映射清单 + 关键路径翻译。触发：1.0 后文档国际化需求，或用户反馈英文站信息不足时。
-
-**2026-11-12 运行日志复盘派生**（来源：`runs-logs-20261112-143354.txt` 第 1 页 50 条运行，2 次交付 / 3 次 `execution_timeout`；不占阶段编号）：
-
-- **红仓库 baseline 预失败后的短路（P1 🛠️，2026-11-12 运行日志复盘登记）** —— 现象：`CaoMeiYouRen/momei` 每轮 pre-fix baseline 20-21 分钟，`lint` / `build` / `typecheck` / `test` 全部预失败，随后 post-fix 验证按 `pre-existing` 全量豁免（`quick-verify` 直接 skip），baseline 只产出「不归因」；`CaoMeiYouRen/rss-impact-server` 同形（baseline 9-18 分钟，`test` 每轮 `timed out`）。两仓合计占该窗口 63% 机时（227/358 分钟），仅贡献 2 次交付中的 1 次；全窗口约 48% 时长是 pre-fix baseline。**待评估点**：① 短路口径（同一命令已红即跳过全部后续命令，还是只跳过依赖它的命令）；② 与 `onBaselineRed` / `verificationSkippedByReason` 的衔接（跳过原因需能与「预算耗尽」「无写入」区分）；③ 短路后报告与平台详情如何表达「未跑 ≠ 通过」；④ 红仓库是否需降频（每 N 轮重建一次 baseline）。**验收标准（草案）**：红仓库单轮耗时下降 ≥ 50%；跳过项全部带原因且报告可判读；非红仓库链条零回归。**不做**：不改验证链条数与顺序本身（[repo-execution-limits.md](../design/governance/repo-execution-limits.md) 边界），不为单仓硬编码。**触发条件**：再次出现红仓库吃满执行预算或 `execution_timeout`。
-
-- **子进程 OOM 信号与运行终止的状态分离（P1 🛠️，2026-11-12 运行日志复盘登记）** —— 现象：同一「子进程 OOM」信号在日志里落成三种终态——`rss-impact-server` 在 2026-11-06 / 11-10 / 11-11 标 `OOM 终止：是`（峰值 RSS 2883-2994 MB）但终态 `completed` + `exitCode:0`，11-07 同形运行 `failed`；`momei` 的 lint OOM（`Mark-Compact 1947.0 (1961.6) MB` → `FATAL ERROR: ... heap limit`）则吃满 30 分钟上限报 `execution_timeout`。`OOM 终止` 字面读作 run 级终止，与实际「命令级 OOM + 基线豁免放行」不符。**待评估点**：① 归因字段拆分（run 级 `oomKilled` vs 命令级 OOM，后者带命令名与退出码）；② 命令级 OOM 是否阻断交付（当前按 pre-existing 豁免放行）；③ 平台列表 / 详情的展示口径（命令级 OOM 不计入运行失败率）；④ 与 2026-10-30 条 ④「OOM 子进程退出应作独立诊断信号」合并评估，不重复实现。**验收标准（草案）**：同一信号只落一个字段层级，`completed` 运行不再出现「OOM 终止」字样；`execution_timeout` 与其子进程 OOM 可分别判读。**不做**：不采宿主级 OOM / `dmesg`（[已知边界](#宿主级-oom-与-cgroup-标记无法解释-持续观察) 已单列）；不改 30 分钟上限口径。**触发条件**：再次出现「completed + OOM」并置，或 OOM 与超时仍不可区分。
 
 **2026-11-13 运行日志复盘派生**（来源：`runs-logs-20261113-045612.txt` 第 1 页；不占阶段编号）：
 
@@ -137,19 +131,9 @@
 
 **2026-11-16 运行日志复盘派生**（来源：`runs-logs-20261116-043236.txt` 第 1 页 50 条运行，1 次 `push_failed` + 1 次 `execution_timeout` + 1 次 `sandbox_unavailable`；不占阶段编号）：
 
-**关联触发**：2026-11-12 两条 P1（红仓库 baseline 短路 / 子进程 OOM 与运行终止分离）在本页再次命中——`momei` 11-13 吃满 30 分钟 `execution_timeout`（baseline 24m25s）；`rss-impact-server` 11-13/14/15 连续 3 次 `OOM 终止：是` + `completed`（峰值 3022 / 2979 / 2930 MB）。建议下一阶段一并上收，不重复登记。
-
-- **跨 major / 混合实例判定前移到基线之前（P1 🛠️，2026-11-16 登记）** —— 现象：`crossMajorOnly` 只覆盖「lockfile 无目标 major」；混合实例与「`allowMajorUpgrade` 开但告警全是传递依赖」仍先付完整 baseline 再以 `cross-major` 跳过、0 写入。实证零写入基线合计 ≈86 分钟（本页总机时 ≈172 分钟，测量方 = 执行角色，按各 run 首末日志求和）。待评估：① 把 manual-cross-major 判定（纯读）前移到 `hasWork` 前并复用同一谓词；② `allowMajorUpgrade` 按实际 auto-eligible 子集计入；③ 混合实例按 advisory 受影响区间过滤旧实例。验收（草案）：① 三类仓库单轮 baseline 跳过且 group 路径仍记 `cross-major`；② 非跨 major 零回归；③ 跳过原因可区分三类。不做：不改验证链；不把人工跨 major 自动升级。触发：再次出现全需人工跨 major 仍付完整基线。
-
-- **安装基线失败后的升级链与告警结论（P2 🛠️，2026-11-16 登记）** —— 现象：`pnpm install --frozen-lockfile` 预失败（坏 lockfile）时直接跳过整条升级链；lockfile 修复在 `finalizeRepoFix` 之后才执行，修复成功也不会在本轮重试升级。`rsshub-never-die` 11-14/11-15 与 `tinyfish-mcp` 11-14 因此输出 `7 alert(s) not fixed — no skipped outcome recorded`，告警级原因一条未落。**待评估点**：① 修复成功且安装复检通过后，按预算允许重试一次升级链（或不重试但写 `skipped('install-baseline-failed')`）；② 受影响告警逐条落结论，替代汇总兜底；③ 与「坏 lockfile 修复 PR 未合并」的跨 run 循环关系。**验收标准（草案）**：① 坏 lockfile 仓库的告警在报告中有明确 skipped 原因；② 修复成功后重试有预算上限与审计条目；③ 非坏 lockfile 仓库零回归。**不做**：不改 lockfile 修复策略（REGENERATE / FIX_ENTRIES / REINSTALL）；不无限重试。**触发条件**：再次出现 `no skipped outcome recorded`。
-
-- **收尾阶段未 settle 导致假 `execution_timeout`（P2 🛠️，2026-11-16 登记）** —— 现象：`momei` 11-13 22:36:59 已输出 `No deliverable fixes produced — skipping local commit`，22:42:19 才 abort（30 分钟上限），中间 5m20s；executor 记录 `取消时刻在管受管子进程 0 个；最后命令：git rev-parse --abbrev-ref HEAD`。判断：不是受管子进程在跑，而是主流程未 settle（疑似超时 `pnpm test` 的游离孙进程 / 未关闭 stdio）。**待评估点**：① 复现时抓 `ps -ef --forest` 与受管命令输出快照；② 超时命令的进程组清理与 stdio 关闭断言；③ 收尾阶段完成即落定，不被遗留句柄拖到运行级超时。**验收标准（草案）**：① 复现运行在收尾后 10s 内落定，不再记 `execution_timeout`；② 取消诊断能区分「在管子进程」与「未 settle 的游离句柄」；③ 其余超时路径零回归。**不做**：不改 30 分钟上限；不采宿主级 OOM 证据。**触发条件**：再次出现「收尾已完成但运行未落定」。
-
 - **默认出站白名单补 `release-assets.githubusercontent.com`（P2 🛡️，2026-11-16 登记）** —— 现象：`momei` 11-13 baseline 记录 `outbound blocked by allowlist: CONNECT release-assets.githubusercontent.com:443`；`DEFAULT_ALLOWED_DOMAINS` 仅有 `github.com` / `api.github.com` / `objects.githubusercontent.com` / `raw.githubusercontent.com`。影响：走 GitHub Release 资产下载的安装 / 构建被拦；容器模式只记违规，沙箱 fix 模式会 `network_violation` 直接 failed。**待评估点**：① 加入单域（最小面）还是 `*.githubusercontent.com`；② 白名单扩面后的审计噪声与安全评审口径。**验收标准（草案）**：① 受影响仓库 baseline 不再出现该 CONNECT 拦截；② 负例（非白名单域）仍被拦并落 audit。**不做**：不放开任意 `*.githubusercontent.com`（除非评审通过）。**触发条件**：再次出现 GitHub Release 资产下载被拦；或沙箱 fix 因该域失败。
 
-- **自仓基线红导致自仓交付永久「未验证」（P1 🛠️，2026-11-16 登记）** —— 现象：`dependfix/dependfix` 在 11-13 22:42、11-14、11-15 连续 3 轮 `pnpm lint` + `pnpm test` 预失败；这 3 轮恰好 0 写入，未伤交付，但一旦有可修告警，自仓交付会以 `pre-existing` 豁免跳过验证。**待评估点**：① 抓取自仓 `pnpm lint` / `pnpm test` 的实际 stderr，区分环境性（内存 / 脚本副作用）与真实失败；② 自仓是否改用 `lint:check` 等只读门；③ 「自仓基线红」是否应阻断自仓交付而非长期豁免。**验收标准（草案）**：① 自仓 baseline 恢复全绿，或有明确环境性证据；② 自仓修复交付不再依赖 `pre-existing` 豁免；③ 其余仓库零回归。**不做**：不为自仓硬编码跳过验证。**触发条件**：自仓出现可修告警，或基线连续 3 轮仍红。
-
-- **无补丁版本告警与 advisory 区间口径（P3 🛠️，2026-11-16 登记）** —— 现象：`deepmerge` 在 dependfix / push-all-in-cloud / momei / caomei-ui / rss-impact-server 反复出现，`first_patched_version=null`、range 4.2.0–4.3.1，升级永远修不了；另 `belowTarget` 含 advisory 范围外实例（minimatch 3.1.5 / 3.1.4、5.1.9 低于 >=7.0.0 下界），当前不影响结论但污染跳过计数。**待评估点**：① 为 `first_patched_version=null` 提供「无修复版本」结论 / 建议 dismiss，而不是每天 blocked；② `belowTarget` 按 advisory 区间过滤；③ 与报告「未修复」明细的关系。**验收标准（草案）**：① 无补丁版本告警有稳定结论且不重复刷屏；② 范围外实例不计入跨 major 计数；③ 报告可判读。**不做**：不自动 dismiss 上游告警（需用户策略）。**触发条件**：同包无补丁告警连续多轮出现。
+- **无补丁版本告警与 advisory 区间口径（P3 🛠️，2026-11-16 登记）** —— 现象：`deepmerge` 在 dependfix / push-all-in-cloud / momei / caomei-ui / rss-impact-server 反复出现，`first_patched_version=null`、range 4.2.0–4.3.1，升级永远修不了；另 `belowTarget` 含 advisory 范围外实例（minimatch 3.1.5 / 3.1.4、5.1.9 低于 >=7.0.0 下界），当前不影响结论但污染跳过计数。**待评估点**：① 为 `first_patched_version=null` 提供「无修复版本」结论 / 建议 dismiss，而不是每天 blocked；② 与报告「未修复」明细的关系（`belowTarget` 的 advisory 区间过滤已随 M62.3 上收，本候选不重复验收）。**验收标准（草案）**：① 无补丁版本告警有稳定结论且不重复刷屏；② 报告可判读。**不做**：不自动 dismiss 上游告警（需用户策略）。**触发条件**：同包无补丁告警连续多轮出现。
 
 - **checkpoint `unknown` 失败的重试与证据（P3 🛠️，2026-11-16 登记）** —— 现象：dependfix ×3 + sharp-cloud-uploader 均报 `unknown — git stash create exited with code 1`，probe 未发现 index.lock / 权限 / 磁盘问题；已知 `git stash create` 对索引锁会静默 exit 1，probe 在失败后才跑，锁可能已释放。影响：仅失去单元级回滚（本页相关 run 多为 0 写入）。**待评估点**：① `unknown` 先重试一次（250ms 后）再降级；② 证据补 `git version` / 并发 git 提示；③ 与 checkpoint 降级口径的关系。**验收标准（草案）**：① 瞬时索引竞争不再落 `unknown`；② 真降级仍可判读；③ 选择性回滚用例零回归。**不做**：不把 `unknown` 升级为 abort。**触发条件**：`unknown` 连续出现或伴随真实回滚失败。
 
@@ -419,9 +403,9 @@
 
 | 内容类型 | 位置 |
 |:--|:--|
-| 当前阶段活跃任务 | **无活跃阶段**（M61 已于 2026-11-16 归档；下一阶段待规划）；插队容量治理见 [planning.md §3.1.1](../standards/planning.md#_3-1-1-插队后的阶段容量再平衡-hard-requirement-2026-10-19) |
-| 下一阶段（未规划） | 按本文件候选池重新评估（41 条）；M59 / M60 残余留在本文件；**1.1.0 已于 2026-11-15 发布**，定时发布启用仍在「待上收候选」段等待观察窗口 |
+| 当前阶段活跃任务 | **M62 运行日志复盘与执行成本收口**（2026-11-16 规划，6 原子，见 [todo.md](todo.md)）；插队容量治理见 [planning.md §3.1.1](../standards/planning.md#_3-1-1-插队后的阶段容量再平衡-hard-requirement-2026-10-19) |
+| 下一阶段（未规划） | 按本文件候选池重新评估（35 条）；M59 / M60 残余留在本文件；**1.1.0 已于 2026-11-15 发布**，定时发布启用仍在「待上收候选」段等待观察窗口 |
 | 已完成阶段归档 | [todo-archive.md](todo-archive.md)（阶段索引 + [archive/](archive/) 分片） |
-| 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M0-M61 已归档；当前无进行中阶段） |
+| 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M0-M61 已归档；M62 进行中） |
 | 长期主线 / 候选 / 待人工验收 / 已知边界 | 本文档（按四象限结构） |
 | 历史归档索引 | [archive/index.md](archive/index.md) |

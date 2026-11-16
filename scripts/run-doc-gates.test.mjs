@@ -41,6 +41,8 @@ describe('DOC_GATES', () => {
         expect(new Set(DOC_GATES).size).toBe(DOC_GATES.length)
         expect(DOC_GATES).not.toContain('gates:docs')
         expect(DOC_GATES.length).toBeGreaterThan(0)
+        // AI 资产机检必须在集合内：漏接会让 skill / agent 规则退回人工遵守
+        expect(DOC_GATES).toContain('check:ai-governance')
     })
 
     it('release.yml 引用同一入口（防发布侧漏接）', () => {

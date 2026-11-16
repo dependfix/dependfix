@@ -28,6 +28,7 @@
     "setup:switch-models": "node scripts/setup/switch-models.mjs",
     "setup:switch-models:list": "node scripts/setup/switch-models.mjs --list",
     "check:docs": "node scripts/check-docs.mjs",
+    "check:ai-governance": "node scripts/check-ai-governance.mjs",
     "check:orphan-ids": "node scripts/check-orphan-ids.mjs",
     "check:orphan-ids:json": "node scripts/check-orphan-ids.mjs --json",
     "check:standards-redundant": "node scripts/check-standards-redundant.mjs",

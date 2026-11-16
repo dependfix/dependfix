@@ -67,6 +67,12 @@ jobs:
       - run: pnpm run i18n:check:anchor
       - run: pnpm run docs:check:i18n
       - run: pnpm run lint:md:check
+      # AI 资产治理机检：skill / agent frontmatter、命名、references 引用、文档相对链接、
+      # 平台副本符号链接（缺失仅 warning）。规则面见 docs/standards/ai-governance.md §6。
+      # 负例标定：删 metadata.internal / 注入死链 / 改 name 三类均 exit 1（2026-11-16 本地已验，还原后 md5 一致）。
+      # 自指面：扫描面仅 .github/skills 与 .github/agents，本 workflow 不在面内。
+      # 阻断强度：workflow 级阻断信号（仓库未配置 required status checks，与 visual job 同口径）
+      - run: pnpm run check:ai-governance
       # check:docs 规则面八类：links（路径/锚点/绝对路径/穿越/gitignore/正文机器路径）+
       # vue-interp（Vue 插值）+ link-text（链接文本 §N ↔ 锚点编号）+ link-syntax（畸形链接）+
       # emphasis（** 未配对）+ site-links（站点静态绝对链接）+ archive-anchors（归档锚点子集；file-dead 由 links 面覆盖）+

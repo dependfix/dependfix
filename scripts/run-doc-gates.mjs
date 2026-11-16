@@ -35,6 +35,7 @@ export const DOC_GATES = [
     'check:standards-redundant:strict',
     'check:experience-landing',
     'check:verify-chain',
+    'check:ai-governance',
     'check:docs',
     'docs:check:guides',
     'docs:check:mirror',

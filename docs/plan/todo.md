@@ -105,7 +105,7 @@
 - **依赖**：M61.2 完成后开始（豁免清零后计数口径稳定）；触发规则见 [文档规范 §8](../standards/documentation.md#_8-文档治理周期)「每 5 个阶段或连续 2 个阶段出现预算 warning」。
 - **交付物**：3-5 commits / 6-8 files / 净删 150-300 行（对应 diff 改动量约 300-600 行，按本阶段头「行 = 改动量含删除」口径计入基线）。
 - **风险与缓解**：压缩改语义 → 只做外移 + 指针，不改条文判定；`platform.md` 逼近上限无余量 → 移出实现型细节到 design 分片，保留规范条文与阈值表。
-- **执行记录（2026-11-16，2 commits）**：`9a969fae` 外移三处（报告生成 §4 / 沙箱 §7.5+§7.9-§7.10 / PR 交付 §13-§16），连带 backlog 概览与盲区段压缩；`be3967e5` 压缩 `platform.md` 至 23999 字符、拆分 todo / ai-delivery 长行。AC：doc-size warning 0 / 豁免 0；doc-governance 阻断 0 / warning 0；六档 ≤400；gates 21；check:docs 八类；mirror 75。保真：PR 89=89、沙箱 36=36、报告 §4 逐字一致。偏差：platform 采用就地压缩（删 text 列 / MemoryLogger 等可判定细节，hard requirement 未动）；`9a969fae` 连带 backlog/todo 未拆分；预算余量近零。审计：A/B R1 均 Reject（指针未复扫 / 候选计数 33→41）→ 修复 → R2 Reject（backlog / 5 处代码注释指针、platform δ、记录归因）→ 修复 → R3 quick Pass。记录补充：`21e52c1d` 为订正提交；为腾字符压缩了 M61.2 已闭环记录的证据明细；platform 就地压缩 δ = 删 viewer 403 / 审计失败不阻断 / 不 commit / MemoryLogger 句 / 矩阵链接（hard requirement 未动）；候选计数口径改用段锚定 `awk`。
+- **执行记录（2026-11-16，2 commits）**：`9a969fae` 外移三处（报告生成 §4 / 沙箱 §7.5+§7.9-§7.10 / PR 交付 §13-§16），连带 backlog 概览与盲区段压缩；`be3967e5` 压缩 `platform.md` 至 23999 字符、拆分 todo / ai-delivery 长行。AC：doc-size warning 0 / 豁免 0；doc-governance 阻断 0 / warning 0；六档 ≤400；gates 21；check:docs 八类；mirror 75。保真：PR 89=89、沙箱 36=36、报告 §4 逐字一致。偏差：platform 采用就地压缩（删 text 列 / MemoryLogger 等可判定细节，hard requirement 未动）；`9a969fae` 连带 backlog/todo 未拆分；预算余量近零。审计：A/B R1 均 Reject（指针未复扫 / 候选计数 33→41）→ 修复 → R2 Reject（backlog / 5 处代码注释指针、platform δ、记录归因）→ 修复 → R3 quick Pass。记录补充：订正提交 `21e52c1d` / `fa8f73bf` / 本条；为腾字符压缩了 M61.2 已闭环记录的证据明细；platform 就地压缩 δ = 删 viewer 403 / 审计失败不阻断 / 不 commit / MemoryLogger 句 / 矩阵链接（hard requirement 未动）；候选计数口径改用段锚定 `awk`。
 
 ### M61.4 AI 资产机检门禁（P2 🛠️🛡️）
 

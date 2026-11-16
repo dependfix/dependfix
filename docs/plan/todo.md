@@ -105,7 +105,7 @@
 - **依赖**：M61.2 完成后开始（豁免清零后计数口径稳定）；触发规则见 [文档规范 §8](../standards/documentation.md#_8-文档治理周期)「每 5 个阶段或连续 2 个阶段出现预算 warning」。
 - **交付物**：3-5 commits / 6-8 files / 净删 150-300 行（对应 diff 改动量约 300-600 行，按本阶段头「行 = 改动量含删除」口径计入基线）。
 - **风险与缓解**：压缩改语义 → 只做外移 + 指针，不改条文判定；`platform.md` 逼近上限无余量 → 移出实现型细节到 design 分片，保留规范条文与阈值表。
-- **执行记录（2026-11-16，2 commits）**：`9a969fae` 外移三处（报告生成 §4 / 沙箱 §7.5+§7.9-§7.10 / PR 交付 §13-§16），连带 backlog 概览与盲区段压缩；`be3967e5` 压缩 `platform.md` 至 23999 字符、拆分 todo / ai-delivery 长行。AC：doc-size warning 0 / 豁免 0；doc-governance 阻断 0 / warning 0；六档 ≤400；gates 21；check:docs 八类；mirror 75。保真：PR 89=89、沙箱 36=36、报告 §4 逐字一致。偏差：platform 采用就地压缩（删 text 列 / MemoryLogger 等可判定细节，hard requirement 未动）；`9a969fae` 连带 backlog/todo 未拆分；预算余量近零。审计：A/B 均 Reject（指针未复扫 / 候选计数）→ 修复 → R2 quick Pass。
+- **执行记录（2026-11-16，2 commits）**：`9a969fae` 外移三处（报告生成 §4 / 沙箱 §7.5+§7.9-§7.10 / PR 交付 §13-§16），连带 backlog 概览与盲区段压缩；`be3967e5` 压缩 `platform.md` 至 23999 字符、拆分 todo / ai-delivery 长行。AC：doc-size warning 0 / 豁免 0；doc-governance 阻断 0 / warning 0；六档 ≤400；gates 21；check:docs 八类；mirror 75。保真：PR 89=89、沙箱 36=36、报告 §4 逐字一致。偏差：platform 采用就地压缩（删 text 列 / MemoryLogger 等可判定细节，hard requirement 未动）；`9a969fae` 连带 backlog/todo 未拆分；预算余量近零。审计：A/B R1 均 Reject（指针未复扫 / 候选计数 33→41）→ 修复 → R2 Reject（backlog / 5 处代码注释指针、platform δ、记录归因）→ 修复 → R3 quick Pass。记录补充：`21e52c1d` 为订正提交；为腾字符压缩了 M61.2 已闭环记录的证据明细；platform 就地压缩 δ = 删 viewer 403 / 审计失败不阻断 / 不 commit / MemoryLogger 句 / 矩阵链接（hard requirement 未动）；候选计数口径改用段锚定 `awk`。
 
 ### M61.4 AI 资产机检门禁（P2 🛠️🛡️）
 
@@ -175,7 +175,7 @@
 - **交付物**：4-5 commits / 6-8 files / 150-250 行。
 - **风险与缓解**：重叠条款改交叉引用后覆盖变薄 → 逐条核对被删表述存在唯一权威声明处；段序调整触碰锚点 → `rg "三十二"` 找全引用方并同步，跑 `docs:check:anchors`。
 - **执行记录（2026-11-16，2 commits）**：`eb785b11` 检查点矩阵补 planning §4.4 第 16 至 20 条与 testing §6.12（第 16 条含「分片行数计入新增行数」），新增「门禁扩面先跑一次性探针」「E2E 临时仓库不要软链 `node_modules`」两条检查点并留来源指针；documentation §6 的量化断言与引用范围改为指向唯一权威条款（保留文档侧增量），planning §4.4 第 18 条补「按第 3 条」。本条提交补设计稿：architecture 的 Sentry / PWA 标注未采用并限定表下口径；platform-scheduled-batch §3.1 补 `kind`（实体 / Zod / 端点表同源）、§6.1 补 `monitor-status`；experience-archive §5 维护约定改为「范围以实测内容范围为准，文件名沿用上界」，并把 §29-§35 的「三十二」块移到「三十一」之后恢复编号升序（纯位置移动：排序后所有行 md5 一致）。
-  AC 证据：矩阵新增行 `rg` 命中；`check:standards-redundant:strict` 0 命中；分片段序二十九至三十五升序；`rg "未采用"` 命中 Sentry / PWA 两行；`monitor-status.get.ts` 权限与 `schedule.ts:38` 字段逐项一致；`check-doc-size` warning 仍为 3 篇存量、无新增；`gates:docs` 21 项；`check:docs` 八类通过。审计：A / B `standard` Pass（各 2W 已修）→ R2 `quick` Pass（8/8 closed）。残余：矩阵既有 3 行含未转义 `|`（本条「不改矩阵其余行」，未动）；§5.1 触发流程图未体现 `kind` 分流；`monitor-status` 行序在动态路由之后（纯可读性）。
+  AC：矩阵新增行与段序 `rg` 实测；standards-redundant 0；Sentry / PWA 未采用标注；端点与字段同源；doc-size 无新增 warning；gates 21 / check:docs 八类通过。审计：A / B `standard` Pass（各 2W 已修）→ R2 `quick` Pass（8/8 closed）。残余：矩阵既有 3 行含未转义 `|`（本条「不改矩阵其余行」，未动）；§5.1 触发流程图未体现 `kind` 分流；`monitor-status` 行序在动态路由之后（纯可读性）。
 
 ### 追加临时待办（不占阶段条目编号）
 

@@ -158,7 +158,7 @@ export interface RuntimeConfig {
     /**
      * 基线红（修复后安装仍既有失败）时的交付降级档位（`DEPENDFIX_ON_BASELINE_RED`，默认 `skip`）：
      * `skip` 回滚并留痕 / `issue` 按失败指纹开 issue / `draft` 不回滚、创建**草稿** PR（仅 fix-and-pr；
-     * 平台只记录 summary）。口径见 [§16](../../../../docs/design/governance/pr-delivery-closure.md)。
+     * 平台只记录 summary）。口径见 [§16](../../../../docs/design/governance/pr-delivery-closure-history.md#_16-m51-4-基线红-安装失败的交付降级-2026-10-30)。
      */
     onBaselineRed?: BaselineRedDelivery
     /** PR 创建后等待 check 终态（`--wait-pr-checks` / `DEPENDFIX_WAIT_PR_CHECKS`，默认 false；仅 fix-and-pr，口径见 [§8](../../../../docs/design/governance/pr-delivery-closure.md)） */

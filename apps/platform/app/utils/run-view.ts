@@ -70,7 +70,7 @@ export interface BreakdownRow {
  *
  * >0 表示「有修复产出但没有交付」：列表 / 详情据此展示「交付跳过」标签，
  * 避免把「无 PR」误读为「扫描无告警」。口径见
- * [pr-delivery-closure.md §16](../../../../docs/design/governance/pr-delivery-closure-history.md#_16-m51-4-基线红--安装失败的交付降级2026-10-30)。
+ * [pr-delivery-closure.md §16](../../../../docs/design/governance/pr-delivery-closure-history.md#_16-m51-4-基线红-安装失败的交付降级-2026-10-30)。
  */
 export const deliverySkipped = (summary: Record<string, unknown> | null) => summaryNumber(summary, 'deliverySkipped')
 

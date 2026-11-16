@@ -1,6 +1,6 @@
 // delivery-issue.ts — 基线红（修复后安装仍为既有失败）的交付降级载体：失败指纹 + issue 创建与去重。
 //
-// 语义（口径见 [pr-delivery-closure.md §16](../../../../docs/design/governance/pr-delivery-closure.md)）：
+// 语义（口径见 [pr-delivery-closure-history.md §16](../../../../docs/design/governance/pr-delivery-closure-history.md#_16-m51-4-基线红-安装失败的交付降级-2026-10-30)）：
 // - 指纹只由「受影响仓库集 + 失败命令集」决定（不含错误文本 / 时间 / run id），
 //   同一根因跨多次运行稳定命中，避免 CI 日志抖动导致重复开 issue
 // - 去重按 issue 正文头部 HTML marker 判定，查询 `state: 'all'`——**关闭后不重开**

@@ -84,7 +84,7 @@ export function findInstallBlockedReposWithFixes(actions: FixAction[]): string[]
  * 收集给定仓库上「既有失败的安装命令」（去重，保持执行顺序）。
  *
  * 报告与交付降级 issue 正文只引用命令本身：错误文本可能含凭据 / 路径，且会让
- * 失败指纹随日志抖动漂移（见 [pr-delivery-closure.md §16]）。
+ * 失败指纹随日志抖动漂移（见 [pr-delivery-closure-history.md §16]）。
  */
 export function collectFailingInstallCommands(actions: FixAction[], repositories: string[]): string[] {
     const scoped = new Set(repositories)

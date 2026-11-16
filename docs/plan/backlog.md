@@ -303,7 +303,7 @@
 - 需真实 GitHub token + 可达出站网络（`github.com` / registry）环境跑一次完整 `fix-and-pr`：容器内 clone → 安装 → 修复 → 验证 → 推送 → 建 PR，核对 `runUrl` / `prNumber` / 网络审计记录。
 - 现有证据仅到 bootstrap 级（gated `sandbox-fix-real.test.ts`，占位 token 走 401），本机 `github.com` 出站被阻断，CI 无 token。
 - **M59.2 残余（同批登记）**：沙箱自包含交付的 gated e2e 两分支（fix 无 PR / fix-and-pr 建 PR）与交付失败分支清理，均需真实容器 + token 取证；实现已交付，未取得证据即不得声称已闭环。
-- 前置：先在目标环境确认沙箱可用（自检端点与部署形态见 [执行器设计 §7.10](../design/governance/executor-sandbox-implementation.md)）。
+- 前置：先在目标环境确认沙箱可用（自检端点与部署形态见 [执行器部署与观测 §7.10](../design/governance/executor-sandbox-deployment-observability.md#_7-10-可用性自检与降级原因-m60-4-2026-11-15)）。
 
 ### 沙箱可用性自检与 opt-in 构建取证（2026-11-15 M60.4 归档登记）
 

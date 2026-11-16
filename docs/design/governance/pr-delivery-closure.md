@@ -332,7 +332,7 @@ type CheckAttribution = 'self_caused' | 'pre_existing' | 'external_noise' | 'can
 - core `RunResult.prCheckWatch?: { attempts: Array<{ pr: { number, htmlUrl }, state: 'passed' | 'failed' | 'cancelled' | 'no_ci_detected' | 'timeout', attribution?: CheckAttribution, closed, commented, polls, durationMs, failedChecks?, reason?, commentError?, closeError? }>, runBudgetExhausted }`（M48.5 / M48.6；`failedChecks` 为 `{ name, url?, attribution }` 最多 5 条）；engine 的 `PullRequestResult` 只作内部返回（M48.5 起附带 `headSha` 供精确轮询）。
 - 运行摘要：`prsOpened` / `prsSkippedByFingerprint` / `prsClosedAfterFailure` / `checksTimedOut`（事件点累加，`computeSummary` 不重置）。
 - `RunResult.deliverySkips?: Array<{ repositories: string[], failingCommands: string[], carrier: { mode: 'skip' | 'issue' | 'draft', issue?: { number, htmlUrl, created, fingerprint }, draftPr?: { number, htmlUrl } } }>`（§16 历史与边界分片；仅基线红时存在，字段可选以兼容旧 JSON）。
-- 运行摘要（§16）：`deliverySkipped`（去重仓库数）/ `deliverySkipIssues`（本次新建 issue 数）/ `deliverySkipDraftPrs`（草稿 PR 数），均由 `computeSummary` 从 `deliverySkips` 幂等派生。
+- 运行摘要（§16 历史与边界分片）：`deliverySkipped`（去重仓库数）/ `deliverySkipIssues`（本次新建 issue 数）/ `deliverySkipDraftPrs`（草稿 PR 数），均由 `computeSummary` 从 `deliverySkips` 幂等派生。
 
 ### 10.3 PR 正文标记
 

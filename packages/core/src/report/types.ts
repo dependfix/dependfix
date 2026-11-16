@@ -159,7 +159,7 @@ export interface RunSummary {
      *
      * 非 0 表示「有修复产出、但没有交付」，消费方（平台 run 列表 / 详情）应展示
      * 「交付跳过」而不是把 `alertsFixed = 0` / 无 PR 误读为「没有告警」。
-     * 口径见 [pr-delivery-closure.md §16](../../../../docs/design/governance/pr-delivery-closure.md)。
+     * 口径见 [pr-delivery-closure-history.md §16](../../../../docs/design/governance/pr-delivery-closure-history.md#_16-m51-4-基线红-安装失败的交付降级-2026-10-30)。
      */
     deliverySkipped: number
     /** 交付降级载体新建的 issue 数（`issue` 档；命中既有 issue 不新建，不计） */
@@ -404,7 +404,7 @@ export interface RunResult {
      *
      * 记录受影响仓库、命中命令与降级载体；`skip` 档只有记录（无载体），`issue` / `draft`
      * 档带载体编号。口径见
-     * [pr-delivery-closure.md §16](../../../../docs/design/governance/pr-delivery-closure.md)。
+     * [pr-delivery-closure-history.md §16](../../../../docs/design/governance/pr-delivery-closure-history.md#_16-m51-4-基线红-安装失败的交付降级-2026-10-30)。
      */
     deliverySkips?: DeliverySkipRecord[]
     /**

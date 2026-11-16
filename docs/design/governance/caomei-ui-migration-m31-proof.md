@@ -1,6 +1,6 @@
 # caomei-ui 迁移：M31 实施实证（§15.10-§15.13）
 
-### 15.10 DataTable 核心页迁移实证（M31.2，2026-09-28）
+## 15.10 DataTable 核心页迁移实证（M31.2，2026-09-28）
 
 > alerts / batch-runs 两页迁移（B1a）中与「库差异」相关的实测结论，供 B1b（M31.3）与 B4（M31.5）直接复用。
 
@@ -59,7 +59,7 @@ PrimeVue Aura small 尺寸单元格内边距为 `0.375rem 0.5rem`（6px 8px）�
 - 单测 1295 条 = `pnpm --filter @dependfix/platform test`；`pnpm run typecheck` / `pnpm run lint` / `pnpm --filter @dependfix/platform lint:css:check` / `pnpm --filter @dependfix/platform build` 全部通过
 - **环境前提**：e2e 的 webServer 跑 `.output`，须先 `pnpm --filter @dependfix/platform build`；本机容器需 `ignoreDefaultArgs: ['--disable-dev-shm-usage']` + `--no-sandbox`（容器 `/tmp` 不可写，默认参数会让 chromium `Page crashed`），CI 不受此限。
 
-### 15.11 其余表页迁移实证（M31.3，2026-09-28）
+## 15.11 其余表页迁移实证（M31.3，2026-09-28）
 
 > M31.3（B1b）把**全部剩余 PrimeVue DataTable**（14 处 / 11 文件）+ 独立 `Paginator`（1 处）+ `ScrollPanel`（2 处）迁完，`apps/platform/app` 下已无 PrimeVue 表组件引用。本节记录新遇到的映射与差异（§15.10 的通用规则仍适用）。
 
@@ -112,7 +112,7 @@ PrimeVue Aura small 尺寸单元格内边距为 `0.375rem 0.5rem`（6px 8px）�
 - ⏳ `import-repos-dialog` 的 `CaomeiPaginator` 固定渲染页码按钮组（原 PrimeVue template 无该控件）→ 属可见 UI 新增，B4 确认是否接受。
 - ⏳ 内建分页器的页码报表文案丢失（第 3 条）→ B4 确认是否需要在表外自渲染补回。
 
-### 15.12 表单 / 浮层 / 导航组件迁移实证（M31.4，2026-09-29）
+## 15.12 表单 / 浮层 / 导航组件迁移实证（M31.4，2026-09-29）
 
 > M31.4（B2）把 `apps/platform/app` 下**全部剩余 PrimeVue 组件**（非表格类）迁到 caomei-ui 0.3.0，并完成 Toast / Confirm / i18n 内建文案接线。迁移后 `apps/platform/app` 的**生产页面集合**已无 PrimeVue 组件标签与 `pi pi-*` 图标 / `fluid`（M31.5 待删的 `__migration-validation` V1 验证页仍有 5 处 `<Card>`；另有 4 类残留见第 5 条）。
 
@@ -181,7 +181,7 @@ e2e 侧共改写 14 个 spec（`.p-dialog*` / `.p-select*` / `.p-drawer` / `.p-c
 
 > **验证覆盖缺口（已知，非缺陷）**：`batch-import-filters` / `admin` 的全选 Checkbox 断言在 CI 环境（无真实 GitHub 凭据）走空态分支，`if (有候选)` 分支的「unchecked → click → checked」翻转未被 CI 实际执行（相对迁移前的**空断言**仍为增强，且空态分支有实质断言）；`/repos/[id]/runs` 兼容路径页无 e2e/截图覆盖；`TagsInput`（`repos.vue` 标签录入）与 `AutoComplete` 的 `strict`（自由文本不入模型）无自动化断言，仅人工/单测兜底。
 
-### 15.13 B3 收尾实证（M31.5，2026-09-29）
+## 15.13 B3 收尾实证（M31.5，2026-09-29）
 
 > M31.5（B3）卸载 5 个 PrimeVue 依赖、清零代码侧引用、产出包体对比并完成文档同步。**迁移主线（M31.1-M31.5）至此闭环**；M31.6（C90 db-restore 补测）当时独立待启动 —— **该条后续已于 2026-09-29 闭环，M31 全部 6 原子条目已归档**（见 [M31](../../plan/archive/todo-archive-phases-m31.md#m31-apps-platform-ui-组件库迁移-primevue-→-caomei-ui-m31-1-m31-6-全部已闭环-2026-09-29-归档)）。
 

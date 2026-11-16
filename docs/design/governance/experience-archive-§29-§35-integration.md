@@ -2,16 +2,6 @@
 
 > 本分片从 [experience-archive.md](./experience-archive.md) 分流而出（章节编号全局唯一、跨文件稳定，外链按 `§编号` 命中）。**正文只写结论与落点**；过程叙事不写入本体系。
 
-## 三十二、"已发布"判定不能依赖 npm CLI：Windows 下 execSync 超时必失效（2026-08-10）
-- **案例**：发布管线自研化时实测 `isPublishedOnRegistry`（`execSync('npm view <pkg>@<version> version --json', { timeout: 10_000 })`）在 Windows 本地**每次都在 10s 整超时**（ETIMEDOUT，err.stderr 为空、status null），导致判定恒返回 null（保守跳过）——tag:released / release:publish 的"已发布判定"在本地完全失效。而同进程 Node fetch 直连 registry.npmjs.org 实测 1-2s 完成（E404 正确识别）。
-- **根因**：npm CLI 在 Windows 是 `.cmd` 包裹（cmd.exe 派生 node 进程），单次启动 + registry 查询实测 >13s（与网络波动叠加），10s 超时必然触发；execSync 的 timeout 对 cmd 包裹进程的终止语义不可靠。**npm 慢不是网络慢**——registry 直连毫秒级响应，瓶颈在 CLI 启动开销。
-- **修复**：`isPublishedOnRegistry` 改用 Node 原生 `fetch` 直连 `https://registry.npmjs.org/<pkg>`（abbreviated metadata header），语义保持：404→false / 非 2xx→null / `versions[version]` 命中→true；`AbortSignal.timeout(20_000)` 控超时；首次连接建立可能慢（UND_ERR_CONNECT_TIMEOUT 偶发）→ 网络异常重试一次（连接池复用后稳定），404/非 2xx 不重试；仍失败才保守返回 null。main 异步化并行查询（每包一次 fetch）。
-- **启示**：
-  - **registry 状态查询优先直连 API，不绕 npm CLI**：fetch 直连 registry.npmjs.org 无 CLI 启动开销、超时可控（AbortSignal）、无跨平台 shell 差异——发布/版本判定的标准实现。
-  - **超时类缺陷要用"恰好在超时点失败"的模式识别**：10s 超时、每次都 10.0-10.2s 失败 = 稳定超时而非网络抖动；再对比同进程内其他网络操作耗时，即可定位"CLI 开销"还是"网络慢"。
-  - **保守方向语义要保留**：查询失败返回 null（调用方跳过）比误判安全——漏发可重试，误发不可逆；重试逻辑只覆盖网络瞬态，不覆盖确定状态（404）。
-- **落点**：guide/release.md（「已发布」判定不得依赖 npm CLI 输出）
-
 ## 二十九、e2e 测试基建：Playwright 落地模式与幂等设计（2026-08-10）
 > 平台阶段启用 e2e（参考 momei 项目模式），22 用例覆盖全部页面关键功能点。
 
@@ -50,6 +40,16 @@
   - **ESLint 9 flat config 不读 .gitignore**：Playwright 生成物（playwright-report/ / test-results/ / blob-report/）被全量 lint 报海量错误（生成 JS 被当源码）——必须显式 ignores。e2e 运行后立即检查 lint 回归。
   - **Nuxt runtimeConfig 运行时覆盖只认 NUXT_ 前缀**（再印证 §三十 better-auth 案例）：构建期烘焙默认值，启动时无前缀 env（REDIS_URL 等）不生效——部署/验证环境一律 NUXT_ 前缀。
 - **落点**：platform.md §10.4-§10.6 + testing.md §6.2（进程内集成测试）
+
+## 三十二、"已发布"判定不能依赖 npm CLI：Windows 下 execSync 超时必失效（2026-08-10）
+- **案例**：发布管线自研化时实测 `isPublishedOnRegistry`（`execSync('npm view <pkg>@<version> version --json', { timeout: 10_000 })`）在 Windows 本地**每次都在 10s 整超时**（ETIMEDOUT，err.stderr 为空、status null），导致判定恒返回 null（保守跳过）——tag:released / release:publish 的"已发布判定"在本地完全失效。而同进程 Node fetch 直连 registry.npmjs.org 实测 1-2s 完成（E404 正确识别）。
+- **根因**：npm CLI 在 Windows 是 `.cmd` 包裹（cmd.exe 派生 node 进程），单次启动 + registry 查询实测 >13s（与网络波动叠加），10s 超时必然触发；execSync 的 timeout 对 cmd 包裹进程的终止语义不可靠。**npm 慢不是网络慢**——registry 直连毫秒级响应，瓶颈在 CLI 启动开销。
+- **修复**：`isPublishedOnRegistry` 改用 Node 原生 `fetch` 直连 `https://registry.npmjs.org/<pkg>`（abbreviated metadata header），语义保持：404→false / 非 2xx→null / `versions[version]` 命中→true；`AbortSignal.timeout(20_000)` 控超时；首次连接建立可能慢（UND_ERR_CONNECT_TIMEOUT 偶发）→ 网络异常重试一次（连接池复用后稳定），404/非 2xx 不重试；仍失败才保守返回 null。main 异步化并行查询（每包一次 fetch）。
+- **启示**：
+  - **registry 状态查询优先直连 API，不绕 npm CLI**：fetch 直连 registry.npmjs.org 无 CLI 启动开销、超时可控（AbortSignal）、无跨平台 shell 差异——发布/版本判定的标准实现。
+  - **超时类缺陷要用"恰好在超时点失败"的模式识别**：10s 超时、每次都 10.0-10.2s 失败 = 稳定超时而非网络抖动；再对比同进程内其他网络操作耗时，即可定位"CLI 开销"还是"网络慢"。
+  - **保守方向语义要保留**：查询失败返回 null（调用方跳过）比误判安全——漏发可重试，误发不可逆；重试逻辑只覆盖网络瞬态，不覆盖确定状态（404）。
+- **落点**：guide/release.md（「已发布」判定不得依赖 npm CLI 输出）
 
 ## 三十三、markdown 裸 HTML 标签破坏 VitePress 构建：lint 绿 ≠ docs build 绿（2026-08-10）
 > 本条目与 §二十二 / §二十八 的第三次实证：**"检查全绿"只对"已跑过的检查"成立，未覆盖的环节（docs build）照样挂。**

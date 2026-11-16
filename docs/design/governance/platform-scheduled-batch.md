@@ -68,6 +68,9 @@ T704 在 T702 队列基础设施之上交付三项能力：
 
 @Entity('schedule')
 export class Schedule extends BaseEntity {
+    /** 计划业务类型：scan（默认）| pr-check（走 ActionStatusMonitor 链路） */
+    @Column({ type: 'varchar', length: 32, default: 'scan' }) kind!: 'scan' | 'pr-check'
+
     /** 计划名称（用户可读） */
     @Column({ type: 'varchar', length: 100 })
     name!: string
@@ -115,7 +118,6 @@ export class Schedule extends BaseEntity {
     @Column({ type: 'varchar', length: 36, nullable: true })
     lastBatchRunId!: string | null
 }
-
 export type ScheduleSelectorKind = 'all' | 'organization' | 'tag' | 'explicit'
 ```
 
@@ -348,6 +350,7 @@ export const resolveRepositoryIds = async (input: SelectorInput): Promise<string
 | PATCH | `/api/schedules/[id]` | admin/org_admin | 更新（cron/enabled 变更时同步更新调度） |
 | DELETE | `/api/schedules/[id]` | admin/org_admin | 删除（removeJobScheduler / stop node-cron） |
 | POST | `/api/schedules/[id]/trigger` | admin/org_admin | 手动触发一次（测试用，不等待 cron 到点） |
+| GET | `/api/schedules/monitor-status` | admin/org_admin | PR Check 状态监测总开关（进程级 env，不可热更；只读） |
 
 ### 6.2 批量运行
 
@@ -369,6 +372,7 @@ export const resolveRepositoryIds = async (input: SelectorInput): Promise<string
 // apps/platform/server/schemas/schedule.ts
 export const scheduleSchema = z.object({
     name: z.string().min(1).max(100),
+    kind: z.enum(['scan', 'pr-check']).default('scan'),
     cron: z.string().refine((v) => cronParserIsValid(v), '无效的 cron 表达式'),
     timezone: z.string().optional(),  // IANA 名称，空则服务器本地
     selectorKind: z.enum(['all', 'organization', 'tag', 'explicit']),
@@ -377,7 +381,6 @@ export const scheduleSchema = z.object({
     severityThreshold: z.enum(['critical', 'high', 'medium', 'all']).default('high'),
     enabled: z.boolean().default(true),
 })
-
 // apps/platform/server/schemas/batch-scan.ts
 export const batchScanSchema = z.object({
     repositoryIds: z.array(z.string().min(1)).min(1).max(100),

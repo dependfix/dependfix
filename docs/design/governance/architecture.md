@@ -228,8 +228,10 @@ flowchart TD
 | 数据库 | SQLite（开发）/ MySQL / PostgreSQL | momei |
 | 任务队列 | BullMQ + Redis | — |
 | 日志 | winston（结构化 JSON 日志） | momei |
-| 监控 | Sentry（@sentry/nuxt） | momei |
-| PWA | @vite-pwa/nuxt | momei |
+| 监控 | Sentry（@sentry/nuxt）——未采用（momei 复用参考，不在此表承诺） | momei |
+| PWA | @vite-pwa/nuxt——未采用（momei 复用参考，不在此表承诺） | momei |
+
+> 标「未采用」的行只保留 momei 参考出处，当前代码与依赖中不存在；其余 momei 行的采用状态以 [技术栈指南](../../guide/tech-stack.md) 为准。
 
 ### 库（packages/*）
 

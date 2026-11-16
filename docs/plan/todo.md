@@ -167,6 +167,7 @@
 - **依赖**：M61.4 完成后开始（矩阵属 skill references，先有 AI 机检再改引用面，避免改完又被机检判红）。
 - **交付物**：4-5 commits / 6-8 files / 150-250 行。
 - **风险与缓解**：重叠条款改交叉引用后覆盖变薄 → 逐条核对被删表述存在唯一权威声明处；段序调整触碰锚点 → `rg "三十二"` 找全引用方并同步，跑 `docs:check:anchors`。
+- **执行记录（2026-11-16，2 commits）**：`eb785b11` 检查点矩阵补 planning §4.4 第 16 至 20 条与 testing §6.12（第 16 条含「分片行数计入新增行数」），新增「门禁扩面先跑一次性探针」「E2E 临时仓库不要软链 `node_modules`」两条检查点并留来源指针；documentation §6 的量化断言与引用范围改为指向唯一权威条款（保留文档侧增量），planning §4.4 第 18 条补「按第 3 条」。本条提交补设计稿：architecture 的 Sentry / PWA 标注未采用并限定表下口径；platform-scheduled-batch §3.1 补 `kind`（实体 / Zod / 端点表同源）、§6.1 补 `monitor-status`；experience-archive §5 维护约定改为「范围以实测内容范围为准，文件名沿用上界」，并把 §29-§35 的「三十二」块移到「三十一」之后恢复编号升序（纯位置移动：排序后所有行 md5 一致）。AC 证据：矩阵新增行 `rg` 命中；`check:standards-redundant:strict` 0 命中；分片段序二十九至三十五升序；`rg "未采用"` 命中 Sentry / PWA 两行；`monitor-status.get.ts` 权限与 `schedule.ts:38` 字段逐项一致；`check-doc-size` warning 仍为 3 篇存量、无新增；`gates:docs` 21 项；`check:docs` 八类通过。审计：A `standard` Pass（W1「上条」指代、W2 第 16 条缺计数口径 → 已修；S1/S2 采纳）；B `standard` Pass（W1 §6.4 片段缺 `kind` → 已修）→ R2 `quick` Pass（8/8 closed；S1 措辞、S4 量化口径半句同批采纳）。残余：矩阵既有 3 行含未转义 `|`（本条「不改矩阵其余行」，未动）；§5.1 触发流程图未体现 `kind` 分流；`monitor-status` 行序在动态路由之后（纯可读性）。
 
 ### 追加临时待办（不占阶段条目编号）
 

@@ -6,7 +6,7 @@
  * 三维筛选 + 开始时间区间 + 阶段分布计数 + 清除 / 导出入口，并把交互事件上抛。
  */
 import { Download, X } from '@lucide/vue'
-import type { SplitButtonMenuItem } from 'caomei-ui'
+import type { DatePickerModelValue, SplitButtonMenuItem } from 'caomei-ui'
 
 defineProps<{
     status: string
@@ -39,6 +39,13 @@ const { t } = useI18n()
 
 /** caomei Select 载荷窄化（筛选项恒为字符串） */
 const asOptionValue = (value: string | number | null | undefined) => (value === null || value === undefined) ? 'all' : String(value)
+
+/**
+ * caomei DatePicker 模型窄化：caomei-ui 1.2.0 起 `update:modelValue` 载荷为
+ * `Date | [Date, Date] | null` 的联合，本筛选条只用 `single` 模式（不传 `selectionMode`），
+ * 运行期恒为 `Date | null`；区间载荷不属于本组件契约，直接丢弃。
+ */
+const asSingleDate = (value: DatePickerModelValue): Date | null => Array.isArray(value) ? null : value
 </script>
 
 <template>
@@ -98,7 +105,7 @@ const asOptionValue = (value: string | number | null | undefined) => (value === 
                     hour-format="24"
                     :placeholder="t('scans.runList.filterFromPlaceholder')"
                     class="scans__run-date"
-                    @update:model-value="emit('update:fromDate', $event)"
+                    @update:model-value="emit('update:fromDate', asSingleDate($event))"
                 />
             </filter-field>
             <filter-field
@@ -113,7 +120,7 @@ const asOptionValue = (value: string | number | null | undefined) => (value === 
                     hour-format="24"
                     :placeholder="t('scans.runList.filterToPlaceholder')"
                     class="scans__run-date"
-                    @update:model-value="emit('update:toDate', $event)"
+                    @update:model-value="emit('update:toDate', asSingleDate($event))"
                 />
             </filter-field>
             <div v-if="hasActiveFilters" class="scans__run-filter-action">

@@ -220,7 +220,7 @@ jobs:
 
 > **入口已恢复（M57.1，2026-11-09；M59.1 2026-11-13 起放行 fix）**：独立容器内运行自包含 CLI（`node /app/sandbox/bin.mjs`），结果经容器内 `/tmp/result.json` + stdout 哨兵回传，与 `ContainerExecutor` 同构。`report-only` 只读扫描；`fix` / `fix-and-pr` 在出站策略就位时于容器内 clone → 安装 → 修复 → 验证（不挂载宿主目录），daemon 启动不可用才降级 `container`（`sandbox_unavailable`）。
 >
-> **适用范围**：owner/org 多仓库扫描与修复；对不可信仓库仍建议只读盘点。sandbox 把执行隔离在独立 rootless 容器内（与平台容器解耦），详见 [executor-sandbox.md §7](../design/governance/executor-sandbox-implementation.md#_7-sandbox-执行器设计)。
+> **适用范围**：owner/org 多仓库扫描与修复；对不可信仓库仍建议只读盘点。sandbox 把执行隔离在独立 rootless 容器内（与平台容器解耦），详见 [executor-sandbox.md §7](../design/governance/executor-sandbox-implementation.md#_7-sandbox-执行器设计)（K8s+Helm 预留见 [部署与运行观测分片](../design/governance/executor-sandbox-deployment-observability.md#_7-5-k8s-helm-部署预留-非-m10-范围)）。
 >
 > **不启用**：单可信仓库 + 本地开发场景下默认 `ContainerExecutor` 即可，无 rootless daemon 启动成本。
 
@@ -307,7 +307,7 @@ A/B 场景差异化见 [executor-sandbox.md §7.8.1](../design/governance/execut
 - **DinD `--privileged` 启动 sandbox**：[CVE-2019-5736](https://unit42.paloaltonetworks.com/cve-2019-5736/) runc 覆写 `/proc/self/exe` 逃逸 + [CVE-2024-21626](https://github.com/advisories/GHSA-xr7r-f8xq-vfvv) runc `WORKDIR` 文件描述符泄漏——这两条 CVE 与 `--privileged` 强绑定，rootless mode 默认关闭
 - **平台容器启动 rootless daemon 自身作为 sandbox**：破坏"独立 PID/Mount namespace"目的，平台漏洞直接蔓延到 sandbox
 
-完整设计、RuntimeAdapter 抽象、K8s+Helm 部署预留见 [executor-sandbox.md §7](../design/governance/executor-sandbox-implementation.md#_7-sandbox-执行器设计)；威胁模型与治理登记见 [sandbox-security-governance.md §5 G5](../design/governance/sandbox-security-governance.md#_5-治理决议与登记)。
+完整设计与 RuntimeAdapter 抽象见 [executor-sandbox.md §7](../design/governance/executor-sandbox-implementation.md#_7-sandbox-执行器设计)；K8s+Helm 部署预留见 [部署与运行观测分片](../design/governance/executor-sandbox-deployment-observability.md#_7-5-k8s-helm-部署预留-非-m10-范围)；威胁模型与治理登记见 [sandbox-security-governance.md §5 G5](../design/governance/sandbox-security-governance.md#_5-治理决议与登记)。
 
 ### Action 输出
 

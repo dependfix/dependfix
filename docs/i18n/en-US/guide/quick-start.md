@@ -316,7 +316,7 @@ A/B scenario differences are described in [executor-sandbox.md §7.8.1](https://
 - **Starting the sandbox with DinD `--privileged`**: [CVE-2019-5736](https://unit42.paloaltonetworks.com/cve-2019-5736/) overwrites `/proc/self/exe` in runc to escape + [CVE-2024-21626](https://github.com/advisories/GHSA-xr7r-f8xq-vfvv) leaks a file descriptor through runc `WORKDIR` — both CVEs are tightly coupled to `--privileged`, which rootless mode disables by default
 - **Running a rootless daemon inside the platform container as its own sandbox**: defeats the "separate PID/Mount namespace" goal, so a platform vulnerability spreads straight into the sandbox
 
-The full design, the RuntimeAdapter abstraction and the reserved K8s+Helm deployment are in [executor-sandbox.md §7](https://github.com/dependfix/dependfix/blob/master/docs/design/governance/executor-sandbox-implementation.md); the threat model and governance registration are in [sandbox-security-governance.md §5 G5](https://github.com/dependfix/dependfix/blob/master/docs/design/governance/sandbox-security-governance.md).
+The full design and the RuntimeAdapter abstraction are in [executor-sandbox.md §7](https://github.com/dependfix/dependfix/blob/master/docs/design/governance/executor-sandbox-implementation.md); the reserved K8s+Helm deployment is in [deployment & observability](https://github.com/dependfix/dependfix/blob/master/docs/design/governance/executor-sandbox-deployment-observability.md); the threat model and governance registration are in [sandbox-security-governance.md §5 G5](https://github.com/dependfix/dependfix/blob/master/docs/design/governance/sandbox-security-governance.md).
 
 ## CLI flags
 

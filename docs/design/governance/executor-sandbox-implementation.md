@@ -81,9 +81,9 @@ export interface SandboxHandle {
 - platform 镜像默认拉取已发布 tag（`docker compose pull && docker compose up -d`），本地构建经 `docker-compose.build.yml` 覆盖文件显式开启；运行身份默认 `dependfix`（uid 100 / gid 101），`PUID`/`PGID` 可对齐宿主用户以控制数据卷 / `$HOME` 所有权，且对 0 值 fail-closed（保持非 root 基线）
 - **不需要**在宿主与平台容器间共享 `runs` 目录：沙箱容器不挂载宿主目录，结果经 stdout 哨兵回传（见 §7.2 / §7.8）；沙箱镜像须在目标 rootless daemon 内可拉取 / 已存在（独立精简镜像，解析顺序见 §7.2）
 - socket 属主是宿主启动 daemon 的用户（常见 uid 1000）；平台容器默认 uid 100 / gid 101 需通过 `PUID`/`PGID` 或 `group_add` 对齐，否则 `DockerAdapter` 探测失败 → 启动降级 `container`
-- 平台镜像**默认不内置 docker CLI**；容器形态 opt-in、覆盖文件与安全边界见 §7.10（不在此重复），部署形态矩阵与错误码表见 [quick-start.md §sandbox 执行](../../guide/quick-start.md)
+- 平台镜像**默认不内置 docker CLI**；容器形态 opt-in、覆盖文件与安全边界见 §7.10（部署与运行观测分片，不在此重复），部署形态矩阵与错误码表见 [quick-start.md §sandbox 执行](../../guide/quick-start.md)
 
-**容器 opt-in**：覆盖文件与启动命令见 §7.10 与 [部署指南](../../guide/deployment.md)；启用前后用 §7.10 的自检端点核对可用性。
+**容器 opt-in**：覆盖文件与启动命令见 §7.10 与 [部署指南](../../guide/deployment.md)；启用前后用 §7.10（部署与运行观测分片）的自检端点核对可用性。
 
 > 不要改为挂载宿主 `/var/run/docker.sock`（等价宿主 root），也不要在平台容器内启动 rootless daemon 自身作为 sandbox。真实生产请按 [Docker rootless 官方文档](https://docs.docker.com/engine/security/rootless/) 在宿主启动 daemon。
 
@@ -92,7 +92,7 @@ export interface SandboxHandle {
 - DinD `--privileged`：恶意脚本等效宿主 root（[CVE-2019-5736 runc 逃逸](https://www.wiz.io/academy/container-escape)）
 - 平台容器启动 rootless daemon 自身作为 sandbox（破坏"独立 PID/Mount namespace"目的）
 
-**K8s + Helm Chart**：仅在本节末子目登记为 backlog（不属 M10 范围）——见 §7.5。
+**K8s + Helm Chart**：仅在本节末子目登记为 backlog（不属 M10 范围）——见 §7.5（部署与运行观测分片）。
 
 ### 7.4 与 ContainerExecutor 并存
 

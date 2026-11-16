@@ -42,7 +42,7 @@
 | [设计镜像清单（en-US）](../mirror-manifest.md) | 文档治理（en 镜像结构映射 / 未镜像分片登记） | ✅ 已落地（由 `docs:check:mirror` 机检，随 `gates:docs` 执行） |
 | [1.0 发布门槛与就绪度台账](./release-1.0-readiness.md) | 发布治理（G1-G8 门槛 / P0-P1 分档 / 真实环境矩阵 / 批次计划） | 🔶 进行中（2026-10-25 立项；目标 1.0.0） |
 | [发布前安全告警门禁设计](./release-security-gate.md) | 发布治理（Dependabot + Code Scanning 发布级阻断 / 豁免台账 / fail-closed 决策） | ✅ 已落地（2026-10-29，`release.yml` 接线 + 单测） |
-| [对外 PR 交付闭环设计](./pr-delivery-closure.md) | 专项设计（M48：家族锁步 / CI 独有脚本 / 失败指纹 / 提交面 / PR 回环 / 归因） | ✅ 已落地（2026-10-25，M48.1-M48.6 六原子闭环；2026-10-30 M51.4 增量：基线红交付降级 §16） |
+| [对外 PR 交付闭环设计](./pr-delivery-closure.md) | 专项设计（M48：家族锁步 / CI 独有脚本 / 失败指纹 / 提交面 / PR 回环 / 归因） | ✅ 已落地（2026-10-25，M48.1-M48.6 六原子闭环；2026-10-30 M51.4 增量：基线红交付降级见 [§16](./pr-delivery-closure-history.md#_16-m51-4-基线红-安装失败的交付降级-2026-10-30)） |
 | [告警级修复结果回写设计](./alert-outcome-writeback.md) | 专项设计（1.0-F1：`ScanResult.fixStatus` 回写契约 / 产出优先级 / 通知口径） | ✅ 已实施（2026-10-30，M51.1；Review Gate R1 两分区 Reject → R2 A Reject / B Pass → R3 A Pass） |
 | [平台 PR 回环反馈设计](./pr-feedback-loop.md) | 专项设计（1.0-F1：观察态 / 幂等评论 / 关闭与重试边界 / 与监测器分工） | ✅ 已实施（2026-10-30，M51.3 a/b；retry 按用户裁定延后，契约保留在 §8） |
 | [仓库级执行预算与超时配置设计](./repo-execution-limits.md) | 专项设计（四个超时仓库级覆盖 + 平台封顶 + Worker 锁 / 孤儿阈值同源 + 前端设置面） | ✅ 已落地（2026-11-08，M55.4；批 0 文档外移 + 4a 四片 + 4b；2026-11-09 增量见下条） |

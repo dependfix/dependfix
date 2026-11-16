@@ -54,7 +54,7 @@
 
 ### 候选评估中（待评估 / 本阶段延后项）
 
-> **候选池概览（2026-11-16 复算）**：本区 **33 项**（`### 候选评估中` 段内 `^- \*\*` 逐行计数）；每次上收 / 新增 / 移出后按段内实测更新本句与首行，不保留历史链路。P 标签覆盖不全（未标注者评估时补，不默认升级）；1.0 分档见 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)。
+> **候选池概览（2026-11-16 复算）**：本区 **41 项**（`### 候选评估中` 段内 `^- \*\*` 逐行计数）；每次上收 / 新增 / 移出后按段内实测更新本句与首行，不保留历史链路。P 标签覆盖不全（未标注者评估时补，不默认升级）；1.0 分档见 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)。
 > **1.0 门槛与分档**：分档、门槛判定与批次计划单点声明于 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)（2026-10-30 冻结口径，不随候选上收收缩；本文件不重复维护数字）。
 
 - **备份 `.tmp` 清扫缺年龄门槛（P3 🛠️，2026-10-31 M53.2 收口登记）** —— `cleanupOldBackups` 对 `*.bak.tmp` 无条件回收；单实例串行路径不可达冲突，但并发 `db:restore` 或多实例共卷启动时可能删掉对端正在写的临时文件（rename ENOENT → 该轮快照丢失，fail-open 后仅剩日志）。待评估：加入 `mtime < now - 10min` 年龄门槛或按 PID 命名临时文件。触发：启用多实例 / 多容器共享数据卷，或出现并发恢复需求时。
@@ -137,7 +137,7 @@
 
 **2026-11-16 运行日志复盘派生**（来源：`runs-logs-20261116-043236.txt` 第 1 页 50 条运行，1 次 `push_failed` + 1 次 `execution_timeout` + 1 次 `sandbox_unavailable`；不占阶段编号）：
 
-- **关联触发**：2026-11-12 两条 P1（红仓库 baseline 短路 / 子进程 OOM 与运行终止分离）在本页再次命中——`momei` 11-13 吃满 30 分钟 `execution_timeout`（baseline 24m25s）；`rss-impact-server` 11-13/14/15 连续 3 次 `OOM 终止：是` + `completed`（峰值 3022 / 2979 / 2930 MB）。建议下一阶段一并上收，不重复登记。
+**关联触发**：2026-11-12 两条 P1（红仓库 baseline 短路 / 子进程 OOM 与运行终止分离）在本页再次命中——`momei` 11-13 吃满 30 分钟 `execution_timeout`（baseline 24m25s）；`rss-impact-server` 11-13/14/15 连续 3 次 `OOM 终止：是` + `completed`（峰值 3022 / 2979 / 2930 MB）。建议下一阶段一并上收，不重复登记。
 
 - **跨 major / 混合实例判定前移到基线之前（P1 🛠️，2026-11-16 登记）** —— 现象：`crossMajorOnly` 只覆盖「lockfile 无目标 major」；混合实例与「`allowMajorUpgrade` 开但告警全是传递依赖」仍先付完整 baseline 再以 `cross-major` 跳过、0 写入。实证零写入基线合计 ≈86 分钟（本页总机时 ≈172 分钟，测量方 = 执行角色，按各 run 首末日志求和）。待评估：① 把 manual-cross-major 判定（纯读）前移到 `hasWork` 前并复用同一谓词；② `allowMajorUpgrade` 按实际 auto-eligible 子集计入；③ 混合实例按 advisory 受影响区间过滤旧实例。验收（草案）：① 三类仓库单轮 baseline 跳过且 group 路径仍记 `cross-major`；② 非跨 major 零回归；③ 跳过原因可区分三类。不做：不改验证链；不把人工跨 major 自动升级。触发：再次出现全需人工跨 major 仍付完整基线。
 
@@ -157,7 +157,7 @@
 
 **2026-11-13 阶段容量再平衡移出**（来源：M59 同日三批插队命中 §3.1.1 阈值 1，用户确认移出；不占阶段编号）：
 
-- **沙箱镜像双架构自包含冒烟与安全姿态（P2 🚀📚）** —— 目标：镜像内 sandbox 自包含入口在 amd64 / arm64 可运行并发版后自动取证；安全姿态单一口径成文。范围：`smoke-test.sh` 增 sandbox 入口断言（`node /app/sandbox/bin.mjs --version` + `skills doctor`），构建期冒烟与 `post-release-smoke` 共用并写 Job Summary；三篇 sandbox 设计稿翻转 fix 放行后状态；`deployment.md` 补运行面提示。验收：① 双架构冒烟通过（无窗口记未证实），注入回归证明灵敏；② Job Summary 含断言结果且失败仅告警；③ 设计稿无 stale；④ `gates:docs` 通过。不做：不改镜像架构 / QEMU；不重建历史镜像。依赖：M59.1/M59.2、M58.4 冒烟与巡检。触发：M59.1/M59.2 闭环后或需 arm64 取证时。
+- **沙箱镜像双架构自包含冒烟与安全姿态（P2 🚀📚）** —— 目标：镜像内 sandbox 自包含入口在 amd64 / arm64 可运行并发版后自动取证；安全姿态单一口径成文。范围：`smoke-test.sh` 增 sandbox 入口断言（`node /app/sandbox/bin.mjs --version` + `skills doctor`），构建期冒烟与 `post-release-smoke` 共用并写 Job Summary；三篇 sandbox 设计稿翻转 fix 放行后状态；`deployment.md` 补运行面提示。验收：① 双架构冒烟通过（无窗口记未证实），注入回归证明灵敏；② Job Summary 含断言结果且失败仅告警；③ 设计稿无 stale；④ `gates:docs` 通过。不做：不改镜像架构 / QEMU；不重建历史镜像；不引入 rootless 之外的新隔离机制。依赖：M59.1/M59.2、M58.4 冒烟与巡检。触发：M59.1/M59.2 闭环后或需 arm64 取证时。
 
 - **沙箱 fix 的 undici 直连外联纳入连接级拦截（评估 `NODE_USE_ENV_PROXY`）**（P2 🛡️）—— 背景：2026-11-13 M59.1 落地运行级审计代理后，尊重代理 env 的工具（pnpm / git / npm CLI）已被 deny-by-default 拦截；Node 内置 fetch / undici 默认不读代理 env，此类直连只能靠命令输出 URL 提取留痕（仅 audit、不构成违规，见 [security.md §5.3.1](../standards/security.md)）。
   - **待评估点**：① Node 24+ `NODE_USE_ENV_PROXY=1` 对 `fetch` / undici 的实际覆盖范围与副作用（需最小对照实验）；② 对未支持该开关的 Node 版本的回退策略（注入全局 dispatcher 需改被测仓库代码，不可行）；③ 是否只对沙箱 fix 路径启用，避免影响 CLI 本地运行。
@@ -412,7 +412,7 @@
 
 ### 归档链接与 MCP 归档取数的两类盲区（2026-11-16 登记，持续观察）
 
-- **归档链接**：`check:docs` 的 links 面已覆盖 `docs/plan/archive/**` 并修净 file-dead / 锚点形态，但仍有两类盲区：① 目标在 `docs/` 之外的相对链接在 GitHub 可跳转、VitePress 产物 404（`links` 只核磁盘路径）；② 链接文字点名已迁出章节（如 `§M7.2` / `C66-C`）而目标仅为文件顶部，门禁只看目标存在性。处置：下次归档批次或文档站治理时统一改为 GitHub 绝对 URL 或在规范声明源码路径以仓库视图为准。
+- **归档链接**：`check:docs` 的 links 面已覆盖 `docs/plan/archive/**` 并修净 file-dead / 锚点形态，但仍有两类盲区：① 目标在 `docs/` 之外的相对链接在 GitHub 可跳转、VitePress 产物 404（`links` 只核磁盘路径）；② 链接文字点名已迁出章节（如 `§M7.2` / `C66-C`）而目标仅为文件顶部，门禁只看目标存在性。处置：下次归档批次或文档站治理时统一改为 GitHub 绝对 URL 或在规范声明源码路径以仓库视图为准；全归档面同类外链未逐一计数。
 - **MCP `get_last_report`**：实现取报告目录字典序最后一个 `.json`，标准归档布局下恒为顶层 `index.json`（趋势索引），不是最近 RunResult；REFERENCES 已按实际行为描述。需要单次 RunResult 时改为跳过 `index.json` 并递归取最新 `summary.json`，同步补月目录用例与断言行。
 
 ## 文档位置速查

@@ -84,7 +84,7 @@
 - **交付物**：4-6 commits / 10-14 files / **改动量约 1200-1500 行**（约 680 增 + 680 删 + 索引，按阶段头「行 = diff 改动量含删除」口径计入基线）。
 - **风险与缓解**：锚点断裂 → 拆分本体与重指同 commit；主文档余量仅约 6 行 → 拆分后立即实测 `wc -l`，超出则把 §16 并入分片 A（备选切点）；分片 C 250 行接近上限 → 下次追加前先评估再分片。
 - **执行记录（2026-11-16，6 commits）**：`a32fb780` 拆出 `caomei-ui-migration-mapping.md`（§12-§15.9 + 文档头元数据块），`d3be2c75` 拆出 `caomei-ui-migration-m31-proof.md`（§15.10-§15.13），本条提交拆出 `caomei-ui-migration-upgrades.md`（§15.14-§15.17）并移除 `SIZE_EXEMPTIONS` 条目。每一步「分片创建 + 主档删段 + 跨分片锚点重指 + 镜像清单登记 + 外部入链改指」同 commit，中间态 `check:docs` / `docs:check:mirror` 均为绿；最终 `wc -l` 主档 396 / A 166 / B 271 / C 251（均 ≤400），主文档新增非空行 5 条（注记 1 + 索引标题 1 + 索引条目 3）。
-  AC 证据：保真为「剥离链接目标后 797 条非空行多重集相等」（零丢失），仅链接目标按新目录重算；`node scripts/check-doc-size.mjs` 超阈值 0 / 未匹配 0 / 豁免 0（warning 3 为 M61.3 存量目标）；`pnpm run docs:check:mirror` 通过（未镜像登记 73 篇，3 个新分片各登记一次）；`rg "caomei-ui-migration.md#_15"` 0 命中（按 `rg` 族计 5 个文件共 10 处外部入链改指到新分片（不含无锚点的伞标题链接与代码注释）（视觉回归 README 4 / tech-stack 1 / archive-log 2 / M45 归档 2 / backlog 1））；`gates:docs` 21 项、`check:docs` 八类通过。审计：A `standard` Reject（四处文件级指针未复扫）→ 修复 → R2 `quick` Pass；B `standard` Pass（3W 全收口）。残余：链接文字仍含旧文件名（仅 href 改指，符合 AC④「只动路径」）；镜像清单按语义序而非 ASCII 序登记；`admin.e2e.test.ts:163` 注释指针未改（CRLF 文件，改动会触发 lint-staged 全文件换行，留待格式化批次）。
+  AC：保真 797 条非空行多重集相等（仅链接目标重算）；doc-size 超阈值 / 未匹配 / 豁免均 0；mirror 通过（3 新分片各登记一次）；5 个文件共 10 处外部入链改指；gates 21、check:docs 八类通过。审计：A `standard` Reject（四处文件级指针未复扫）→ 修复 → R2 `quick` Pass；B `standard` Pass（3W 全收口）。残余：链接文字仍含旧文件名（仅 href 改指，符合 AC④「只动路径」）；镜像清单按语义序而非 ASCII 序登记；`admin.e2e.test.ts:163` 注释指针未改（CRLF 文件，改动会触发 lint-staged 全文件换行，留待格式化批次）。
 
 ### M61.3 文档体量健康带回归（P3 📚）
 
@@ -105,7 +105,7 @@
 - **依赖**：M61.2 完成后开始（豁免清零后计数口径稳定）；触发规则见 [文档规范 §8](../standards/documentation.md#_8-文档治理周期)「每 5 个阶段或连续 2 个阶段出现预算 warning」。
 - **交付物**：3-5 commits / 6-8 files / 净删 150-300 行（对应 diff 改动量约 300-600 行，按本阶段头「行 = 改动量含删除」口径计入基线）。
 - **风险与缓解**：压缩改语义 → 只做外移 + 指针，不改条文判定；`platform.md` 逼近上限无余量 → 移出实现型细节到 design 分片，保留规范条文与阈值表。
-- **执行记录（2026-11-16，2 commits）**：`9a969fae` 外移报告生成 §4 到 records 分片、沙箱 §7.5/§7.9-§7.10 与 PR 交付 §13-§16 到两个新分片，主档各留指针；本条提交压缩 `platform.md` 至 23999 字符、合并 backlog 历史链路与盲区段、拆分 todo / ai-delivery 长行。AC：`check-doc-size` warning 0 / 豁免 0；`doc-governance` 阻断 0 / warning 0；六档文件 ≤400；`gates:docs` 21；`check:docs` 八类；`docs:check:mirror` 未镜像 75。审计见追加记录。
+- **执行记录（2026-11-16，2 commits）**：`9a969fae` 外移三处（报告生成 §4 / 沙箱 §7.5+§7.9-§7.10 / PR 交付 §13-§16），连带 backlog 概览与盲区段压缩；`be3967e5` 压缩 `platform.md` 至 23999 字符、拆分 todo / ai-delivery 长行。AC：doc-size warning 0 / 豁免 0；doc-governance 阻断 0 / warning 0；六档 ≤400；gates 21；check:docs 八类；mirror 75。保真：PR 89=89、沙箱 36=36、报告 §4 逐字一致。偏差：platform 采用就地压缩（删 text 列 / MemoryLogger 等可判定细节，hard requirement 未动）；`9a969fae` 连带 backlog/todo 未拆分；预算余量近零。审计：A/B 均 Reject（指针未复扫 / 候选计数）→ 修复 → R2 quick Pass。
 
 ### M61.4 AI 资产机检门禁（P2 🛠️🛡️）
 
@@ -181,7 +181,7 @@
 
 - **Action 引用口径收敛（2026-11-15 用户授权）** —— 目标：把 `@v1` 从「滚动 tag」口径改为「具体版本 + 依赖机器人 bump」，`v1` 冻结在 1.1.0（用户决策：标签漂移影响可复现性，版本更新交给 Dependabot）。范围：用户可见示例（README / 首页 / quick-start 中英）、设计稿示例、发布指南新增 `### Action 引用策略`、发布记录 1.1.0 段、`v1` tag 补移与 force push。验收：`rg -n 'dependfix@v1[^0-9.]' .`（显式路径 `.`，用「非数字/点」排除 `@v1.1.0` 推荐示例）命中项仅为历史记录、说明文本与本文自身引文（逐条判读）；远端 `v1` 解引用 `80883880`；`pnpm run gates:docs` 通过。风险与依赖：`v1` 冻结后旧引用不再自动收补丁（已在发布指南给迁移指引）；`v1` 回退属破坏性操作，仅在确认无消费者时执行；无代码依赖。关联：backlog「发布链自动更新 major tag」候选（默认不实施）。
 
-- **同名修复分支残留导致 `push_failed` 死循环（11-16）** —— 目标：PR 关闭但 `dependfix/auto-fix-<fingerprint>` 分支未删时，同指纹下一轮仍可交付，不再卡在 `push_failed`。
+- **同名修复分支残留导致 `push_failed` 死循环（2026-11-16 用户授权，P0）** —— 目标：PR 关闭但 `dependfix/auto-fix-<fingerprint>` 分支未删时，同指纹下一轮仍可交付，不再卡在 `push_failed`。
   范围：`apps/platform/server/services/executor/platform-delivery.ts`（`pushFixBranchWithCredential` 对 `dependfix/auto-fix-` 前缀用 `--force-with-lease`，期望值经带凭据 `ls-remote` 获取；默认分支 / 非自有分支保持非快进语义）；`packages/engine/src/github/pr-creator.ts`（`pushBranch` 同口径，覆盖沙箱自包含交付）；`platform-delivery.test.ts` + 新增 `pr-creator-push-lease.test.ts`；`docs/design/governance/pr-delivery-closure.md` 补同名分支残留与 lease 边界。
   验收标准：① 平台用例断言远端同名分支存在时 push 参数含 `--force-with-lease=refs/heads/<branch>:<sha>`，非自有分支不查询、不带 force；② 引擎真实 git 用例：depth-1 克隆 + 兄弟 commit 场景裸 push 失败而 `pushBranch` 覆盖成功，默认分支反例仍非快进失败；③ 定向测试通过（engine `src/github` 18 files / 408 passed；platform `server/services/executor` 15 files / 222 passed）；④ 改动文件 `eslint` 0 error、engine / platform `typecheck` 0 error；⑤ 文档同步且 `pnpm run gates:docs` 通过。
   不做什么：不改默认分支 / 非 dependfix 分支的推送语义；不做 PR 关闭时的远端分支自动清理（入 backlog）；不解析 `push_failed` message 细分（入 backlog）。依赖：2026-11-16 运行日志复盘 A（`rsshub-never-die` run `68784e5c04401b85`；PR #263 关闭后分支 `dependfix/auto-fix-dc580638` 残留）。交付物：2 commits / 4-5 files / 150-250 行。风险与缓解：force 覆盖误伤 → 仅 `dependfix/auto-fix-` 前缀 + lease 锁定实测 tip；深度克隆无 remote-tracking ref → 先 `ls-remote`；新增网络往返 → 仅在 dependfix 分支推送时发生。容量影响：1 批 / 2-4 files / 150-250 行，未触发 [规划规范 §3.1.1](../standards/planning.md#_3-1-1-插队后的阶段容量再平衡-hard-requirement-2026-10-19) 阈值（当前 M61 原计划 19-27 commits / 2270-3280 行）。**执行记录**：`82d39195`（fix）+ 本条所在提交（plan 登记）；Review Gate R1 `standard` Pass → R2 `quick` Pass；定向 vitest 8 + 17 passed，全量面 engine `src/github` 408 / platform executor 222（审计方实测）；`gates:docs` 20 项；本地提交未推送。

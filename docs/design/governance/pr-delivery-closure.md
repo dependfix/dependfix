@@ -1,6 +1,6 @@
 # 对外 PR 交付闭环设计（M48）
 
-> **状态**：✅ 已实施（2026-10-24 P 阶段落地；M48.1-M48.6 六原子于 2026-10-25 全部闭环，归档见 [M48](../../plan/archive/todo-archive-phases-m48.md#m48-对外-pr-交付闭环-2026-10-24-用户决策-d-e-2026-10-25-归档)）；§16（基线红交付降级）为 M51.4 增量（2026-10-30）
+> **状态**：✅ 已实施（2026-10-24 P 阶段落地；M48.1-M48.6 六原子于 2026-10-25 全部闭环，归档见 [M48](../../plan/archive/todo-archive-phases-m48.md#m48-对外-pr-交付闭环-2026-10-24-用户决策-d-e-2026-10-25-归档)）；§16（历史与边界分片：基线红交付降级）为 M51.4 增量（2026-10-30）
 > **来源**：2026-10-24 对外 PR 巡检 + [backlog](../../plan/backlog.md) 8 项同源候选
 > **定位**：回答「dependfix 发出去的 PR 是否真的能绿、失败后是否还会原样重来、合并后的红 check 该归因给谁」
 
@@ -331,7 +331,7 @@ type CheckAttribution = 'self_caused' | 'pre_existing' | 'external_noise' | 'can
 - `FixAction.commandSource?: 'default' | 'repo-config' | 'ci-mirror'`（M48.2；仅 verification 动作）。
 - core `RunResult.prCheckWatch?: { attempts: Array<{ pr: { number, htmlUrl }, state: 'passed' | 'failed' | 'cancelled' | 'no_ci_detected' | 'timeout', attribution?: CheckAttribution, closed, commented, polls, durationMs, failedChecks?, reason?, commentError?, closeError? }>, runBudgetExhausted }`（M48.5 / M48.6；`failedChecks` 为 `{ name, url?, attribution }` 最多 5 条）；engine 的 `PullRequestResult` 只作内部返回（M48.5 起附带 `headSha` 供精确轮询）。
 - 运行摘要：`prsOpened` / `prsSkippedByFingerprint` / `prsClosedAfterFailure` / `checksTimedOut`（事件点累加，`computeSummary` 不重置）。
-- `RunResult.deliverySkips?: Array<{ repositories: string[], failingCommands: string[], carrier: { mode: 'skip' | 'issue' | 'draft', issue?: { number, htmlUrl, created, fingerprint }, draftPr?: { number, htmlUrl } } }>`（§16；仅基线红时存在，字段可选以兼容旧 JSON）。
+- `RunResult.deliverySkips?: Array<{ repositories: string[], failingCommands: string[], carrier: { mode: 'skip' | 'issue' | 'draft', issue?: { number, htmlUrl, created, fingerprint }, draftPr?: { number, htmlUrl } } }>`（§16 历史与边界分片；仅基线红时存在，字段可选以兼容旧 JSON）。
 - 运行摘要（§16）：`deliverySkipped`（去重仓库数）/ `deliverySkipIssues`（本次新建 issue 数）/ `deliverySkipDraftPrs`（草稿 PR 数），均由 `computeSummary` 从 `deliverySkips` 幂等派生。
 
 ### 10.3 PR 正文标记

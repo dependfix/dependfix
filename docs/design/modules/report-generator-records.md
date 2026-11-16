@@ -1,6 +1,25 @@
-# 报告生成 设计分片：落地细节与落地清单（report-generator.md §5-§9）
+# 报告生成 设计分片：落地细节与落地清单（report-generator.md §4-§9）
 
 > 本分片自 [report-generator.md](./report-generator.md) 按连续尾部章节迁出（章节编号全局唯一、跨文件稳定）；文中 `§N` 除显式标注文件路径者外，均指本分片或主文档的同名章节。
+
+## 4. JSON 报告生成
+
+### 4.1 实现
+
+JSON 报告直接对 `RunResult` 调用 `JSON.stringify(runResult, null, 2)`。
+
+不实现自定义序列化逻辑，原因：
+- `RunResult` 已是纯数据结构（无函数、无循环引用）
+- `NormalizedSecurityAlert`、`DependencyFixResult` 等依赖类型也是纯数据
+- 所有字段已在定义阶段处理好脱敏（`RunReportConfig` 不含 token）
+
+### 4.2 验证要点
+
+- 生成的字符串必须可被 `JSON.parse` 解析
+- 必须包含 `runId`、`startedAt`、`finishedAt`、`config`、`summary`、`repositories`、`alerts`、`actions`、`errors` 所有顶级键
+- `repositories`、`alerts`、`actions`、`errors` 必须是数组（可为空数组）
+
+---
 
 ## 5. 文件写入
 

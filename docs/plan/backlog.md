@@ -54,7 +54,7 @@
 
 ### 候选评估中（待评估 / 本阶段延后项）
 
-> **候选池概览（2026-11-15 复算，第三次）**：本区 **33 项**（`### 候选评估中` 段内 `^- \*\*` 逐行计数）；M58 规划阶段上收 6 条为 5 原子（47 → 41）；M59 规划上收 4 条（沙箱 fix 出站策略 / 取消落定与清理 / force-fail 与续用起点写 / 资源采集扩展；41 → 37），另聚合 1 条 M57.1/M58.4 残余（镜像内 sandbox 双架构冒烟），不占候选计数；2026-11-12 运行日志复盘登记 2 条 P1（红仓库 baseline 短路 / 子进程 OOM 信号分离；37 → 39）；2026-11-13 追加 1 条 P2（peer-only 同 major 修复回退；39 → 40）；2026-11-13 M59 插队再平衡移出 M59.5（40 → 41；该项原为「聚合 1 条 M57.1/M58.4 残余、不占候选计数」，移出后转为正式候选并计入），「无写入」结论语义与状态一致性已按用户授权作为 M59 追加临时待办，不占候选计数。2026-11-14 另追加 3 条（沙箱 install 不可达快速失败 P2 / 执行子进程 env 硬化 P1 / 沙箱启用与故障排查文档 P2）；**概览此时已漂移**（上述链 41 + 3 = 44，段内实测 47，差额 3 条为此前未入式子的候选），故以段内实测校正为 47；同日 M60 规划上收 8 条（页面体量 / 闲置解构 / 死代码 / 筛选抽取 / 标签 helper / severity 单点化 / 容器部署启用沙箱 / 启用与排障文档）→ 段内 `^- \*\*` 实测终态 **39 项**（单一口径，概览首句与本处一致）；2026-11-15 M61 规划上收 8 条（归档链接前缀治本 / `caomei-ui-migration` 保序拆分 / 设计快照陈旧 / 经验分片范围口径 / `architecture` 复用项口径 / M44 条款挂接 / AI 基建机检 / REFERENCES 过期）→ 段内 `^- \*\*` 实测终态 **31 项**；2026-11-15 定时发布评估追加 1 条（无变更周空跑短路）→ 段内实测 **32 项**；同日 Action 标签机制调查追加 1 条（发布链自动更新 major tag，用户倾向不实施）→ 终态 **33 项**（单一口径，概览首句与本处一致；文档体量健康带回归由上收规则触发，`git-signing.ts` 更名 / 定时发布启用 / 批次级续跑入口登记在「待上收候选」段，均不占本计数）。P 标签覆盖不全（未标注者评估时补 P 标签，不默认升级）；本文件不维护分档统计，1.0 分档只见 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)。
+> **候选池概览（2026-11-16 复算）**：本区 **33 项**（`### 候选评估中` 段内 `^- \*\*` 逐行计数）；每次上收 / 新增 / 移出后按段内实测更新本句与首行，不保留历史链路。P 标签覆盖不全（未标注者评估时补，不默认升级）；1.0 分档见 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)。
 > **1.0 门槛与分档**：分档、门槛判定与批次计划单点声明于 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)（2026-10-30 冻结口径，不随候选上收收缩；本文件不重复维护数字）。
 
 - **备份 `.tmp` 清扫缺年龄门槛（P3 🛠️，2026-10-31 M53.2 收口登记）** —— `cleanupOldBackups` 对 `*.bak.tmp` 无条件回收；单实例串行路径不可达冲突，但并发 `db:restore` 或多实例共卷启动时可能删掉对端正在写的临时文件（rename ENOENT → 该轮快照丢失，fail-open 后仅剩日志）。待评估：加入 `mtime < now - 10min` 年龄门槛或按 PID 命名临时文件。触发：启用多实例 / 多容器共享数据卷，或出现并发恢复需求时。
@@ -63,7 +63,7 @@
 - **PR 回环有界重试（P2 🚀，2026-10-30 M51.3 用户裁定延后）** —— 设计稿 `pr-feedback-loop.md` §8 保留 `FeedbackRetryDispatcher` 契约（同 PR 失败后重新触发既有修复链，需配额与触发面）；平台当前无「同 PR 重试」入口，`retryFailed` 开启时每仓库每进程只 warn 一次。待评估：补触发面（API / UI）+ 配额后再实施。触发：出现「PR 红后无人处理、需自动重试」的实际需求时。
 - **门户面板左缘亚像素抖动（P2 🧪，2026-10-31 M52.4 收口登记）** —— `dialog-select-open-dark` 基线在连续 `--update-snapshots=all` 下约 1/10 轮出现 99 px / maxΔ2 的边缘窄带差异（bbox x 476-483 × y 303-723，位于门户面板左缘），低于门禁（`maxDiffPixels` 100 / `threshold` 0.1 → maxDelta 352）但仅剩 1 px 预算。已排除「update 落帧不稳定」这一主因（`waitForVisualStable` 已加两帧一致检查，全量集合 3/3 恒定）。待评估：定位面板定位的亚像素来源（门户定位取整 / 滚动条宽度），或对该基线改用元素级取景。触发：该基线偶发红，或差异放大到接近 / 超过 100 px。
 - **验证跳过的交付可观测性（残余：`deliverySkips` 家族登记；P3 🎨，2026-11-09 更新）** —— 报告 `Verification Skipped` 段 + Summary 行、平台运行详情「验证跳过」与按原因 tooltip 已落地（`budget` / `no-write` 可区分），「修了 N 条、交付 0 条」可从报告与详情直接判读。残余：是否需要在 `deliverySkips` 家族里登记该跳过原因（当前独立 `verificationSkippedByReason`）。触发：出现「跳过原因需在交付载体（issue / 草稿 PR）中体现」的反馈时。
-- **平台侧交付载体（issue / 草稿 PR，P2 🎨）** —— 引擎 `fix-and-pr` 已按基线红档位产出载体（issue / 草稿 PR），平台执行链（`fix + commit` + `platform-delivery`）目前只记录 `summary.deliverySkipped*` 并在运行列表 / 详情展示；待评估：平台在交付决策处复用同一失败指纹开 issue / 创建草稿 PR，并补仓库级配置写入面（当前仅 env `DEPENDFIX_ON_BASELINE_RED`，UI / API 不暴露）。触发：平台用户反馈「基线红只有标签、没有可跟踪载体」时。口径见 [pr-delivery-closure.md §16.7](../design/governance/pr-delivery-closure.md#_16-7-已知边界)。
+- **平台侧交付载体（issue / 草稿 PR，P2 🎨）** —— 引擎 `fix-and-pr` 已按基线红档位产出载体（issue / 草稿 PR），平台执行链（`fix + commit` + `platform-delivery`）目前只记录 `summary.deliverySkipped*` 并在运行列表 / 详情展示；待评估：平台在交付决策处复用同一失败指纹开 issue / 创建草稿 PR，并补仓库级配置写入面（当前仅 env `DEPENDFIX_ON_BASELINE_RED`，UI / API 不暴露）。触发：平台用户反馈「基线红只有标签、没有可跟踪载体」时。口径见 [pr-delivery-closure.md §16.7](../design/governance/pr-delivery-closure-history.md#_16-7-已知边界)。
 - **镜像脚本只覆盖根 scripts 单一形态**（M48.2 边界）—— `pnpm --filter` / 递归 / env 前缀 / corepack 钉定只披露不执行；触发：目标仓库 CI 大量使用这些形态导致「本地假绿」再现。
 - **白名单内运行前未提交改动的归属**（M48.4 边界）—— 白名单内文件（典型 `package.json`）若在运行前已有用户改动，会与本次修复一并提交；触发：出现「PR 混入无关改动」的用户反馈时评估。
 - **`pnpm_audit` 的 token-free 回退意图与实现不一致（P2 🛡️）**—— `pnpm-audit.tool.ts` 注释与产品意图是「无 GitHub token 或 403 场景」的本地回退，但实现保留 `requireToken()`，缺失 `GITHUB_TOKEN` 时直接返回 `ok:false`；当前 README / tool description 已按实际行为修正。待评估：移除 `requireToken()`（或改为可选 token），补无 token 用例，恢复真正回退。触发：无 token 环境需要 pnpm-audit 回退时。
@@ -120,7 +120,7 @@
 
 **2026-10-30 批量运行超时复盘派生**（来源：`runs-logs-20261030-000646.txt` 第 1 页 10 条运行，2 条 `execution_timeout` + 1 条无日志失败；不占阶段编号）：
 
-- **Nuxt / 框架类仓库默认验证链缺 `prepare` 前置（待评估，P2 🛠️）** —— 现象：momei 的 `quick-verify` 执行默认 `pnpm lint` 时 ESLint OOM（`Mark-Compact` 至约 1.95GB 后 `FATAL ERROR: Ineffective mark-compacts near heap limit`，GC 挣扎约 4 分钟才退出），与 `packages/engine/src/helpers/index.ts:86-90` 注释已记录的形态一致：默认链 `install → lint → build → typecheck → test` 中 lint 早于 build，`.nuxt/tsconfig.json` 尚未生成。平台侧该仓库未配置 `verifyCommands`，故走默认链。**待评估点**：① 引擎默认链是否在探测到 `nuxt.config.*` 时插入 `nuxt prepare`（影响全部仓库链口径）；② 或平台在新建 / 导入仓库时按框架写入 `verifyCommands` 模板（不污染默认链）；③ monorepo 根脚本形态（`pnpm -r --filter "./packages/*" lint`）下 prepare 应落在根还是各成员；④ OOM 的子进程退出应否作为独立诊断信号（当前只表现为 `exit code 1`）。**验收标准（草案）**：Nuxt 仓库在无自定义配置下 lint 不再 OOM；prepare 步骤失败有独立日志与报告条目。**不做**：不为单个仓库硬编码框架判断（探测失败须安全回退默认链）。**触发条件**：再次出现框架前置步骤缺失导致的 OOM / 假红。**2026-11-01 复现（2 例）**：`momei` 两次运行（2026-10-31T22:44 / 2026-11-01T05:15）均在 quick-verify 阶段以同一形态 OOM（`Mark-Compact 1947.0 (1961.6) MB` → `FATAL ERROR: Ineffective mark-compacts near heap limit`，GC 挣扎约 5 分钟）；容器与仓库脚本均未设 `NODE_OPTIONS` / `--max-old-space-size`（Node 默认 old-space ≈2GB），且基线阶段同命令已红（`exit code 1`）→ 属「链序 + 环境堆上限」双重因素，非本次升级引入。
+- **Nuxt / 框架类仓库默认验证链缺 `prepare` 前置（待评估，P2 🛠️）** —— 现象：`quick-verify` 默认链 `install → lint → build → typecheck → test` 中 lint 早于 build，`.nuxt/tsconfig.json` 未生成，ESLint 在约 2GB 堆上限 OOM（momei 两次复现，GC 挣扎 4-5 分钟）。待评估：① 探测 `nuxt.config.*` 时插入 `nuxt prepare`；② 或在仓库创建 / 导入时按框架写 `verifyCommands` 模板；③ monorepo 根脚本下 prepare 的落点；④ OOM 是否作为独立诊断信号。验收（草案）：Nuxt 仓库默认链 lint 不再 OOM，prepare 失败有独立日志与报告条目。不做：不为单仓硬编码框架判断（探测失败安全回退）。触发：再次出现框架前置缺失导致的 OOM / 假红。
 
 - **契约抽取器覆盖 `@Column(() => X)` 嵌入列与 env 解构（P3 🛠️，2026-10-31 M53.1 收口登记）** —— `check-contract-freeze` 的实体抽取覆盖 `@Column` 系列 / `@ManyToOne`+`@JoinColumn` / `@Entity`，遇到 `@Embedded`、`@ManyToMany` join table、env 解构与非字面量 `readEnv` 实参已 fail-closed（`extractor-coverage`），但**无 `@Embedded` 的 `@Column(() => X)` 嵌入列**未进哨兵：抽取会产出错误列名并与清单产生差异（响亮失败，不会静默漏键）。待评估：扩展抽取器（递归嵌入类型 / `getMetadataArgsStorage` 元数据）或把该形态纳入 fail-closed 哨兵。触发：仓库首次引入嵌入实体或该形态列。
 - **en-US 设计文档全量镜像（P2 📚，2026-10-30 M52 规划登记）** —— 现状：en 设计镜像仅 4 篇，zh 设计文档 67 篇（含 M44.4 拆分分片）；M52.3 只做「结构映射 + 索引补全」，不重译全文。待评估：1.0 后是否按「分片 → 镜像」逐篇补齐（成本随拆分增加、双维护风险高），或长期维持映射清单 + 关键路径翻译。触发：1.0 后文档国际化需求，或用户反馈英文站信息不足时。
@@ -139,7 +139,7 @@
 
 - **关联触发**：2026-11-12 两条 P1（红仓库 baseline 短路 / 子进程 OOM 与运行终止分离）在本页再次命中——`momei` 11-13 吃满 30 分钟 `execution_timeout`（baseline 24m25s）；`rss-impact-server` 11-13/14/15 连续 3 次 `OOM 终止：是` + `completed`（峰值 3022 / 2979 / 2930 MB）。建议下一阶段一并上收，不重复登记。
 
-- **跨 major / 混合实例判定前移到基线之前（P1 🛠️，2026-11-16 登记）** —— 现象：`crossMajorOnly` 仅覆盖「lockfile 中完全没有目标 major 实例」；混合实例（目标 major 已存在、旧 major 实例仍低于 patched 版本）与「仓库 `allowMajorUpgrade` 为开但告警全是传递依赖」两类仍被判定为有工作，先付完整 baseline（install / lint / build / typecheck / test），随后在 group 路径以 `cross-major` 跳过、0 写入。本页实证：dependfix 9m22 / 8m54 / 11m58（minimatch 3.1.5 + 10.2.6 + 11.0.3）、rss-impact-server 12m07 / 12m54（minimatch 11.0.5/11.0.7 已在）、caomei-auth 12m28（@nuxt/schema 3.20.1 + 4.6.4）；跨 major / 混合实例零写入基线合计 ≈86 分钟（本页总机时约 172 分钟，测量方 = 执行角色，按各 run 首末日志时间求和）。**待评估点**：① 把 `applyLockfileFixes` 的 manual-cross-major 判定（纯读）前移到 `hasWork` 之前，并复用同一谓词；② `allowMajorUpgrade` 只按「实际 auto-eligible 子集」（根直接依赖 + 单版本）计入，不再一票否决；③ 混合实例按 advisory 受影响区间过滤低于下界的旧实例（minimatch 3.1.5 / 3.1.4 / 5.1.9 不在 >=7.0.0 区间），避免污染跳过计数与假阻断。**验收标准（草案）**：① 上述三类仓库单轮 baseline 跳过（日志含 `no writable work`），且 group 路径仍记录 `cross-major`；② 非跨 major 仓库链条零回归；③ 跳过原因可区分「跨 major」「混合实例」「开关仅传递依赖」。**不做**：不改验证链条数与顺序；不把人工跨 major 自动升级（仍受 `allowMajorUpgrade` 准入约束）。**触发条件**：再次出现「全部告警需人工跨 major 但运行仍付完整基线」。
+- **跨 major / 混合实例判定前移到基线之前（P1 🛠️，2026-11-16 登记）** —— 现象：`crossMajorOnly` 只覆盖「lockfile 无目标 major」；混合实例与「`allowMajorUpgrade` 开但告警全是传递依赖」仍先付完整 baseline 再以 `cross-major` 跳过、0 写入。实证零写入基线合计 ≈86 分钟（本页总机时 ≈172 分钟，测量方 = 执行角色，按各 run 首末日志求和）。待评估：① 把 manual-cross-major 判定（纯读）前移到 `hasWork` 前并复用同一谓词；② `allowMajorUpgrade` 按实际 auto-eligible 子集计入；③ 混合实例按 advisory 受影响区间过滤旧实例。验收（草案）：① 三类仓库单轮 baseline 跳过且 group 路径仍记 `cross-major`；② 非跨 major 零回归；③ 跳过原因可区分三类。不做：不改验证链；不把人工跨 major 自动升级。触发：再次出现全需人工跨 major 仍付完整基线。
 
 - **安装基线失败后的升级链与告警结论（P2 🛠️，2026-11-16 登记）** —— 现象：`pnpm install --frozen-lockfile` 预失败（坏 lockfile）时直接跳过整条升级链；lockfile 修复在 `finalizeRepoFix` 之后才执行，修复成功也不会在本轮重试升级。`rsshub-never-die` 11-14/11-15 与 `tinyfish-mcp` 11-14 因此输出 `7 alert(s) not fixed — no skipped outcome recorded`，告警级原因一条未落。**待评估点**：① 修复成功且安装复检通过后，按预算允许重试一次升级链（或不重试但写 `skipped('install-baseline-failed')`）；② 受影响告警逐条落结论，替代汇总兜底；③ 与「坏 lockfile 修复 PR 未合并」的跨 run 循环关系。**验收标准（草案）**：① 坏 lockfile 仓库的告警在报告中有明确 skipped 原因；② 修复成功后重试有预算上限与审计条目；③ 非坏 lockfile 仓库零回归。**不做**：不改 lockfile 修复策略（REGENERATE / FIX_ENTRIES / REINSTALL）；不无限重试。**触发条件**：再次出现 `no skipped outcome recorded`。
 
@@ -157,7 +157,7 @@
 
 **2026-11-13 阶段容量再平衡移出**（来源：M59 同日三批插队命中 §3.1.1 阈值 1，用户确认移出；不占阶段编号）：
 
-- **沙箱镜像双架构自包含冒烟与安全姿态（P2 🚀📚，2026-11-13 因插队再平衡移出）** —— 原 M59.5。**目标**：镜像内 sandbox 自包含入口在 amd64 / arm64 都可运行，发版后自动取证；安全姿态（rootful / userns / 网络面）单一口径成文。**范围**：`apps/platform/docker/smoke-test.sh` 新增 sandbox 入口断言（容器内 `node /app/sandbox/bin.mjs --version` + `skills doctor`），由构建期冒烟与 `post-release-smoke` 共同消费并把结果写入 Job Summary（构建期 `Dockerfile:181-186` 的 sandbox 自检已存在，属依赖而非新增）；`docs/design/governance/executor-sandbox.md` / `executor-sandbox-implementation.md` / `sandbox-security-governance.md` 翻转 fix 放行后的状态、网络面偏离、rootful / userns 边界；`docs/guide/deployment.md` 按需补运行面提示。**验收标准**：① amd64 构建期冒烟与 arm64 发版后原生冒烟均通过（无发布窗口时记「未证实」），注入回归（移除 `/app/sandbox/skills` 或改坏版本串）使断言失败以证明灵敏；② `post-release-smoke` Job Summary 含 sandbox 入口断言结果，失败仅告警不改发布结论；③ 三篇设计稿同批翻转且无 stale 表述；④ `pnpm run gates:docs` 通过。**不做**：不改镜像构建架构与 QEMU 口径；不重建历史镜像；不引入 rootless 之外的新隔离机制。**依赖**：M59.1 / M59.2 闭环（沙箱 fix 放行与自包含交付）；M58.4 的 `post-release-smoke` 与 `scan-image-tags`；构建期双架构自检见 `apps/platform/Dockerfile:181-186`（`e548c332`，run `43156533556` 双架构 success）。**交付物**：2-3 commits / 6-8 files / 200-350 行。**风险与缓解**：arm runner 成本 → 仅构建期与发版冒烟各一次；文档状态翻转遗漏 → 按检查点矩阵三处同源扫描。**触发条件**：M59.1 / M59.2 闭环后，或出现发布窗口需要 arm64 取证时；或镜像 sandbox 入口出现回归怀疑。**移出原因**：依赖 M59.1/M59.2 完成、且发版后取证受发布窗口约束，是当前阶段延期成本最低的原子（用户 2026-11-13 确认）。
+- **沙箱镜像双架构自包含冒烟与安全姿态（P2 🚀📚）** —— 目标：镜像内 sandbox 自包含入口在 amd64 / arm64 可运行并发版后自动取证；安全姿态单一口径成文。范围：`smoke-test.sh` 增 sandbox 入口断言（`node /app/sandbox/bin.mjs --version` + `skills doctor`），构建期冒烟与 `post-release-smoke` 共用并写 Job Summary；三篇 sandbox 设计稿翻转 fix 放行后状态；`deployment.md` 补运行面提示。验收：① 双架构冒烟通过（无窗口记未证实），注入回归证明灵敏；② Job Summary 含断言结果且失败仅告警；③ 设计稿无 stale；④ `gates:docs` 通过。不做：不改镜像架构 / QEMU；不重建历史镜像。依赖：M59.1/M59.2、M58.4 冒烟与巡检。触发：M59.1/M59.2 闭环后或需 arm64 取证时。
 
 - **沙箱 fix 的 undici 直连外联纳入连接级拦截（评估 `NODE_USE_ENV_PROXY`）**（P2 🛡️）—— 背景：2026-11-13 M59.1 落地运行级审计代理后，尊重代理 env 的工具（pnpm / git / npm CLI）已被 deny-by-default 拦截；Node 内置 fetch / undici 默认不读代理 env，此类直连只能靠命令输出 URL 提取留痕（仅 audit、不构成违规，见 [security.md §5.3.1](../standards/security.md)）。
   - **待评估点**：① Node 24+ `NODE_USE_ENV_PROXY=1` 对 `fetch` / undici 的实际覆盖范围与副作用（需最小对照实验）；② 对未支持该开关的 Node 版本的回退策略（注入全局 dispatcher 需改被测仓库代码，不可行）；③ 是否只对沙箱 fix 路径启用，避免影响 CLI 本地运行。
@@ -410,18 +410,10 @@
 
 ---
 
-### 归档链接的两类盲区（2026-11-16 登记，持续观察）
+### 归档链接与 MCP 归档取数的两类盲区（2026-11-16 登记，持续观察）
 
-- **背景**：M61.1 把 `check:docs` 的 links 面覆盖到 `docs/plan/archive/**` 并把 101 处路径前缀 / 18 处锚点形态修净后，仍有两类「门禁判绿但读者体验不完整」的形态。
-- **站点侧外链**：归档分片存在目标在 `docs/` 之外的相对链接（`.github/**`、`apps/**`、根 `AGENTS.md` 等）。本次改指的 14 个分片中有 **12 处**属 file-dead（`.github/agents/**` 8 / `.github/skills/**` 2 / `apps/platform/server/api/**` 1 / 根 `AGENTS.md` 1），修复后 GitHub 仓库视图可跳转，但 VitePress 产物无对应页面 → 站点点击 404；`links` 面只核磁盘路径，`site-links` 不覆盖相对外链。全归档面同类外链未逐一计数。
-- **文字层失效指针**：如 `[backlog.md §M7.2](../backlog.md)`（M7.2 已迁出，链接目标保留为文件顶部）与 `[backlog.md C66-C](../backlog.md)`（C66-C 已移除）。条目约束「不改归档正文文字」，门禁只看目标文件存在性，故文字层 stale 不可见。
-- **触发条件 / 处置**：下次归档批次或文档站链接治理时一并处理，改法二选一——源码路径改 GitHub 绝对 URL，或在文档规范声明「源码路径链接以仓库视图为准」并对文字层一次性复扫。
-
-### MCP `get_last_report` 在归档布局下返回 `index.json`（2026-11-16 登记，持续观察）
-
-- **现象**：实现取 `DEPENDFIX_MCP_REPORT_DIR` 下按文件名字典序最后一个 `.json`；标准归档布局为 `{YYYY-MM}/{runId}/summary.json` + 顶层 `index.json`，`index.json` 恒排最后，故返回的是趋势索引而非最近一次 RunResult。
-- **现口径**：REFERENCES 已按实际行为描述（平铺布局等价 RunResult，归档布局为 `index.json` 趋势条目），不声称强于实现。
-- **触发条件 / 处置**：需要 MCP 直接返回单次 RunResult 时，改为跳过 `index.json` 并递归取最新 `summary.json`，同时补「月目录 + index.json」用例；届时同步 REFERENCES 一致性断言行。
+- **归档链接**：`check:docs` 的 links 面已覆盖 `docs/plan/archive/**` 并修净 file-dead / 锚点形态，但仍有两类盲区：① 目标在 `docs/` 之外的相对链接在 GitHub 可跳转、VitePress 产物 404（`links` 只核磁盘路径）；② 链接文字点名已迁出章节（如 `§M7.2` / `C66-C`）而目标仅为文件顶部，门禁只看目标存在性。处置：下次归档批次或文档站治理时统一改为 GitHub 绝对 URL 或在规范声明源码路径以仓库视图为准。
+- **MCP `get_last_report`**：实现取报告目录字典序最后一个 `.json`，标准归档布局下恒为顶层 `index.json`（趋势索引），不是最近 RunResult；REFERENCES 已按实际行为描述。需要单次 RunResult 时改为跳过 `index.json` 并递归取最新 `summary.json`，同步补月目录用例与断言行。
 
 ## 文档位置速查
 

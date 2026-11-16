@@ -102,6 +102,7 @@
 | `docs/design/governance/engineering-practice-notes.md` | 未重译（结构映射口径见文档规范 §6；全量镜像属 1.0 后评估项） |
 | `docs/design/governance/executor-process-isolation.md` | 未重译（结构映射口径见文档规范 §6；全量镜像属 1.0 后评估项） |
 | `docs/design/governance/executor-sandbox-implementation.md` | 未重译（结构映射口径见文档规范 §6；全量镜像属 1.0 后评估项） |
+| `docs/design/governance/executor-sandbox-deployment-observability.md` | 未重译（§7.5 / §7.9-§7.10 部署预留与运行观测；随主档不镜像） |
 | `docs/design/governance/executor-sandbox.md` | 未重译（结构映射口径见文档规范 §6；全量镜像属 1.0 后评估项） |
 | `docs/design/governance/experience-archive-§1-§21-spec-compliance.md` | 经验归档分片（中文判例语料，翻译无收益） |
 | `docs/design/governance/experience-archive-§22-§28-ci-environment.md` | 经验归档分片（中文判例语料，翻译无收益） |
@@ -126,6 +127,7 @@
 | `docs/design/governance/platform-scheduled-batch.md` | 未重译（结构映射口径见文档规范 §6；全量镜像属 1.0 后评估项） |
 | `docs/design/governance/pr-build-deploy-signals.md` | 未重译（结构映射口径见文档规范 §6；全量镜像属 1.0 后评估项） |
 | `docs/design/governance/pr-delivery-closure.md` | 未重译（结构映射口径见文档规范 §6；全量镜像属 1.0 后评估项） |
+| `docs/design/governance/pr-delivery-closure-history.md` | 未重译（§13-§16 决策 / 边界 / 历史实证；随主档不镜像） |
 | `docs/design/governance/pr-feedback-loop.md` | 未重译（结构映射口径见文档规范 §6；全量镜像属 1.0 后评估项） |
 | `docs/design/governance/primeui-themes-v2-downgrade.md` | 未重译（结构映射口径见文档规范 §6；全量镜像属 1.0 后评估项） |
 | `docs/design/governance/queue-stale-recovery.md` | 未重译（结构映射口径见文档规范 §6；全量镜像属 1.0 后评估项） |

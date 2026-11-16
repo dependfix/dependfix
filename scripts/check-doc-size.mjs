@@ -35,12 +35,7 @@ export const EXCLUDED_DIRS = new Set([
  * 计量面不为豁免让路：豁免只是「本期不阻断」，不改变其超标事实。
  * @type {Array<{path: string, reason: string}>}
  */
-export const SIZE_EXEMPTIONS = [
-    {
-        path: 'docs/design/governance/caomei-ui-migration.md',
-        reason: '阈值入表时的存量超标（> 强制分片线）；拆分属独立内容治理批次（入链面广且 §15 迁移实证需保序），待该批次落地后移除此条',
-    },
-]
+export const SIZE_EXEMPTIONS = []
 
 /** 从 `documentation.md §3` 解析阈值表。 */
 export function parseThresholdTable(markdown) {

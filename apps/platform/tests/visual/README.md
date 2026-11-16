@@ -66,7 +66,7 @@
   `Message` soft 档无边框即上表第 4 项。
 
 **上游版本升级带来的基线刷新（caomei-ui 0.6.0，2026-10-12）**——依据见
-[§15.15](../../../../docs/design/governance/caomei-ui-migration.md#_15-15-caomei-ui-0-6-0-升级回归实证-插队热修-2026-10-12)：
+[§15.15](../../../../docs/design/governance/caomei-ui-migration-upgrades.md#_15-15-caomei-ui-0-6-0-升级回归实证-插队热修-2026-10-12)：
 
 | 项 | 结论 |
 | :--- | :--- |

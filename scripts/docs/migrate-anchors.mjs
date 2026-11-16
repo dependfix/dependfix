@@ -7,7 +7,7 @@
  * 其余字符（路径、链接文本、行内其他内容）零改动。
  *
  * 匹配规则（宁缺毋滥，歧义一律不出手）：
- * - 目标文件必须存在（归档 file-dead 维持既有豁免，跳过）
+ * - 目标文件必须存在（file-dead 由 links 面报出，这里跳过）
  * - 锚点经宽松归一化后**唯一命中**某个标题 → 改写为该标题的产物 id
  * - 命中多个标题（仅标点差异）→ 记入 ambiguous，不改
  * - 命中不到（历史死锚 / 外部锚点）→ 记入 unmatched，不改
@@ -129,7 +129,7 @@ export function planAnchorRewrites(root) {
                     ? resolve(dirname(file), pathPart)
                     : file
                 if (pathPart && !statSync(targetFile, { throwIfNoEntry: false })?.isFile()) {
-                    continue // file-dead：归档豁免面
+                    continue // file-dead 由 links 面报出，这里跳过改写
                 }
                 const { id, kind, reason } = resolveAnchor(headingsOf(targetFile, cache), anchor)
                 const record = {

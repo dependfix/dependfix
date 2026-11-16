@@ -11,13 +11,15 @@
  * - **link-syntax**：畸形链接（残留 `](` / 孤立「`.md` 片段 + `#`锚点 + `)`」）
  * - **emphasis**：强调标记 `**` 未配对（渲染级盲区：lint / links / docs:build 均不报）
  * - **site-links**：VitePress 站点绝对链接（nav / sidebar / 首页 frontmatter）指向的源文件
- * - **archive-anchors**：`docs/plan/archive/**` 锚点子集（自锚点 + 跨文档锚点；file-dead 豁免）
+ * - **archive-anchors**：`docs/plan/archive/**` 锚点子集（自锚点 + 跨文档锚点；file-dead 由 links 面覆盖）
  * - **anchor-id**：站内锚点必须是目标页面的 VitePress 产物 id（逐字符相等；
  *   宽松归一化会把 GitHub 口径的错锚判绿，见 `docs/standards/documentation.md`；
  *   slug 口径的单一事实源是 `scripts/docs/vitepress-slug.mjs`）
  *
- * 覆盖边界：`links` 面排除 `docs/plan/archive/**`（归档动作会让历史相对链接指向预期外
- * 位置，file-dead 属独立批次）；锚点子集 / 强调标记 / 畸形链接三类与路径漂移无关，覆盖归档文档。
+ * 覆盖边界：`links` 面**覆盖** `docs/plan/archive/**`（2026-11-16 起；归档分片的
+ * 101 处路径前缀已按新目录重指并回归机检，不再依赖人工复扫）；锚点子集 / 强调标记 /
+ * 畸形链接 / anchor-id 同样覆盖归档文档。`link-text` 面仍排除归档（历史文本的 §N
+ * 与目标编号形态无法稳定回溯）。
  *
  * 设计原则：
  * - 纯函数（checkLinks / checkVueInterp / ...）+ CLI 入口守卫（isDirectExecution）：
@@ -92,7 +94,9 @@ export function collectTitles(file) {
  * 路径拒绝、正文个人机器路径拒绝。
  */
 export function checkLinks(repoRoot) {
-    const files = walkMdFiles(repoRoot, [], RUNTIME_EXCLUDED_PATHS)
+    // 归档分片同样纳入 links 面（2026-11-16）：归档动作造成的路径前缀漂移已按
+    // 新目录逐条重指，file-dead 由机检持续兜住，不再依赖人工复扫。
+    const files = walkMdFiles(repoRoot, [], RUNTIME_EXCLUDED_PATHS, { includeDirs: ['archive'] })
     const errors = []
     const gitCheckEnabled = isInsideGitWorkTree(repoRoot)
 
@@ -404,7 +408,8 @@ function decodeURIComponentSafe(value) {
  *   （`[§5.1.15](development.md#51-工程实践规则)` 指向父级章节属合法写法）
  * - 文本含 **多个** `§` 编号（引用范围 / 组合引用）→ 跳过
  * - 锚点无前导编号（纯文字标题）→ 跳过
- * - 归档目录（`docs/plan/archive/**`）由 `archive-anchors` 规则单独覆盖
+ * - 归档目录（`docs/plan/archive/**`）不在本规则面内——历史文本的 `§N` 与目标编号
+ *   形态无法稳定回溯（`archive-anchors` 只核锚点是否存在，不核链接文本）
  */
 export function checkLinkText(repoRoot) {
     const files = walkMdFiles(repoRoot, [], RUNTIME_EXCLUDED_PATHS)
@@ -658,9 +663,9 @@ export function checkSiteLinks(repoRoot) {
 /**
  * 归档文档（`docs/plan/archive/**`）的锚点子集校验：自锚点 + 跨文档锚点。
  *
- * 为什么只查锚点：归档动作会让历史相对链接指向预期外位置（`MD_EXCLUDED_DIRS.archive`
- * 决策）——**file-dead 维持豁免**；但锚点指向的是「文件内是否存在该标题」，与路径
- * 漂移无关，属真实破损（曾是归档文档长期无门禁的缺口）。
+ * 本规则保留为归档面的**锚点专项**入口（可用 `--only=archive-anchors` 单跑）：
+ * 2026-11-16 起 `links` 面已覆盖归档目录（file-dead 归零并回归机检），本规则与
+ * links 的锚点检查同源，但给出独立的规则名便于定位。
  *
  * 目标文件不存在（file-dead）时跳过锚点比对；目标存在则必须命中标题。
  */
@@ -697,7 +702,7 @@ export function checkArchiveAnchors(repoRoot) {
                 }
                 const targetFile = resolve(dirname(file), pathPart)
                 if (!existsSync(targetFile) || !statSync(targetFile).isFile()) {
-                    continue // file-dead：归档豁免面
+                    continue // file-dead 由 links 面报出，这里跳过锚点比对
                 }
                 if (!collectTitles(targetFile).has(normAnchor(anchor))) {
                     errors.push(`${rel}:${lineNum} 跨文档锚点 "${pathPart}#${anchor}" 在目标文件中找不到对应标题`)
@@ -723,7 +728,7 @@ export function checkArchiveAnchors(repoRoot) {
  * 产物 id，把「能跳转」这件事真正纳入门禁。
  *
  * 覆盖边界（显式声明，均属静默跳过）：
- * - 只校验 `.md` 目标（其它资源没有标题 id）；目标文件不存在时维持既有 file-dead 豁免
+ * - 只校验 `.md` 目标（其它资源没有标题 id）；目标文件不存在时跳过（file-dead 由 links 面报出）
  * - 外部链接（http / mailto / …）与本文件内锚点同等对待（后者以自身标题为准）
  * - 链接正则只认 `[文本](目标)`：带 title 的 `[a](t.md#a "t")`、引用式 `[a][r]`、
  *   裸 `<a href="#a">`、站点绝对 `/x.md#a`、带 query `t.md?x=1#a`、百分号编码路径
@@ -761,7 +766,7 @@ export function checkAnchorIds(repoRoot) {
                 }
                 const targetFile = pathPart ? resolve(dirname(file), pathPart) : file
                 if (pathPart && (!existsSync(targetFile) || !statSync(targetFile).isFile())) {
-                    continue // file-dead：归档豁免面（与 archive-anchors 同口径）
+                    continue // file-dead 由 links 面报出，这里跳过锚点比对（与 archive-anchors 同口径）
                 }
                 const anchor = target.slice(hashIndex + 1)
                 const headings = headingsOf(targetFile)

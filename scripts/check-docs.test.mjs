@@ -162,14 +162,34 @@ describe('checkLinks', () => {
         expect(errors).toEqual([])
     })
 
-    it('excludes node_modules/.git/archive dirs and non-md files from walk', () => {
+    it('excludes node_modules/.git dirs and non-md files from walk', () => {
         write('node_modules/pkg/README.md', '[x](missing.md)')
         write('.git/hooks/readme.md', '[x](missing.md)')
-        write('docs/plan/archive/x.md', '[x](missing.md)')
         write('docs/note.txt', '[x](missing.md)')
         write('docs/real.md', '正常内容')
         const { files, errors } = checkLinks(root)
         expect(files).toEqual([join(root, 'docs', 'real.md')])
+        expect(errors).toEqual([])
+    })
+
+    it('includes archive shards in the links face', () => {
+        write('docs/plan/archive/x.md', '[x](missing.md)')
+        write('docs/real.md', '正常内容')
+        const { files, errors } = checkLinks(root)
+        expect(files.sort()).toEqual([
+            join(root, 'docs', 'plan', 'archive', 'x.md'),
+            join(root, 'docs', 'real.md'),
+        ].sort())
+        expect(errors).toHaveLength(1)
+        expect(errors[0]).toContain('docs/plan/archive/x.md:1')
+        expect(errors[0]).toContain('链接目标不存在: missing.md')
+    })
+
+    it('resolves archive relative links from the shard directory', () => {
+        write('docs/standards/x.md', '# 标题')
+        write('docs/plan/archive/x.md', '[规范](../../standards/x.md)')
+        const { files, errors } = checkLinks(root)
+        expect(files).toContain(join(root, 'docs', 'plan', 'archive', 'x.md'))
         expect(errors).toEqual([])
     })
 
@@ -705,7 +725,7 @@ describe('checkArchiveAnchors', () => {
         expect(errors).toEqual([])
     })
 
-    it('file-dead 的锚点维持豁免（仅链接存在性面豁免）', () => {
+    it('file-dead 的锚点由 links 面覆盖，archive-anchors 跳过', () => {
         write('docs/plan/archive/index.md', '[历史](missing-shard.md#任意锚点)')
         const { errors } = checkArchiveAnchors(root)
         expect(errors).toEqual([])

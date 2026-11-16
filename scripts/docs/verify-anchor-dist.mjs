@@ -116,7 +116,7 @@ export function verifyAnchorDist(root, distRoot = DIST_ROOT) {
                 }
                 const targetFile = pathPart ? resolve(dirname(file), pathPart) : file
                 if (!existsSync(targetFile)) {
-                    continue // file-dead：归档豁免面
+                    continue // file-dead 由 links 面报出，这里跳过比对
                 }
                 const ids = idsFor(targetFile)
                 if (!ids) {

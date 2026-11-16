@@ -70,7 +70,7 @@ describe('planAnchorRewrites', () => {
         expect(plan.rewrites[0].to).toBe('五十六、m24-1-pr-check-状态监测-2026-09-03-commits-abc-def')
     })
 
-    it('file-dead 目标跳过（归档既有豁免）', () => {
+    it('file-dead 目标跳过（存在性由 links 面报出）', () => {
         write('a.md', '[一](missing.md#whatever)\n')
         const plan = planAnchorRewrites(root)
         expect(plan.rewrites).toEqual([])

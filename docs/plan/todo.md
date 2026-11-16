@@ -59,7 +59,7 @@
 - **交付物**：3-4 commits / 16-20 files / 120-180 行（14 分片 + 2 脚本注释与规则 + 2 规范/矩阵）。
 - **风险与缓解**：批量替换吞 `]` → 按 §4.4 第 3 条从 `../` 字符起写，改后跑畸形链接检测（精确形态 `rg -n "\[[^]\n]*\((\.\.?/|/)"` 0 命中）；归档保真被误改 → 逐文件 `git diff --word-diff` 自查 + 非空行数校验；门禁扩面暴露其它存量死链 → 先跑一次性探针量化分布，超本条目基线的部分登记候选不夹带。
 - **执行记录（2026-11-16，6 commits）**：`2bd3d8ab` 十四个分片按新目录重指 101 处相对链接，同批把 19 处锚点对齐 VitePress 产物 id（18 处形态归一 + 1 处删除已失效的 `#m72-平台能力深化`，该章节已迁出 backlog）；`1e14965e` 把 links 面定向放回 `archive`，并纠偏 `includeDirs` 契约注释与同族「归档豁免」注释，新增「死链点名」与「合法相对链接按分片目录解析」两组用例；本条提交同步 `documentation.md §2` / `planning.md §4.4` 第 15 条 / checklist 第 ⑤ 项与 backlog 已知边界。
-  AC 证据：一次性探针 65 文件 / 1119 相对链接 / file-dead 101 → 0；`node scripts/check-docs.mjs --only=links` exit 0（234 md）；向分片注入不存在目标 → exit 1 且点名行号；`pnpm run gates:docs` 20 项通过；保真核对为「剥离链接目标后 14 文件逐字节一致、非空行数全等」；AC⑤ 指定 5 文件四类 legacy pattern 0 命中（planning §4.4 第 15 条措辞一并为同源精化）。审计：A `standard` Pass（B 面留痕）；B `standard` **Reject**（`includeDirs` JSDoc 与实现倒置）→ 修复 → `quick` Pass（1 项事实计数修正后 closed）；C `standard` Pass。偏差：改动文件数超预估（16-20），因锚点形态修复与两类盲区登记同批；锚点形态问题属 links 扩面后 `anchor-id` 真实校验暴露的存量，不是新引入。残余：站点侧 `docs/` 外相对链接 404 与归档链接文字层失效指针，已登记 [backlog 已知边界](backlog.md#归档链接与-mcp-归档取数的两类盲区-2026-11-16-登记-持续观察)。
+  AC 证据：一次性探针 65 文件 / 1119 相对链接 / file-dead 101 → 0；`node scripts/check-docs.mjs --only=links` exit 0（234 md）；向分片注入不存在目标 → exit 1 且点名行号；`pnpm run gates:docs` 20 项通过；保真核对为「剥离链接目标后 14 文件逐字节一致、非空行数全等」；AC⑤ 指定 5 文件四类 legacy pattern 0 命中（planning §4.4 第 15 条措辞一并为同源精化）。审计：A / C `standard` Pass；B `standard` Reject（JSDoc 与实现倒置）→ 修复 → `quick` Pass。偏差：改动文件数超预估（16-20），因锚点形态修复与两类盲区登记同批；锚点形态问题属 links 扩面后 `anchor-id` 真实校验暴露的存量，不是新引入。残余：站点侧 `docs/` 外相对链接 404 与归档链接文字层失效指针，已登记 [backlog 已知边界](backlog.md#归档链接与-mcp-归档取数的两类盲区-2026-11-16-登记-持续观察)。
 
 ### M61.2 大文档保序拆分（P2 📚🛠️）
 
@@ -84,7 +84,7 @@
 - **交付物**：4-6 commits / 10-14 files / **改动量约 1200-1500 行**（约 680 增 + 680 删 + 索引，按阶段头「行 = diff 改动量含删除」口径计入基线）。
 - **风险与缓解**：锚点断裂 → 拆分本体与重指同 commit；主文档余量仅约 6 行 → 拆分后立即实测 `wc -l`，超出则把 §16 并入分片 A（备选切点）；分片 C 250 行接近上限 → 下次追加前先评估再分片。
 - **执行记录（2026-11-16，6 commits）**：`a32fb780` 拆出 `caomei-ui-migration-mapping.md`（§12-§15.9 + 文档头元数据块），`d3be2c75` 拆出 `caomei-ui-migration-m31-proof.md`（§15.10-§15.13），本条提交拆出 `caomei-ui-migration-upgrades.md`（§15.14-§15.17）并移除 `SIZE_EXEMPTIONS` 条目。每一步「分片创建 + 主档删段 + 跨分片锚点重指 + 镜像清单登记 + 外部入链改指」同 commit，中间态 `check:docs` / `docs:check:mirror` 均为绿；最终 `wc -l` 主档 396 / A 166 / B 271 / C 251（均 ≤400），主文档新增非空行 5 条（注记 1 + 索引标题 1 + 索引条目 3）。
-  AC 证据：保真为「剥离链接目标后 797 条非空行多重集相等」（零丢失），仅链接目标按新目录重算；`node scripts/check-doc-size.mjs` 超阈值 0 / 未匹配 0 / 豁免 0（warning 3 为 M61.3 存量目标）；`pnpm run docs:check:mirror` 通过（未镜像登记 73 篇，3 个新分片各登记一次）；`rg "caomei-ui-migration.md#_15"` 0 命中（按 `rg` 族计 5 个文件共 10 处外部入链改指到新分片（不含无锚点的伞标题链接与代码注释）（视觉回归 README 4 / tech-stack 1 / archive-log 2 / M45 归档 2 / backlog 1））；`gates:docs` 21 项、`check:docs` 八类通过。审计：A `standard` **Reject**（RG-B1 四处文件级指针点名已迁出章节未复扫）→ 修复（platform / M31 归档 / roadmap 归档 / backlog 改指，主档补分片索引指针，4 个代码注释同步分片名）→ R2 `quick` 复审；B `standard` Pass（W1 同源入链 / W2 计数 / W3 审计字段 → 全部收口）。残余：链接文字仍含旧文件名（仅 href 改指，符合 AC④「只动路径」）；镜像清单按语义序而非 ASCII 序登记；`admin.e2e.test.ts:163` 注释指针未改（CRLF 文件，改动会触发 lint-staged 全文件换行，留待格式化批次）。
+  AC 证据：保真为「剥离链接目标后 797 条非空行多重集相等」（零丢失），仅链接目标按新目录重算；`node scripts/check-doc-size.mjs` 超阈值 0 / 未匹配 0 / 豁免 0（warning 3 为 M61.3 存量目标）；`pnpm run docs:check:mirror` 通过（未镜像登记 73 篇，3 个新分片各登记一次）；`rg "caomei-ui-migration.md#_15"` 0 命中（按 `rg` 族计 5 个文件共 10 处外部入链改指到新分片（不含无锚点的伞标题链接与代码注释）（视觉回归 README 4 / tech-stack 1 / archive-log 2 / M45 归档 2 / backlog 1））；`gates:docs` 21 项、`check:docs` 八类通过。审计：A `standard` Reject（四处文件级指针未复扫）→ 修复 → R2 `quick` Pass；B `standard` Pass（3W 全收口）。残余：链接文字仍含旧文件名（仅 href 改指，符合 AC④「只动路径」）；镜像清单按语义序而非 ASCII 序登记；`admin.e2e.test.ts:163` 注释指针未改（CRLF 文件，改动会触发 lint-staged 全文件换行，留待格式化批次）。
 
 ### M61.3 文档体量健康带回归（P3 📚）
 
@@ -105,6 +105,7 @@
 - **依赖**：M61.2 完成后开始（豁免清零后计数口径稳定）；触发规则见 [文档规范 §8](../standards/documentation.md#_8-文档治理周期)「每 5 个阶段或连续 2 个阶段出现预算 warning」。
 - **交付物**：3-5 commits / 6-8 files / 净删 150-300 行（对应 diff 改动量约 300-600 行，按本阶段头「行 = 改动量含删除」口径计入基线）。
 - **风险与缓解**：压缩改语义 → 只做外移 + 指针，不改条文判定；`platform.md` 逼近上限无余量 → 移出实现型细节到 design 分片，保留规范条文与阈值表。
+- **执行记录（2026-11-16，2 commits）**：`9a969fae` 外移报告生成 §4 到 records 分片、沙箱 §7.5/§7.9-§7.10 与 PR 交付 §13-§16 到两个新分片，主档各留指针；本条提交压缩 `platform.md` 至 23999 字符、合并 backlog 历史链路与盲区段、拆分 todo / ai-delivery 长行。AC：`check-doc-size` warning 0 / 豁免 0；`doc-governance` 阻断 0 / warning 0；六档文件 ≤400；`gates:docs` 21；`check:docs` 八类；`docs:check:mirror` 未镜像 75。审计见追加记录。
 
 ### M61.4 AI 资产机检门禁（P2 🛠️🛡️）
 
@@ -129,7 +130,7 @@
 - **风险与缓解**：门禁过严误伤 → 软链缺失只 warning、`references` 有引用即通过、规则集与 ai-governance 条文逐条对应；扫描面与 CI 差异 → 只扫 `.github/`，不跟随软链。
 - **执行记录（2026-11-16，2 commits）**：`8e472728` 新增 `scripts/check-ai-governance.mjs` 与单测，六类规则（skill frontmatter / skill 命名 / agent / references 引用 / 文档相对链接 / 平台副本符号链接）逐条对应规范 §2.1 / §2.2 / §3 / §5；引用判定按 token 精确匹配（同名不顶替），索引源限定 SKILL.md 一跳可达（互引孤岛不算已引用）；接入 `DOC_GATES` 与 Test / 周回归同一入口，`package.json` 增 `check:ai-governance`。本条提交同步 `ai-governance.md §6` 机检入口与 §3.1 `description` 必填、`scripts/README.md` 注册表、`release-1.0.md` 与周回归注释的计数。
   AC 证据：正例 `skills 10 / agents 3 / 规则 6`；三类负例（删 `metadata.internal` / 注入死链 / 改 `name`）均 exit 1 并点名，还原后 md5 一致；`gates:docs` 21 项；定向 44 passed；`lint:check` 0 error / 2 存量 warning；`typecheck` 7 项目 Done
-  - 接线核对：`DOC_GATES` 与 `test.yml` 双向一致、weekly 步数 27 与 profile 实测一致。审计：A `standard` **Reject**（RG-B1 CI 步骤缺阻断强度 / 负例 / 自指面三件套；5W）→ 修复 → `quick` Pass（残余 W1-W4 同批收口：注释编号、token 边界、索引可达性、规范出处）；B `standard` **Reject**（RG-B1 周回归「共 26 步」未随集合更新；3W/2S）→ 修复 → `quick` Pass。偏差：脚本与单测合计超出交付物预估（规则面更细）；CI 环境因平台副本不入库会固定输出 6 条 warning（不阻断，属预期噪音）。
+  - 接线核对：`DOC_GATES` 与 `test.yml` 双向一致、weekly 步数 27 与 profile 实测一致。审计：A / B 两分区 `standard` 均 Reject（A：CI 三件套缺失；B：周回归步数未随集合更新）→ 修复 → `quick` Pass。偏差：脚本与单测合计超出交付物预估（规则面更细）；CI 环境因平台副本不入库会固定输出 6 条 warning（不阻断，属预期噪音）。
 
 ### M61.5 skill 分发面与 MCP 文档准确性（P2 📚）
 
@@ -174,7 +175,7 @@
 - **交付物**：4-5 commits / 6-8 files / 150-250 行。
 - **风险与缓解**：重叠条款改交叉引用后覆盖变薄 → 逐条核对被删表述存在唯一权威声明处；段序调整触碰锚点 → `rg "三十二"` 找全引用方并同步，跑 `docs:check:anchors`。
 - **执行记录（2026-11-16，2 commits）**：`eb785b11` 检查点矩阵补 planning §4.4 第 16 至 20 条与 testing §6.12（第 16 条含「分片行数计入新增行数」），新增「门禁扩面先跑一次性探针」「E2E 临时仓库不要软链 `node_modules`」两条检查点并留来源指针；documentation §6 的量化断言与引用范围改为指向唯一权威条款（保留文档侧增量），planning §4.4 第 18 条补「按第 3 条」。本条提交补设计稿：architecture 的 Sentry / PWA 标注未采用并限定表下口径；platform-scheduled-batch §3.1 补 `kind`（实体 / Zod / 端点表同源）、§6.1 补 `monitor-status`；experience-archive §5 维护约定改为「范围以实测内容范围为准，文件名沿用上界」，并把 §29-§35 的「三十二」块移到「三十一」之后恢复编号升序（纯位置移动：排序后所有行 md5 一致）。
-  AC 证据：矩阵新增行 `rg` 命中；`check:standards-redundant:strict` 0 命中；分片段序二十九至三十五升序；`rg "未采用"` 命中 Sentry / PWA 两行；`monitor-status.get.ts` 权限与 `schedule.ts:38` 字段逐项一致；`check-doc-size` warning 仍为 3 篇存量、无新增；`gates:docs` 21 项；`check:docs` 八类通过。审计：A `standard` Pass（W1「上条」指代、W2 第 16 条缺计数口径 → 已修；S1/S2 采纳）；B `standard` Pass（W1 §6.4 片段缺 `kind` → 已修）→ R2 `quick` Pass（8/8 closed；S1 措辞、S4 量化口径半句同批采纳）。残余：矩阵既有 3 行含未转义 `|`（本条「不改矩阵其余行」，未动）；§5.1 触发流程图未体现 `kind` 分流；`monitor-status` 行序在动态路由之后（纯可读性）。
+  AC 证据：矩阵新增行 `rg` 命中；`check:standards-redundant:strict` 0 命中；分片段序二十九至三十五升序；`rg "未采用"` 命中 Sentry / PWA 两行；`monitor-status.get.ts` 权限与 `schedule.ts:38` 字段逐项一致；`check-doc-size` warning 仍为 3 篇存量、无新增；`gates:docs` 21 项；`check:docs` 八类通过。审计：A / B `standard` Pass（各 2W 已修）→ R2 `quick` Pass（8/8 closed）。残余：矩阵既有 3 行含未转义 `|`（本条「不改矩阵其余行」，未动）；§5.1 触发流程图未体现 `kind` 分流；`monitor-status` 行序在动态路由之后（纯可读性）。
 
 ### 追加临时待办（不占阶段条目编号）
 

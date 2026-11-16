@@ -69,31 +69,25 @@
 | M58: 发布链可信收口 | 本地发布通道安全门禁 + release 依赖审计与构建面同口径 + CHANGELOG 新鲜度 + 发布后镜像运行时冒烟与历史 tag 巡检 + ACR 架构边界 | P1-P2 | 已完成（2026-11-12 规划 / 2026-11-12 已闭环归档，见 [M58 详情分片](archive/roadmap-phases-m58.md) + [M58 归档分片](archive/todo-archive-phases-m58.md)） |
 | M59: 沙箱 fix 与执行可靠性 | 沙箱 fix 自包含执行与出站策略 + 自包含交付与失败副作用 + 取消落定与起点条件写 + 执行资源采集扩展（原镜像双架构冒烟与安全姿态已于 2026-11-13 再平衡移出 backlog） | P1-P2 | 已归档（2026-11-12 规划 / 2026-11-14 归档；M59.2 真实容器取证转 backlog，见 [M59 详情分片](archive/roadmap-phases-m59.md) + [M59 归档分片](archive/todo-archive-phases-m59.md)） |
 | M60: 平台减法与沙箱可用性 | 大页面体量拆分 + 死代码清理 + 筛选与标签单点化 + 沙箱执行器可用性收口 + 沙箱启用与排障文档（用户 2026-11-14 选混合方案 C） | P1-P3 | 已归档（2026-11-14 规划 / 2026-11-15 归档；5 原子闭环，见 [M60 详情分片](archive/roadmap-phases-m60.md) + [M60 归档分片](archive/todo-archive-phases-m60.md)） |
-| M61: 文档与 AI 治理（第四期） | 归档链接前缀治本 + 大文档保序拆分 + 文档体量健康带回归 + AI 资产机检门禁 + skill 分发面准确性 + 文档口径一致性收口（用户 2026-11-15 选方案 A：一期 6 原子） | P2-P3 | 进行中（2026-11-15 规划；6 原子，见 [todo.md](todo.md)） |
+| M61: 文档与 AI 治理（第四期） | 归档链接前缀治本 + 大文档保序拆分 + 文档体量健康带回归 + AI 资产机检门禁 + skill 分发面准确性 + 文档口径一致性收口（用户 2026-11-15 选方案 A：一期 6 原子） | P2-P3 | 已归档（2026-11-15 规划 / 2026-11-16 归档；6 原子 + 2 追加临时待办闭环，见 [M61 详情分片](archive/roadmap-phases-m61.md) + [M61 归档分片](archive/todo-archive-phases-m61.md)） |
 
 > **本路线图定位**：按 [规划规范 §2.1](../standards/planning.md) 仅维护阶段概览（目标 / 优先级 / 状态）。详细实施记录 / commit 引用 / 关键决策 / 经验教训见对应归档段（详见下方"## 详细任务"索引）。
 
 > **M0 - M38 阶段详情已迁出**：见 [archive/roadmap-phases-m0-m38.md](archive/roadmap-phases-m0-m38.md)（2026-10-15 M44.4 批次③ 迁出；主文档保留概述表与最近阶段）。
 
-> **M39-M60 阶段详情已迁出**：M39-M48 见 [archive/roadmap-phases-m39-m48.md](archive/roadmap-phases-m39-m48.md)（2026-10-26 文档治理批次迁出）；M49 见 [archive/roadmap-phases-m49.md](archive/roadmap-phases-m49.md)（2026-10-29 归档批次迁出）；M50 见 [archive/roadmap-phases-m50.md](archive/roadmap-phases-m50.md)（2026-10-30 归档批次迁出）；M51 见 [archive/roadmap-phases-m51.md](archive/roadmap-phases-m51.md)（2026-10-30 归档批次迁出）；M52 见 [archive/roadmap-phases-m52.md](archive/roadmap-phases-m52.md)（2026-10-31 归档批次迁出）；M53 见 [archive/roadmap-phases-m53.md](archive/roadmap-phases-m53.md)（2026-11-01 归档批次迁出）；M54 见 [archive/roadmap-phases-m54.md](archive/roadmap-phases-m54.md)（2026-11-07 归档批次迁出）；M55 见 [archive/roadmap-phases-m55.md](archive/roadmap-phases-m55.md)（2026-11-08 归档批次迁出）；M56 见 [archive/roadmap-phases-m56.md](archive/roadmap-phases-m56.md)（2026-11-09 归档批次迁出）；M57 见 [archive/roadmap-phases-m57.md](archive/roadmap-phases-m57.md)（2026-11-10 归档批次迁出）；M58 见 [archive/roadmap-phases-m58.md](archive/roadmap-phases-m58.md)（2026-11-12 归档批次迁出）；M59 见 [archive/roadmap-phases-m59.md](archive/roadmap-phases-m59.md)（2026-11-14 归档批次迁出）；M60 见 [archive/roadmap-phases-m60.md](archive/roadmap-phases-m60.md)（2026-11-15 归档批次迁出）。主文档保留里程碑概述表与当前阶段状态。
+> **M39-M61 阶段详情已迁出**：M39-M48 见 [archive/roadmap-phases-m39-m48.md](archive/roadmap-phases-m39-m48.md)（2026-10-26 文档治理批次迁出）；M49 见 [archive/roadmap-phases-m49.md](archive/roadmap-phases-m49.md)（2026-10-29 归档批次迁出）；M50 见 [archive/roadmap-phases-m50.md](archive/roadmap-phases-m50.md)（2026-10-30 归档批次迁出）；M51 见 [archive/roadmap-phases-m51.md](archive/roadmap-phases-m51.md)（2026-10-30 归档批次迁出）；M52 见 [archive/roadmap-phases-m52.md](archive/roadmap-phases-m52.md)（2026-10-31 归档批次迁出）；M53 见 [archive/roadmap-phases-m53.md](archive/roadmap-phases-m53.md)（2026-11-01 归档批次迁出）；M54 见 [archive/roadmap-phases-m54.md](archive/roadmap-phases-m54.md)（2026-11-07 归档批次迁出）；M55 见 [archive/roadmap-phases-m55.md](archive/roadmap-phases-m55.md)（2026-11-08 归档批次迁出）；M56 见 [archive/roadmap-phases-m56.md](archive/roadmap-phases-m56.md)（2026-11-09 归档批次迁出）；M57 见 [archive/roadmap-phases-m57.md](archive/roadmap-phases-m57.md)（2026-11-10 归档批次迁出）；M58 见 [archive/roadmap-phases-m58.md](archive/roadmap-phases-m58.md)（2026-11-12 归档批次迁出）；M59 见 [archive/roadmap-phases-m59.md](archive/roadmap-phases-m59.md)（2026-11-14 归档批次迁出）；M60 见 [archive/roadmap-phases-m60.md](archive/roadmap-phases-m60.md)（2026-11-15 归档批次迁出）；M61 见 [roadmap-phases-m61.md](archive/roadmap-phases-m61.md)（2026-11-16 归档批次迁出）。主文档保留里程碑概述表；当前无进行中阶段。
 
 ## 当前阶段
 
-**M61 文档与 AI 治理（第四期）**：2026-11-15 规划，进行中。
-
-- **目标**：文档门禁从「已知盲区长期豁免」收敛为「可全量核验」，AI 资产从「人工遵守规则」收敛为「有机检门禁」，并清掉文档体量与口径存量。
-- **原子（6 项，均含 8 要素与实测 anchor，见 [todo.md](todo.md)）**：M61.1 归档链接前缀治本（101 file-dead / 14 分片）/ M61.2 大文档保序拆分（`caomei-ui-migration.md` 1073 行）/ M61.3 文档体量健康带回归（3 篇 warning + `platform.md` 字符）/ M61.4 AI 资产机检门禁（`check-ai-governance` 接入 `gates:docs`）/ M61.5 skill 分发面与 MCP 文档准确性（REFERENCES 8 tool 对齐）/ M61.6 文档口径一致性收口（矩阵缺行 + 重叠条款 + 经验分片口径 + 两处设计快照）。
-- **来源**：用户 2026-11-12 四期决策第四期；2026-11-15 规划轮选方案 A（一期 6 原子）并追加「M44 条款挂接」；backlog 上收 8 条候选（39 → 31），文档体量项由 [文档规范 §8](../standards/documentation.md#_8-文档治理周期) 治理周期规则触发、同批授权上收。
-- **容量基线**：19-27 commits / 48-64 files / 2270-3280 行（逐原子交付物求和，执行角色口径；行 = diff 改动量含删除）；类型 🛠️2 + 📚4（主类型计数），🎨 缺口已显式标注（文档治理阶段无 UX 原子，由后续体验批次承接）。
-- **执行顺序**：M61.1 → M61.4 → M61.5 → M61.6 → M61.2 → M61.3。
+**下一阶段未规划**。M61（文档与 AI 治理）已于 2026-11-16 归档，详情见 [archive/roadmap-phases-m61.md](archive/roadmap-phases-m61.md)；候选池 41 条（[backlog.md](backlog.md)），阶段划分与容量规则见 [规划规范](../standards/planning.md)。
 
 ---
 
 ## 详细任务
 
-- 当前阶段任务：[todo.md](todo.md)（**M61 文档与 AI 治理**，6 原子；2026-11-15 规划）
-- 已归档阶段：[todo-archive.md](todo-archive.md)（阶段索引 + 分片；M0-M60 全部已归档；分片治理见 [archive/index.md](archive/index.md)）
-- 下一阶段（未规划）：第四期「文档与 AI 治理」已由 M61 承接；M61 归档后再评估下一方向（候选池 33 条，见 [backlog.md](backlog.md)）
+- 当前阶段任务：无（M61 已归档；下一阶段待规划）
+- 已归档阶段：[todo-archive.md](todo-archive.md)（阶段索引 + 分片；M0-M61 全部已归档；分片治理见 [archive/index.md](archive/index.md)）
+- 下一阶段（未规划）：按候选池重新评估（41 条，见 [backlog.md](backlog.md)）
 - 后续阶段任务（延期项 + 未排期增强候选）：[backlog.md](backlog.md)
 
 ## 交付原则

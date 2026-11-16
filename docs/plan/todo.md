@@ -58,7 +58,7 @@
 - **依赖**：先例 [规划规范 §4.4](../standards/planning.md#_4-4-大批量归档批次操作规范) 第 3 条（相对路径替换写法）与第 18 条（迁出分片按新目录重算）；backlog 候选「归档目录内 file-dead 相对链接前缀治本」（2026-11-15 上收）。
 - **交付物**：3-4 commits / 16-20 files / 120-180 行（14 分片 + 2 脚本注释与规则 + 2 规范/矩阵）。
 - **风险与缓解**：批量替换吞 `]` → 按 §4.4 第 3 条从 `../` 字符起写，改后跑畸形链接检测（精确形态 `rg -n "\[[^]\n]*\((\.\.?/|/)"` 0 命中）；归档保真被误改 → 逐文件 `git diff --word-diff` 自查 + 非空行数校验；门禁扩面暴露其它存量死链 → 先跑一次性探针量化分布，超本条目基线的部分登记候选不夹带。
-- **执行记录（2026-11-16，6 commits）**：`2bd3d8ab` 十四个分片按新目录重指 101 处相对链接，同批把 19 处锚点对齐 VitePress 产物 id（18 处形态归一 + 1 处删除已失效的 `#m72-平台能力深化`，该章节已迁出 backlog）；`1e14965e` 把 links 面定向放回 `archive`，并纠偏 `includeDirs` 契约注释与同族「归档豁免」注释，新增「死链点名」与「合法相对链接按分片目录解析」两组用例；本条提交同步 `documentation.md §2` / `planning.md §4.4` 第 15 条 / checklist 第 ⑤ 项与 backlog 已知边界。
+- **执行记录（2026-11-16，3 commits）**：`2bd3d8ab` 十四个分片按新目录重指 101 处相对链接，同批把 19 处锚点对齐 VitePress 产物 id（18 处形态归一 + 1 处删除已失效的 `#m72-平台能力深化`，该章节已迁出 backlog）；`1e14965e` 把 links 面定向放回 `archive`，并纠偏 `includeDirs` 契约注释与同族「归档豁免」注释，新增「死链点名」与「合法相对链接按分片目录解析」两组用例；本条提交同步 `documentation.md §2` / `planning.md §4.4` 第 15 条 / checklist 第 ⑤ 项与 backlog 已知边界。
   AC 证据：一次性探针 65 文件 / 1119 相对链接 / file-dead 101 → 0；`node scripts/check-docs.mjs --only=links` exit 0（234 md）；向分片注入不存在目标 → exit 1 且点名行号；`pnpm run gates:docs` 20 项通过；保真核对为「剥离链接目标后 14 文件逐字节一致、非空行数全等」；AC⑤ 指定 5 文件四类 legacy pattern 0 命中（planning §4.4 第 15 条措辞一并为同源精化）。审计：A / C `standard` Pass；B `standard` Reject（JSDoc 与实现倒置）→ 修复 → `quick` Pass。偏差：改动文件数超预估（16-20），因锚点形态修复与两类盲区登记同批；锚点形态问题属 links 扩面后 `anchor-id` 真实校验暴露的存量，不是新引入。残余：站点侧 `docs/` 外相对链接 404 与归档链接文字层失效指针，已登记 [backlog 已知边界](backlog.md#归档链接与-mcp-归档取数的两类盲区-2026-11-16-登记-持续观察)。
 
 ### M61.2 大文档保序拆分（P2 📚🛠️）
@@ -83,7 +83,7 @@
 - **依赖**：[文档规范 §3](../standards/documentation.md#_3-文档行数阈值)「连续尾部章节分片 → 同级 `<slug>-<主题>.md`」；backlog 候选（2026-11-12 登记，数字已按 2026-11-15 重算）。
 - **交付物**：4-6 commits / 10-14 files / **改动量约 1200-1500 行**（约 680 增 + 680 删 + 索引，按阶段头「行 = diff 改动量含删除」口径计入基线）。
 - **风险与缓解**：锚点断裂 → 拆分本体与重指同 commit；主文档余量仅约 6 行 → 拆分后立即实测 `wc -l`，超出则把 §16 并入分片 A（备选切点）；分片 C 250 行接近上限 → 下次追加前先评估再分片。
-- **执行记录（2026-11-16，6 commits）**：`a32fb780` 拆出 `caomei-ui-migration-mapping.md`（§12-§15.9 + 文档头元数据块），`d3be2c75` 拆出 `caomei-ui-migration-m31-proof.md`（§15.10-§15.13），本条提交拆出 `caomei-ui-migration-upgrades.md`（§15.14-§15.17）并移除 `SIZE_EXEMPTIONS` 条目。每一步「分片创建 + 主档删段 + 跨分片锚点重指 + 镜像清单登记 + 外部入链改指」同 commit，中间态 `check:docs` / `docs:check:mirror` 均为绿；最终 `wc -l` 主档 396 / A 166 / B 271 / C 251（均 ≤400），主文档新增非空行 5 条（注记 1 + 索引标题 1 + 索引条目 3）。
+- **执行记录（2026-11-16，7 commits）**：`a32fb780` 拆出 `caomei-ui-migration-mapping.md`（§12-§15.9 + 文档头元数据块），`d3be2c75` 拆出 `caomei-ui-migration-m31-proof.md`（§15.10-§15.13），本条提交拆出 `caomei-ui-migration-upgrades.md`（§15.14-§15.17）并移除 `SIZE_EXEMPTIONS` 条目。每一步「分片创建 + 主档删段 + 跨分片锚点重指 + 镜像清单登记 + 外部入链改指」同 commit，中间态 `check:docs` / `docs:check:mirror` 均为绿；最终 `wc -l` 主档 396 / A 166 / B 271 / C 251（均 ≤400），主文档新增非空行 5 条（注记 1 + 索引标题 1 + 索引条目 3）。
   AC：保真 797 条非空行多重集相等（仅链接目标重算）；doc-size 超阈值 / 未匹配 / 豁免均 0；mirror 通过（3 新分片各登记一次）；5 个文件共 10 处外部入链改指；gates 21、check:docs 八类通过。审计：A `standard` Reject（四处文件级指针未复扫）→ 修复 → R2 `quick` Pass；B `standard` Pass（3W 全收口）。残余：链接文字仍含旧文件名（仅 href 改指，符合 AC④「只动路径」）；镜像清单按语义序而非 ASCII 序登记；`admin.e2e.test.ts:163` 注释指针未改（CRLF 文件，改动会触发 lint-staged 全文件换行，留待格式化批次）。
 
 ### M61.3 文档体量健康带回归（P3 📚）

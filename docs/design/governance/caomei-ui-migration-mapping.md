@@ -10,7 +10,6 @@
 - 定位：迁移**评估与方案**（设计先行稿）。本次仅产出文档，不进入实施；上收与实施主体为 dependfix 仓库（见 §12）。
 - 关联文档：[PrimeUI 主题库降级设计](./primeui-themes-v2-downgrade.md)（License 治理前置）、[平台规范 §7.1](../../standards/platform.md#_7-1-caomei-ui-集成实践)、[技术栈](../../guide/tech-stack.md)、[Backlog](../../plan/backlog.md)
 
-
 ## 12. 上收触发条件（何时纳入 todo.md 当前阶段）
 
 本评估仅产出文档并登记 [Backlog](../../plan/backlog.md) 候选；任一条件触发时，从 backlog 上收到 `todo.md` 当前阶段（阶段编号由用户分配）：

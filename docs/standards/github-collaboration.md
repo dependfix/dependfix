@@ -68,7 +68,7 @@ gh api repos/dependfix/dependfix/issues/<n> --jq '{login: .user.login, type: .us
 - 验证下限：影响打包 / 入口 / 导出 / 依赖解析的改动必须跑 `pnpm run build`，受影响面的定向测试不可跳过；其余长耗时检查可跳过，但须在推送说明中登记跳过项。
 - 推送后监控 CI；CI 耗时较长可继续本地改动，但结论未知时不得叠加第二次推送。
 - 红灯按失败点继续修，不做「重跑等绿」。
-- 禁止 `--force` / `--force-with-lease`，禁止 `--no-verify` 跳过钩子。
+- 禁止 `--force` / `--force-with-lease`，禁止 `--no-verify` 跳过钩子（本节约束本项目对 origin 的推送；产品向目标仓库自有 `dependfix/auto-fix-*` 分支交付时的 lease / hooks 隔离语义见 [git 规范 §3.8](git.md) 与 [AI 交付协议](../design/governance/ai-delivery-protocols.md)）。
 
 ## 5. 分支与 PR 提交
 

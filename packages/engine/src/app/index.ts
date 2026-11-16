@@ -645,7 +645,7 @@ export class DependfixApp {
 
             this.logger.info(`Pushing branch: ${branchName}`)
             const commitSha = await readHeadCommit(this.workDir).catch(() => undefined)
-            await pushBranch(branchName, this.workDir)
+            await pushBranch(branchName, this.workDir, this.logger)
             // 分支已推：先落 `pushed`（后续 PR 失败 / 取消时平台据 branch 清理，不推测命名）
             this.deliveryRecord = deliveryBranchPushed(branchName, commitSha)
 

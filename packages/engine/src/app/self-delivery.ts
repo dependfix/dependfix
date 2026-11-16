@@ -55,7 +55,7 @@ export async function recordFixModeDelivery(input: FixModeDeliveryInput): Promis
             return undefined
         }
         logger.info(`Pushing branch (self-contained delivery): ${branch}`)
-        await pushBranch(branch, workDir)
+        await pushBranch(branch, workDir, logger)
         return { deliveredBy: 'engine', status: 'pushed', branch, ...(commitSha ? { commitSha } : {}) }
     } catch (error: unknown) {
         const message = error instanceof Error ? error.message : String(error)

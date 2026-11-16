@@ -180,24 +180,75 @@ describe('planFixAndPrDelivery', () => {
 
 describe('pushFixBranchWithCredential', () => {
     it('pushes branch with token via http.extraheader (CWE-200: token 不进 argv)', async () => {
-        childProcessMock.execFile.mockResolvedValue({ stdout: '', stderr: 'To https://github.com/owner-a/repo-b.git\n' })
+        // ls-remote（无同名分支）→ push
+        childProcessMock.execFile
+            .mockResolvedValueOnce({ stdout: '', stderr: '' })
+            .mockResolvedValueOnce({ stdout: '', stderr: 'To https://github.com/owner-a/repo-b.git\n' })
         await pushFixBranchWithCredential('dependfix/auto-fix-abc12345', '/tmp/test', 'ghp_SUPERSECRETTOKEN')
 
-        expect(childProcessMock.execFile).toHaveBeenCalledTimes(1)
-        const callArgs = childProcessMock.execFile.mock.calls[0] as unknown as [string, string[], Record<string, unknown>]
-        const [bin, args, opts] = callArgs
-        expect(bin).toBe('git')
+        expect(childProcessMock.execFile).toHaveBeenCalledTimes(2)
+        const [, , pushOpts] = childProcessMock.execFile.mock.calls[1] as unknown as [string, string[], Record<string, unknown>]
+        const pushArgs = childProcessMock.execFile.mock.calls[1]![1] as string[]
         // 签名隔离：push 前置 `-c push.gpgSign=false`，避免宿主 push.gpgSign 污染
-        expect(args.slice(0, 2)).toEqual(['-c', 'push.gpgSign=false'])
+        expect(pushArgs.slice(0, 2)).toEqual(['-c', 'push.gpgSign=false'])
         // hooks 隔离：`push --no-verify` 须紧邻 push 子命令（commit 侧同一事实源口径）
-        expect(args.slice(args.indexOf('push'), args.indexOf('push') + 2)).toEqual(['push', '--no-verify'])
+        expect(pushArgs.slice(pushArgs.indexOf('push'), pushArgs.indexOf('push') + 2)).toEqual(['push', '--no-verify'])
         // 关键断言：token 走 http.extraheader（base64 basic auth），不进 argv
-        expect(args).toContain('http.extraheader=Authorization: basic eC1hY2Nlc3MtdG9rZW46Z2hwX1NVUEVSU0VDUkVUVE9LRU4=')
+        expect(pushArgs).toContain('http.extraheader=Authorization: basic eC1hY2Nlc3MtdG9rZW46Z2hwX1NVUEVSU0VDUkVUVE9LRU4=')
         // 关键反断言：明文 token 不能出现在 argv 中（-c 形式是 base64，不算泄露）
-        expect(args.join(' ')).not.toContain('ghp_SUPERSECRETTOKEN')
+        expect(pushArgs.join(' ')).not.toContain('ghp_SUPERSECRETTOKEN')
         // 反断言：URL/argv 也不能含 token（防 URL 注入型泄露）
-        expect(args.find((a) => a.includes('https://') && a.includes('@'))).toBeUndefined()
-        expect(opts.cwd).toBe('/tmp/test')
+        expect(pushArgs.find((a) => a.includes('https://') && a.includes('@'))).toBeUndefined()
+        expect(pushOpts.cwd).toBe('/tmp/test')
+        // 无同名分支 → 不带 force-with-lease
+        expect(pushArgs.some((a) => a.startsWith('--force-with-lease='))).toBe(false)
+    })
+
+    it('uses --force-with-lease for an existing dependfix branch (stale closed-PR branch)', async () => {
+        const remoteSha = '9313c86b400acfef9a45c3eb3a959a5c26c2de5c'
+        childProcessMock.execFile
+            .mockResolvedValueOnce({ stdout: `${remoteSha}\trefs/heads/dependfix/auto-fix-dc580638\n`, stderr: '' })
+            .mockResolvedValueOnce({ stdout: '', stderr: 'To https://github.com/o/r.git\n' })
+
+        await pushFixBranchWithCredential('dependfix/auto-fix-dc580638', '/tmp/test', 't')
+
+        expect(childProcessMock.execFile).toHaveBeenCalledTimes(2)
+        const lsArgs = childProcessMock.execFile.mock.calls[0]![1] as string[]
+        expect(lsArgs).toEqual([
+            '-c',
+            'http.extraheader=Authorization: basic eC1hY2Nlc3MtdG9rZW46dA==',
+            'ls-remote',
+            'origin',
+            'refs/heads/dependfix/auto-fix-dc580638',
+        ])
+        const pushArgs = childProcessMock.execFile.mock.calls[1]![1] as string[]
+        const lease = `--force-with-lease=refs/heads/dependfix/auto-fix-dc580638:${remoteSha}`
+        const leaseIdx = pushArgs.indexOf(lease)
+        expect(leaseIdx).toBeGreaterThan(pushArgs.indexOf('--no-verify'))
+        expect(leaseIdx).toBeLessThan(pushArgs.indexOf('origin'))
+    })
+
+    it('falls back to a normal push when ls-remote fails (no silent force)', async () => {
+        childProcessMock.execFile
+            .mockRejectedValueOnce(new Error('network down'))
+            .mockResolvedValueOnce({ stdout: '', stderr: 'To https://github.com/o/r.git\n' })
+
+        await pushFixBranchWithCredential('dependfix/auto-fix-abc12345', '/tmp/test', 't')
+
+        expect(childProcessMock.execFile).toHaveBeenCalledTimes(2)
+        const pushArgs = childProcessMock.execFile.mock.calls[1]![1] as string[]
+        expect(pushArgs.some((a) => a.startsWith('--force-with-lease='))).toBe(false)
+    })
+
+    it('does not query or force a non-dependfix branch (default-branch push keeps non-fast-forward semantics)', async () => {
+        childProcessMock.execFile.mockResolvedValue({ stdout: '', stderr: 'To https://github.com/o/r.git\n' })
+
+        await pushFixBranchWithCredential('master', '/tmp/test', 't')
+
+        expect(childProcessMock.execFile).toHaveBeenCalledTimes(1)
+        const pushArgs = childProcessMock.execFile.mock.calls[0]![1] as string[]
+        expect(pushArgs).not.toContain('ls-remote')
+        expect(pushArgs.some((a) => a.startsWith('--force-with-lease='))).toBe(false)
     })
 
     it('throws PlatformDeliveryError(push_failed) when git push fails', async () => {
@@ -238,7 +289,10 @@ describe('deliverFixAndPr', () => {
     })
 
     it('pushes + creates PR when plan.action=create + no supersede', async () => {
-        childProcessMock.execFile.mockResolvedValue({ stdout: '', stderr: 'To https://github.com/o/r.git\n' })
+        // ls-remote（无同名分支）→ push
+        childProcessMock.execFile
+            .mockResolvedValueOnce({ stdout: '', stderr: '' })
+            .mockResolvedValueOnce({ stdout: '', stderr: 'To https://github.com/o/r.git\n' })
         engineMock.fetchDefaultBranch.mockResolvedValue('main')
         engineMock.buildPrTitle.mockReturnValue('chore(deps): auto fix')
         engineMock.generatePRBody.mockReturnValue('body')
@@ -256,7 +310,7 @@ describe('deliverFixAndPr', () => {
         })
 
         expect(result).toEqual({ runUrl: 'https://github.com/o/r/pull/200', prNumber: 200, skipped: false })
-        expect(childProcessMock.execFile).toHaveBeenCalledTimes(1) // push
+        expect(childProcessMock.execFile).toHaveBeenCalledTimes(2) // ls-remote + push
         expect(engineMock.createPullRequest).toHaveBeenCalledWith(expect.objectContaining({
             owner: 'o', repo: 'r', headBranch: 'dependfix/auto-fix-abc12345', baseBranch: 'main',
         }))

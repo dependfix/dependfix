@@ -8,6 +8,7 @@ import {
     computeFixFingerprint,
     createGitHubClient,
     createPullRequest,
+    DEPENDFIX_BRANCH_PREFIX,
     fetchDefaultBranch,
     findDependfixOpenPR,
     generatePRBody,
@@ -126,6 +127,30 @@ export class PlatformDeliveryError extends Error {
 }
 
 /**
+ * 解析远程同名分支当前 tip（无分支 / 查询失败返回 undefined）。
+ *
+ * 平台 clone 为 `--depth 1 --branch <default>`，不包含 dependfix 分支的 remote-tracking
+ * ref，因此 `--force-with-lease` 不能依赖隐式期望值，必须先 `ls-remote` 取 sha。
+ * 查询失败按「无同名分支」处理：后续普通 push 会给出真实错误（认证 / 网络）。
+ */
+async function resolveRemoteBranchTip(
+    branchName: string,
+    workDir: string,
+    authHeader: string,
+): Promise<string | undefined> {
+    try {
+        const { stdout } = await execFileAsync(
+            'git',
+            ['-c', authHeader, 'ls-remote', 'origin', `refs/heads/${branchName}`],
+            { cwd: workDir, timeout: 60_000 },
+        )
+        return stdout.trim().split(/\s+/u)[0] || undefined
+    } catch {
+        return undefined
+    }
+}
+
+/**
  * 推送修复分支到远程 origin（平台带凭据版）。
  *
  * 与 [container-executor.pushFixBranch] 等价实现——本文件保留独立版本，便于 planFixAndPrDelivery + deliverFixAndPr
@@ -136,19 +161,38 @@ export class PlatformDeliveryError extends Error {
  * 避免宿主 `push.gpgSign=true` 让 push 带 `--signed` 而在服务端不支持时失败。
  * hooks 隔离：同 push 侧策略（`GIT_PUSH_HOOKS_ISOLATION_ARGS`）——`push --no-verify` 跳过被修复
  * 仓库的 `pre-push`（口径见 docs/standards/git.md §3.8）。
+ *
+ * **同名分支残留**：修复分支名由内容指纹派生（`dependfix/auto-fix-<fingerprint>`）。上一轮 PR
+ * 被关闭但分支未删除时，新 commit 与远端 tip 是兄弟节点，普通 push 会 non-fast-forward
+ * 失败并永久卡住同指纹交付。因分支由 dependfix 独占且 fingerprint 相同即内容等价，这里在
+ * **仅限 `dependfix/auto-fix-` 前缀**时用 `--force-with-lease`（期望值取 ls-remote 实测 tip）覆盖；
+ * 默认分支 / 非自有分支维持非快进语义。此处置不改变本项目对 origin 的推送禁令
+ * （[GitHub 协作规范 §4](../../../../../docs/standards/github-collaboration.md#_4-推送授权)）。
+ *
  * 失败原样抛 PlatformDeliveryError(code='push_failed')。
  */
 export async function pushFixBranchWithCredential(
     branchName: string,
     workDir: string,
     token: string,
+    logger?: Pick<Logger, 'info'>,
 ): Promise<void> {
     const basic = Buffer.from(`x-access-token:${token}`).toString('base64')
+    const authHeader = `http.extraheader=Authorization: basic ${basic}`
+    let leaseArg: string | undefined
+    if (branchName.startsWith(DEPENDFIX_BRANCH_PREFIX)) {
+        const remoteTip = await resolveRemoteBranchTip(branchName, workDir, authHeader)
+        if (remoteTip) {
+            leaseArg = `--force-with-lease=refs/heads/${branchName}:${remoteTip}`
+            logger?.info(`[platform-delivery] force-with-lease ${branchName} (expected remote tip ${remoteTip})`)
+        }
+    }
     const args = [
         ...GIT_PUSH_SIGNING_ISOLATION_ARGS,
-        '-c', `http.extraheader=Authorization: basic ${basic}`,
+        '-c', authHeader,
         'push',
         ...GIT_PUSH_HOOKS_ISOLATION_ARGS,
+        ...(leaseArg ? [leaseArg] : []),
         'origin', branchName,
     ]
     try {
@@ -191,7 +235,7 @@ export async function deliverFixAndPr(
     }
 
     // 2. Push 修复分支
-    await pushFixBranchWithCredential(branchName, workDir, token)
+    await pushFixBranchWithCredential(branchName, workDir, token, logger)
 
     // 3. Create PR
     let pr: { htmlUrl: string, number: number }

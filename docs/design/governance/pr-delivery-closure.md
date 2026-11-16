@@ -177,6 +177,7 @@ attemptKey = sha256([source, packageName, targetVersion, planStrategy].join('\u0
 - 跳过只覆盖依赖升级链路，且与「无工作」同语义：**全部**告警命中时不采样修复前基线、也不跑 lockfile repair（保持工作区 pristine，否则 `noChanges` 归因豁免前提被打破）；终验在「repair 真改文件或有成功升级动作」时保留，0 写入时按 [dependency-fixer-records.md §12.9](../modules/dependency-fixer-records.md#_12-9-验证链与既有失败基线-默认链-既有失败归因-零告警按需采样) 跳过（`no-write`）；**部分**命中时 repair 与终验照既有语义执行。
 - 多仓运行只有 PR 落点仓库（第一个仓库）参与计数，其余仓库不判定（避免在 A 仓计 B 仓的尝试）。
 - 平台交付链（容器执行器固定 `fix` 模式 + `platform-delivery` 建 PR）不产出也不读取尝试标记：平台建的 dependfix PR 关闭后**不消耗**尝试额度；跨 runner 混用（平台关 PR、CLI 计数）只会少计（fail-open），不会误跳过。平台侧计数支持为独立候选（backlog），不在本阶段。
+- **同名修复分支残留（2026-11-16 修复）**：PR 被关闭但 `dependfix/auto-fix-<fingerprint>` 分支未删除时，下一轮从默认分支重建同名分支，新 commit 与远端 tip 是兄弟节点，普通 push 非快进失败且同指纹每轮重来。平台 `pushFixBranchWithCredential` 与引擎 `pushBranch` 现对 `dependfix/auto-fix-` 前缀先 `ls-remote` 取实测 tip，再用 `--force-with-lease=refs/heads/<branch>:<sha>` 覆盖；默认分支 / 非自有分支保持非快进语义。该 lease 只作用于目标仓库的自有修复分支，不改变本项目对 origin 的推送禁令（[GitHub 协作规范 §4](../../standards/github-collaboration.md#_4-推送授权)）。PR 关闭时的远端分支自动清理仍为独立候选（backlog）。
 - 不在本阶段做「按失败签名跨仓库聚合」；平台侧不建表、不加设置页开关。
 
 ## 7. M48.4 提交面白名单与 YAML 定点编辑

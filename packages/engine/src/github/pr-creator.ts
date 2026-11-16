@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto'
 import type { Octokit } from '@octokit/rest'
 import {
     type FixAction,
+    type Logger,
     type RunResult,
     collectCodeScanningSuggestions,
     collectFamilySummaries,
@@ -18,7 +19,7 @@ import { commitStaged, stageScopedChanges, type StageAndCommitOptions, type Stag
 import { buildDraftDeliveryNotice } from './delivery-issue'
 import { formatAttemptMarker, type AttemptMarker } from './fix-fingerprint'
 import { branchExists, ensureGitConfig, PAT_DEFAULT_COMMIT_AUTHOR } from './git-config'
-import { runGitOrThrow } from './git-run'
+import { runGit, runGitOrThrow } from './git-run'
 import { escapeTableCell } from './markdown-table'
 
 // ---------------------------------------------------------------------------
@@ -225,6 +226,18 @@ export async function stageAndCommit(
     return staging
 }
 
+/** 解析远程同名分支当前 tip（无分支 / 查询失败返回 undefined）。 */
+async function resolveRemoteBranchTip(branchName: string, workDir: string): Promise<string | undefined> {
+    const result = await runGit(
+        ['ls-remote', 'origin', `refs/heads/${branchName}`],
+        { cwd: workDir },
+    )
+    if (!result.started || result.code !== 0) {
+        return undefined
+    }
+    return result.stdout.trim().split(/\s+/u)[0] || undefined
+}
+
 /**
  * 推送分支到 origin。
  *
@@ -233,12 +246,31 @@ export async function stageAndCommit(
  *   `--signed`（服务端不支持时直接 `the receiving end does not support --signed push` 失败）
  * - **hooks**：`push --no-verify` 跳过被修复仓库的 `pre-push`（隔离环境无 `npx` / 目标仓库
  *   `node_modules` 不完整时该 hook 会以非 0 退出，把交付链打断为 `push_failed`）
+ *
+ * **同名分支残留**：`dependfix/auto-fix-<fingerprint>` 由 dependfix 独占；上一轮 PR 关闭后
+ * 分支未删时，新 commit 与远端 tip 是兄弟节点，普通 push 会 non-fast-forward 永久失败。
+ * 仅对 `dependfix/auto-fix-` 前缀用 `--force-with-lease`（期望值取 ls-remote 实测 tip）覆盖；默认分支 /
+ * 非自有分支维持非快进语义。此处不改变本项目对 origin 的推送禁令
+ * （[GitHub 协作规范 §4](../../../../docs/standards/github-collaboration.md#_4-推送授权)）。
  */
-export async function pushBranch(branchName: string, workDir: string): Promise<void> {
+export async function pushBranch(
+    branchName: string,
+    workDir: string,
+    logger?: Pick<Logger, 'info'>,
+): Promise<void> {
+    let leaseArg: string | undefined
+    if (branchName.startsWith(DEPENDFIX_BRANCH_PREFIX)) {
+        const remoteTip = await resolveRemoteBranchTip(branchName, workDir)
+        if (remoteTip) {
+            leaseArg = `--force-with-lease=refs/heads/${branchName}:${remoteTip}`
+            logger?.info(`[push] force-with-lease ${branchName} (expected remote tip ${remoteTip})`)
+        }
+    }
     await runGitOrThrow([
         ...GIT_PUSH_SIGNING_ISOLATION_ARGS,
         'push',
         ...GIT_PUSH_HOOKS_ISOLATION_ARGS,
+        ...(leaseArg ? [leaseArg] : []),
         'origin',
         branchName,
     ], { cwd: workDir, what: `push branch ${branchName}` })

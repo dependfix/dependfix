@@ -417,6 +417,12 @@
 - **文字层失效指针**：如 `[backlog.md §M7.2](../backlog.md)`（M7.2 已迁出，链接目标保留为文件顶部）与 `[backlog.md C66-C](../backlog.md)`（C66-C 已移除）。条目约束「不改归档正文文字」，门禁只看目标文件存在性，故文字层 stale 不可见。
 - **触发条件 / 处置**：下次归档批次或文档站链接治理时一并处理，改法二选一——源码路径改 GitHub 绝对 URL，或在文档规范声明「源码路径链接以仓库视图为准」并对文字层一次性复扫。
 
+### MCP `get_last_report` 在归档布局下返回 `index.json`（2026-11-16 登记，持续观察）
+
+- **现象**：实现取 `DEPENDFIX_MCP_REPORT_DIR` 下按文件名字典序最后一个 `.json`；标准归档布局为 `{YYYY-MM}/{runId}/summary.json` + 顶层 `index.json`，`index.json` 恒排最后，故返回的是趋势索引而非最近一次 RunResult。
+- **现口径**：REFERENCES 已按实际行为描述（平铺布局等价 RunResult，归档布局为 `index.json` 趋势条目），不声称强于实现。
+- **触发条件 / 处置**：需要 MCP 直接返回单次 RunResult 时，改为跳过 `index.json` 并递归取最新 `summary.json`，同时补「月目录 + index.json」用例；届时同步 REFERENCES 一致性断言行。
+
 ## 文档位置速查
 
 | 内容类型 | 位置 |

@@ -144,6 +144,7 @@
 - **依赖**：`@dependfix/mcp` 1.0.0 已发布（M54）；同步链 `scripts/sync-skills.mjs`；backlog 候选（2026-11-12 复核）。
 - **交付物**：2-3 commits / 4-6 files / 150-250 行。
 - **风险与缓解**：只改一份副本 → 以 `packages/skills` 为源、跑 sync + 一致性测试；生成物被误提交 → `.gitignore` 已覆盖，提交前 `git status` 自查。
+- **执行记录（2026-11-16，2 commits）**：`37e284f0` 把 REFERENCES 工具表从 4 项补齐到已注册的 8 项（`fetch_alerts` / `run_scan` / `fix_dependency` / `get_last_report` / `discover_repos` / `cleanup_branches` / `history` / `pnpm_audit`）并逐字对齐 `packages/mcp/src/tools/schemas.ts`（含 `workDir` 等 camelCase 键）；同步 SKILL.md 能力契约表与探测步骤（8 tool、发布状态、降级路径），契约测试的 `MCP_TOOLS` 与断言同步。本条提交登记 backlog 已知边界「`get_last_report` 在归档布局下取到 `index.json`」并按实际行为收敛断言行。范围扩展说明：SKILL.md 与 `skill-mcp-contract.test.mjs` 不在原「范围」列举内，但同属 skill 分发面且旧文案（4 tool / MCP 预留位）与 REFERENCES 直接冲突，未改工具实现。AC 证据：8/8 tool 与入参逐项对照 `registerTool` + `schemas.ts`；`pnpm sync:skills` 与 `build:sandbox` 后权威源 / 分发镜像 / 沙箱生成物三处 `diff -r` 为空；`rg --no-ignore "当前 MCP Server 未发布"` 除 `docs/plan/todo.md` 计划引文外 0 命中；`packages/mcp/src` + `packages/skills/test` 60 passed；`gates:docs` 21 项；`check:docs` 八类规则通过。审计 `standard` Pass（W1 命名口径概括不实 / W2 断言强于实现，均已修；S4 字段名已按 core 契约更正；S1「表内入参名 ↔ schema」机检未纳入，登记为后续增强）。残余：`get_last_report` 实现未改（改为递归取 `summary.json` 属独立候选）。
 
 ### M61.6 文档口径一致性收口（P2 📚）
 

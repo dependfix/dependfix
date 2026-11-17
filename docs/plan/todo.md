@@ -99,6 +99,8 @@
 ### 追加临时待办（不占阶段条目编号）
 
 > **来源**：用户 2026-11-17 直接授权修复现网事故（`rsshub-never-die#264`：自动修复 PR 只删除 `pnpm-lock.yaml`，-10,249 行）；属「直接影响可用性的生产事故」插队，闭环后随阶段归档。
+>
+> **状态**：✅ 已闭环（2026-11-17，commits `ad3033a7` / `ceb9279b` / `20ef2288`，已推送）。证据：① 全命令退出 0 不写锁文件 → `repairLockfile` 返回失败且原文件逐字节恢复、无 `.bak` 残留（`index-artifact.test.ts` 用例 2 条，含 frozen「通过」但产物不可用）；② 重复 key YAML 判失败（`inspectLockfileArtifact` 单测）；③ 白名单文件删除 → `UNEXPECTED_CHANGES` 且 `stageScopedChanges` 拒绝（`commit-scope.test.ts`）；④ 定向 `pnpm --filter @dependfix/engine exec vitest run src/fixers/pnpm src/github/commit-scope.test.ts` = 6 文件 / 96 passed；⑤ `gates:docs` 21 项通过。残余：无（生产事故链路已在设计记录 §3.3 留档）。
 
 - **目标**：锁文件修复的成功判据落到**产物**（存在 + 可解析），任何路径都不再产出「删除锁文件」的净变更；交付侧白名单拒绝白名单文件的删除。
 - **范围**：`packages/engine/src/fixers/pnpm/index.ts` 与 `lockfile-artifact.ts`（`inspectLockfileArtifact` + 策略 / 验证双重校验）；`packages/engine/src/github/commit-scope.ts`（白名单删除 → `UNEXPECTED_CHANGES`）；设计记录 §3.3。

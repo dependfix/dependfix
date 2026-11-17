@@ -11,7 +11,7 @@
 
 - `@dependfix/core#summarizeSkippedByPackage(alerts, outcomes)` 把 `status='skipped'` 的告警按 `(repository, packageName)` 收敛为「条数 + 同包最高目标版本 + 原因集合」，原因去重后按 `SKIP_REASONS` 顺序输出，未知原因原样展示。
 - 报告在 `Skipped & Truncated` 之后追加 `Skipped by Package` 表；引擎收官日志输出 `[summary] N alert(s) blocked across M package group(s): repo:pkg→ver target ×count (reasons) …`（最多 8 个包组）。
-- 无 skipped 结果但有未修复告警（典型：基线安装失败后整条依赖链跳过）时，日志回退为 `N alert(s) not fixed — no skipped outcome recorded`。`summary.alertsSkippedByReason` 的按原因计数不变，两者互补。
+- 无 skipped 结果但有未修复告警（典型：链路提前中断——预算耗尽 / 环境性失败 / 运行级取消；或告警 `fixable` 但无推荐版本）时，日志回退为 `N alert(s) not fixed — no skipped outcome recorded`。`summary.alertsSkippedByReason` 的按原因计数不变，两者互补。**基线安装失败不再触发该兜底**：未重试时逐告警记 `install-baseline-failed`（2026-11-17，口径见 [dependency-fixer-records.md §12.9](../modules/dependency-fixer-records.md#_12-9-验证链与既有失败基线-默认链-既有失败归因-零告警按需采样)）。
 
 ## 3. 基线已判安装失败的锁文件修复
 

@@ -97,5 +97,6 @@ describe('formatSkipReason — 新增跳过原因', () => {
     it('混合实例 / 仅传递依赖有独立文案（不得回落 other）', () => {
         expect(formatSkipReason('mixed-instance')).toContain('Mixed instances')
         expect(formatSkipReason('transitive-only')).toContain('Transitive only')
+        expect(formatSkipReason('install-baseline-failed')).toContain('Pre-fix install failed')
     })
 })

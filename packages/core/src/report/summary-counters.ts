@@ -128,6 +128,7 @@ const SKIP_REASON_LABELS: Record<SkipReason | 'other', string> = {
     'peer-only': 'Peer-only dependency (manual review)',
     'mixed-instance': 'Mixed instances (affected lower instance remains)',
     'transitive-only': 'Transitive only (auto major upgrade not applicable)',
+    'install-baseline-failed': 'Pre-fix install failed (dependency chain skipped)',
     other: 'Other / unclassified',
 }
 

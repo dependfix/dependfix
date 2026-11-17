@@ -24,6 +24,8 @@ export const SKIP_REASONS = [
     'mixed-instance',
     // 仅传递依赖：allowMajorUpgrade 开启但告警不是根直接依赖（自动跨 major 不适用）
     'transitive-only',
+    // 修复前安装基线失败：依赖升级链整体跳过（每条告警都有明确原因，不再出现「无跳过结论」）
+    'install-baseline-failed',
 ] as const
 
 export type SkipReason = (typeof SKIP_REASONS)[number]

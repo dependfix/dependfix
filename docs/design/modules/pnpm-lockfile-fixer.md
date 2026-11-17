@@ -65,11 +65,12 @@ pnpm i --frozen-lockfile
 | `LOCKFILE_NOT_FOUND` | `REGENERATE` → `REINSTALL` | 新建 lockfile |
 | `MANIFEST_MISMATCH` | `REGENERATE` → `REINSTALL` | 根据 package.json 重新生成 |
 | `CREDENTIAL_ERROR` | （空链） | 非代码问题，无法自动修复 |
-| `CORRUPTED_LOCKFILE` | `FIX_ENTRIES` → `REGENERATE` → `REINSTALL` | 修复损坏条目后再验证 |
+| `CORRUPTED_LOCKFILE` | `FIX_ENTRIES` → `REGENERATE` → `REGENERATE_FROM_MANIFEST` → `REINSTALL` | 原地策略无法解析原文件时，末尾「移出后按 manifest 重建」兜底 |
 | `LOCKFILE_VERSION_MISMATCH` | `PIN_TOOLCHAIN` → `REGENERATE` → `REINSTALL` | 对齐 pnpm 版本后重新生成 |
 | `MINIMUM_RELEASE_AGE` | `REGENERATE` → `REINSTALL` | 重解析可能选中满足冷却期约束的旧版本 |
 | `RESOLVE_ERROR` | `REGENERATE` → `FIX_ENTRIES` → `REINSTALL` | 重解析 → 修条目 → 全量重解析 |
 | `ENVIRONMENT_ERROR` | `REGENERATE` → `REINSTALL` | 环境性失败；保留尝试以捕获「环境已恢复」的机会性修复（与 `UNKNOWN` 同链） |
+| `PRECONDITION_FAILED` | `REGENERATE_FROM_MANIFEST` → `REGENERATE` → `REINSTALL` | 基线已判安装失败但复检通过：不信任「已合规」，强制结构重建 |
 | `UNKNOWN` | `REGENERATE` → `REINSTALL` | 最后手段 |
 
 命令对照：`REGENERATE` = `pnpm install --lockfile-only`；`FIX_ENTRIES` = `pnpm install --fix-lockfile --lockfile-only`；`PIN_TOOLCHAIN` = `corepack pnpm@<version> install --lockfile-only`（无声明版本时回退裸 `pnpm install --lockfile-only`）；`REINSTALL` = `pnpm install --no-frozen-lockfile`。
@@ -96,6 +97,26 @@ pnpm i --frozen-lockfile
 - 速度快、副作用小，适合 CI 场景中快速修复
 - 失败率更低：不会因网络问题导致安装失败
 - 验证只需再跑一次 `pnpm i --frozen-lockfile`
+
+### 3.3 成功判据：命令退出 0 之外还必须有可用产物（2026-11-17 事故）
+
+`pnpm` 在 `node_modules` 已是最新（`node_modules/.pnpm/lock.yaml` 与 `.modules.yaml` 命中）时会对
+`install` 直接输出 `Already up to date` 并返回 0：既可能在 `--lockfile-only` 下**不重建**被移出的
+root lockfile，也会让 `--frozen-lockfile` 在锁文件缺失 / 结构损坏时**短路通过**。只以退出码 +
+frozen 安装结果判成功，会把「锁文件被移出且未重建」当修复生效：`diff` 记为整文件删除（`-10249` 行），
+随后交付阶段把删除提交进 PR（`rsshub-never-die#264`，`-10249` 行 / 仅删除 `pnpm-lock.yaml`）。
+
+现行判据（单一事实源 `inspectLockfileArtifact`）：
+
+1. 策略命令成功后先校验**产物**：`pnpm-lock.yaml` 必须存在，且可被 YAML 解析并含 `lockfileVersion`
+   （`yaml` 解析对重复 key 严格报错，覆盖 `ERR_PNPM_BROKEN_LOCKFILE` 的 `duplicated mapping key` 形态）。
+   产物不可用 → 该策略记失败（`attempt.error` 写明原因）；若原文件已被移出 / 删除，或策略写出了不可解析的
+   产物，则先从 `.bak` 恢复到修复前内容，再继续下一策略。
+2. frozen 验证通过后**再**校验一次产物：frozen 结果同样会被 up-to-date 快路径短路，不能单独作为结论。
+3. 全部策略失败 → 回滚到修复前内容（`$lockfile.bak`），不产出「删除锁文件」的净变更。
+4. 交付侧纵深防御（`github/commit-scope.ts`）：白名单只放行白名单文件的**内容改动**；工作树 / 索引区
+   出现白名单文件删除（`pnpm-lock.yaml` / `package.json` / `pnpm-workspace.yaml` / `.npmrc` / `.gitignore`）
+   时按未声明改动拒绝提交（`UNEXPECTED_CHANGES`），即使上游误产出删除也不会发布。
 
 ---
 

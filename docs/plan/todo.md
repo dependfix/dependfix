@@ -96,6 +96,14 @@
 - **交付物**：3-4 commits / 7-9 files / 400-550 行。
 - **风险与缓解**：问题不可复现 → 先落取证脚本与诊断增强，复现条件写入 backlog；误杀父进程 → 只清理运行创建的进程组并断言父子关系。
 
-## 上一阶段
+### 追加临时待办（不占阶段条目编号）
 
+> **来源**：用户 2026-11-17 直接授权修复现网事故（`rsshub-never-die#264`：自动修复 PR 只删除 `pnpm-lock.yaml`，-10,249 行）；属「直接影响可用性的生产事故」插队，闭环后随阶段归档。
+
+- **目标**：锁文件修复的成功判据落到**产物**（存在 + 可解析），任何路径都不再产出「删除锁文件」的净变更；交付侧白名单拒绝白名单文件的删除。
+- **范围**：`packages/engine/src/fixers/pnpm/index.ts` 与 `lockfile-artifact.ts`（`inspectLockfileArtifact` + 策略 / 验证双重校验）；`packages/engine/src/github/commit-scope.ts`（白名单删除 → `UNEXPECTED_CHANGES`）；设计记录 §3.3。
+- **验收标准**：① 模拟「pnpm 全部退出 0 但不写锁文件」时 repair 返回失败且原文件逐字节恢复、无 `.bak` / `.broken` 残留；② 产物为重复 key 的 YAML 时同样失败；③ 白名单文件删除被拒提交；④ 定向用例通过；⑤ `gates:docs` 通过。
+- **风险与依赖**：`yaml` 严格解析可能拒绝历史上被 pnpm 容忍的锁文件 → 仅用于「修复成功」判据，不影响「已合规」早退路径；依赖 M62.5 的安装失败结论口径。
+
+## 上一阶段
 M61（文档与 AI 治理）已于 2026-11-16 归档：见[执行记录](archive/todo-archive-phases-m61.md) / [路线图](archive/roadmap-phases-m61.md)；更早阶段见 [todo-archive.md](todo-archive.md)。

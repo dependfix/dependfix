@@ -30,7 +30,7 @@
 >
 > **D 阶段决策点**：D1（M62.1）短路粒度（仅安装失败短路，其余命令保留独立结论）；D2（M62.2）命令级 OOM 字段落点与展示层级；D3（M62.3）manual-cross-major 谓词复用位置；D4（M62.4）默认链只读化范围（有 `lint:check` 时用之，否则回退 `lint`）；D5（M62.5）修复后重试一次的上限与审计；D6（M62.6）落定判据（收尾后 10s 内）。
 
-### M62.1 红仓库 baseline 预失败短路与跳过归因（P1 🛠️）
+### M62.1 红仓库 baseline 预失败短路与跳过归因（P1 🛠️）—— ✅ 已闭环
 
 - **目标**：已确认为红的仓库不再每轮支付完整基线；短路项带明确原因，报告与平台可判读「未跑 ≠ 通过」。
 - **优先级**：P1（窗口 48% 机时为 pre-fix baseline，两仓占 63%；测量方 = 执行角色，来源 `runs-logs-20261112-143354.txt` 首末日志求和；11-16 复现：momei 11-13 baseline 24m25s）。
@@ -40,6 +40,16 @@
 - **依赖**：`verify-project.ts` 现有预算夹取（`97d92c0b`）；M56.3 三态跳过语义。
 - **交付物**：4-5 commits / 8-10 files / 450-650 行。
 - **风险与缓解**：短路吞掉独立失败 → 仅安装命令短路 + 三态用例；不引入降频，短路后新增失败由下一轮全链重新判定。
+- **执行记录（2026-11-17，4 commits：`52bb7430` core 契约 / `736d01a8` engine 短路 / `7c6f9dae` platform 展示 / `81980774` 文档）**：
+  - **实现**：`sampleVerificationBaseline` 传 `stopOnFailureWhen: isInstallCommand`（安装命令失败即不再 spawn 后续命令；非安装失败仍完整采样）；被短路命令经 `SampleBaselineOptions.onSkipped` 回报 → `ensureVerificationBaseline` → `RepoFixProgress` → `RepositoryResult.baselineSkippedCommands` → `summary.baselineSkippedCommands`（按**命令**计）；报告新增 `## Baseline Skipped` 段（逐条：仓库 / 命令 / 原因）；平台 `run-detail-dialog` 与 `repo-history-dialog` 两处详情显示「基线未采样 N 条命令 · 未采样」+ 语义 tooltip；e2e `scans` case 10b 覆盖正负向。
+  - **AC①（≥50%）**：本地红仓库夹具（`preinstall` 确定性失败 + 其余 4 条命令各 1.2s）实测完整链 8210ms → 短路 1483ms，**降幅 81.9%**；机制上红仓库必然省掉 install 之后全部命令。**残余**：momei / rss-impact-server 真实仓库对比未取得——本机 `github.com` 出站被阻断（`api.github.com` 可达），补测条件 = 具备 github.com 出站 + 可克隆夹具时按同命令集复跑；测量用例为临时文件（测后删除），复现方式见本条实现说明（夹具脚本同上）。
+  - **AC②（原因 + 未验证语义）**：每条短路命令带 `reason: 'install-baseline-failed'`；报告 / 详情文案显式「未采样」，不渲染为通过。**口径偏差（待用户裁决）**：AC② 原文「进入 `verificationSkippedByReason` 家族」改为**独立词汇表** `BASELINE_SKIP_REASONS` + 命令级字段——该家族语义是「终验未执行」（budget / no-write），而基线短路时终验照常执行，混入会让同一字段承载两种互斥事实，且分母从「按仓库」变「按命令」会污染既有指标；审计（分区 A）判定该偏差**优于原文**，仍需用户确认后同步修订 AC② 原文。
+  - **AC③（非红零回归）**：`stopOnFailureWhen` 仅在命令失败分支求值，install 绿时永不触发；engine 全量 1955 passed / 1 skipped、platform 2659 passed / 10 skipped、core 289 passed。
+  - **AC④（三态）**：安装失败短路 / 非安装失败继续 / 预算耗尽——前两态在 `verify-project-baseline-chain.test.ts`（4 例，含 install 非链首、未采样命令不获既有失败豁免）+ `verification-runner.test.ts`（谓词命中短路 / 未命中继续）；预算耗尽沿用 `verify-project.test.ts` 与 `quick-verify-budget.test.ts` 既有覆盖。回退探针（3 组）：删 `sameRepo` 守卫 / 删 `progress.baselineSkippedCommands` 透传 / 删未执行过滤 → 均变红。
+  - **AC⑤**：`gates:docs` 21 项通过；`check:contract-freeze` 11 项 OK（契约清单新增 `baselineSkippedCommands`）；`lint:check` 0 error / 2 存量 warning；`typecheck` 7 项目；`pnpm -r build` 与 platform build 通过；e2e scans + alerts 14 passed。
+  - **规模偏差**：实际 20 文件（预估 8-10）——展示面（2 处详情 + i18n 双语 + e2e fixture）与契约面（contract-freeze + 2 份设计文档）同批落地；按 4 个 commit 拆分（core 契约 / engine 短路 / platform 展示 / 文档），单 commit ≤ 10 文件。
+  - **审计**：deep（19 文件跨 core / engine / platform 三包）两分区并发 R1 均 **Reject**（A：todo 记录缺失 + 3 处回退后仍绿；B：`report-generator` 「互斥」口径与实现相反 + 平台「逐条披露」过度声称）→ 全部收口（补 3 组回退探针、简化冗余索引守卫、补齐旧口径注释与文档、两处详情 + e2e、i18n 条件句与正文限定语）→ R2 Reject（§12.13 结论句与节次地图编号）→ 收口 → R3 **Pass**（代码与测试面无新增 blocker，文档面两处已修净）。
+  - **残余**：① AC② 措辞待用户裁决；② 真实仓库对比待环境（github.com 出站）；③ `quickVerifyProject` 的「基线已红命令不重跑」只认真实失败命令，install 红 + 自动修复型 Code Scanning 告警的仓库会在批级 quick-verify 重跑一次 lint（成本面，方向仍为净收益：基线省 3-4 条命令 vs quick-verify 多 1 条）。
 
 ### M62.2 命令级 OOM 与运行终态分离（P1 🛠️🧪）
 

@@ -5,6 +5,7 @@
 //
 // 口径（设计 §7.1 / §7.2）：
 // - 提交集合 = 白名单命中的**已跟踪**改动 ∪ fixer / AI patch 显式声明的路径
+// - 白名单只放行内容改动：白名单文件被删除（工作树 / 索引区）一律按未声明改动拒绝
 // - 生成物黑名单一律不提交，且不触发未声明告警（构建会重写它们，不是交付内容）
 // - 未声明的已跟踪改动 → `UNEXPECTED_CHANGES`（打印路径，不静默提交）
 // - 未跟踪文件默认忽略（只有被显式声明的新文件才会加入）
@@ -266,7 +267,7 @@ export async function stageScopedChanges(
             'UNEXPECTED_CHANGES',
             `refusing to commit: ${scope.unexpected.length} undeclared tracked change(s) — ${scope.unexpected.join(', ')}. `
             + 'Only whitelisted manifests/lockfile/workspace files and fixer-declared paths are committed; '
-            + 'commit or clean these changes first.',
+            + 'deleting those files is never part of a fix. Commit or clean these changes first.',
             scope.unexpected,
         )
     }
@@ -367,6 +368,13 @@ export async function computeCommitScope(workDir: string, declaredPaths: readonl
             continue
         }
         if (isCommitWhitelisted(change.path)) {
+            // 白名单只覆盖「内容改动」：删除锁文件 / 清单 / workspace 配置永远不是修复产物。
+            // 典型事故：pnpm 在 node_modules 已是最新时返回 0 但不重建被移出的锁文件，
+            // 工作树只剩一条删除——白名单放行会把它发布成 PR，因此删除一律按未声明改动拒绝。
+            if (change.deleted) {
+                unexpected.push(change.path)
+                continue
+            }
             paths.add(change.path)
             continue
         }

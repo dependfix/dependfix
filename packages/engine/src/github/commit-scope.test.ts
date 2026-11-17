@@ -279,6 +279,23 @@ describe('computeCommitScope', () => {
         const scope = await computeCommitScope(dir)
         expect(scope.unexpected).toEqual(['src/old.ts'])
     })
+
+    // 白名单放行的是「内容改动」，不是删除：锁文件 / 清单被删永远不是修复产物。
+    // 事故形态：pnpm 在 node_modules 已最新时不重建被移出的锁文件，工作树只剩删除。
+    it('白名单文件被删除 → unexpected（拒绝把删除发布成修复）', async () => {
+        const dir = initRepo({
+            'package.json': '{}\n',
+            'pnpm-lock.yaml': 'lockfileVersion: 9.0\n',
+            'pnpm-workspace.yaml': 'packages: []\n',
+        })
+        rmSync(join(dir, 'pnpm-lock.yaml'))
+        rmSync(join(dir, 'pnpm-workspace.yaml'))
+
+        const scope = await computeCommitScope(dir)
+        expect(scope.paths).toEqual([])
+        expect(scope.unexpected).toEqual(['pnpm-lock.yaml', 'pnpm-workspace.yaml'])
+        await expect(stageScopedChanges(dir)).rejects.toThrowError(/undeclared tracked change/)
+    })
 })
 
 describe('chunkPaths', () => {

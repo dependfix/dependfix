@@ -108,6 +108,11 @@ export function computeSummary(
     }
     summary.verificationsSkipped = Object.values(skippedByReason).reduce((sum, count) => sum + (count ?? 0), 0)
     summary.verificationSkippedByReason = skippedByReason
+    // 修复前基线链被短路的命令数（按命令计）：未采样 ≠ 通过，平台详情据此披露
+    summary.baselineSkippedCommands = repoResults.reduce(
+        (sum, result) => sum + (result.baselineSkippedCommands?.length ?? 0),
+        0,
+    )
     // 交付跳过（基线红）：按去重后的仓库集计数；载体计数按 run 级记录派生（幂等，可重复调用）
     const deliverySkips = ctx.deliverySkips ?? []
     summary.deliverySkipped = new Set(deliverySkips.flatMap((record) => record.repositories)).size

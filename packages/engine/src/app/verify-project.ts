@@ -8,7 +8,10 @@
 // → 标记 `preExisting`（既有失败，不归因本次改动）；基线中缺失的命令保守归因本次（未知不算既有）。
 // 详见 docs/design/modules/dependency-fixer-records.md §12.9。
 import {
+    formatBaselineSkipReason,
+    INSTALL_BASELINE_FAILED_REASON,
     toErrorMessage,
+    type BaselineSkippedCommand,
     type CiAlignmentRecord,
     type CiMirrorSkipped,
     type FixAction,
@@ -145,6 +148,38 @@ function resolveVerifyCommands(
     return plan
 }
 
+/** `sampleVerificationBaseline` 可选参数。 */
+export interface SampleBaselineOptions {
+    /**
+     * 基线链被短路的命令回调（安装命令已判红 → 后续命令未采样）。
+     *
+     * 只描述「未采样」事实：调用方不得据此豁免归因，也不得渲染成验证通过。
+     */
+    onSkipped?: (skipped: BaselineSkippedCommand[]) => void
+}
+
+/**
+ * 基线链被短路的命令（安装命令失败 → 未执行的命令）。
+ *
+ * 判据 = 「计划里有、结果里没有」+「失败终止点是安装命令」：链按顺序执行，因此未执行的命令
+ * 必然位于失败安装命令之后（同因失败）；安装命令之前已执行并留下读数的命令不受影响。
+ */
+function collectSkippedAfterInstallFailure(
+    planned: string[],
+    results: CommandResult[],
+): BaselineSkippedCommand[] {
+    const installFailed = results.some((cr) => (
+        isInstallCommand(cr.command) && (cr.exitCode !== 0 || cr.timedOut === true)
+    ))
+    if (!installFailed) {
+        return []
+    }
+    const executed = new Set(results.map((cr) => cr.command))
+    return planned
+        .filter((command) => !executed.has(command))
+        .map((command) => ({ command, reason: INSTALL_BASELINE_FAILED_REASON }))
+}
+
 /**
  * 修复前（pristine 工作区）采样验证基线：用与修复后验证相同的命令口径跑一次验证链，
  * 返回逐命令结果，供 `verifyProject` 区分「本次改动引入的失败」与「目标仓库本就存在的失败」。
@@ -155,8 +190,12 @@ function resolveVerifyCommands(
  *
  * 约定：
  * - **只测量**：失败与网络违规只记日志（warn），不写 `allErrors`（避免把既有状态渲染成本次运行的问题）
- * - 基线使用完整链（`stopOnFailure:false`），各命令独立记录；调用方仍对
- *   「基线中缺失的命令」**不适用豁免**（保守归因：未知不算既有）
+ * - 基线用完整链（`stopOnFailure:false`）：非安装命令失败后仍继续采样，各命令独立记录；
+ *   调用方仍对「基线中缺失的命令」**不适用豁免**（保守归因：未知不算既有）
+ * - **安装失败即短路**（`stopOnFailureWhen`）：安装命令失败时后续命令必然同因失败，不再烧预算；
+ *   被短路的命令
+ *   经 `options.onSkipped` 回报为「未采样」，调用方写进 `RepositoryResult.baselineSkippedCommands`
+ *   （未采样 ≠ 通过，也不等于「已确认既有失败」）
  * - 采样异常（无 package.json / spawn 失败等）返回 `undefined`，调用方退回原始口径（全量归因）
  */
 export async function sampleVerificationBaseline(
@@ -165,6 +204,7 @@ export async function sampleVerificationBaseline(
         verifyCommandTimeoutMs?: number
     },
     repo: string,
+    options: SampleBaselineOptions = {},
 ): Promise<CommandResult[] | undefined> {
     const { logger, workDir } = ctx
     const plan = resolveVerifyCommands(ctx, repo, { recordSkips: false })
@@ -174,9 +214,11 @@ export async function sampleVerificationBaseline(
     const commands = plan.commands
 
     logger.info(`[baseline] Sampling pre-fix verification baseline for ${repo} (${commands.join(' → ')})`)
+    let baselineResults: CommandResult[] | undefined
+    let skipped: BaselineSkippedCommand[] = []
     try {
-        // 完整链：首条失败后继续采样后续命令，避免 install 失败遮蔽 test 的既有失败
-        // （nest-template：install 红 + jest No tests found）。
+        // 完整链：非安装命令失败后继续采样后续命令（各命令独立读数）；安装命令失败即短路，
+        // 其后命令不再 spawn（见下方 stopOnFailureWhen），其终验失败按保守口径归因本次。
         // 预算夹取：单命令超时取「剩余预算 − 交付保留」，避免基线链在预算见底后仍按
         // 默认 10 分钟逐条启动（最坏 5 条 = 50 分钟，远超单仓上限，必然 execution_timeout）。
         const remaining = remainingBudgetMs(ctx.deadlineAt)
@@ -193,6 +235,9 @@ export async function sampleVerificationBaseline(
             workDir,
             commands,
             stopOnFailure: false,
+            // 安装失败即短路：同一工作区 / 同一 lockfile 下后续命令必然同因失败，
+            // 继续跑只烧预算且不产生新读数；非安装命令失败仍继续（独立结论不受遮蔽）。
+            stopOnFailureWhen: isInstallCommand,
             ...(commandTimeoutMs !== undefined ? { commandTimeoutMs } : {}),
         })
         // 基线同样走 deny-by-default 外联审计代理：拦截记录必须留痕（只 warn、不入报告错误区），
@@ -209,11 +254,27 @@ export async function sampleVerificationBaseline(
                 )
             }
         }
-        return result.commandResults
+        // 安装失败短路的余下命令：显式回报「未采样」，避免被读成「已确认既有失败」或「通过」
+        skipped = collectSkippedAfterInstallFailure(commands, result.commandResults)
+        for (const item of skipped) {
+            logger.info(
+                `[baseline] ${repo}: "${item.command}" not sampled — ${formatBaselineSkipReason(item.reason)}`,
+            )
+        }
+        baselineResults = result.commandResults
     } catch (error: unknown) {
         logger.warn(`[baseline] Sampling failed: ${toErrorMessage(error)} — existing-failure attribution disabled for this run`)
         return undefined
     }
+    // 回调放在 try 之外：调用方回调抛错不得把已采样的基线整条吞成 undefined（退化为全量归因）
+    if (skipped.length > 0) {
+        try {
+            options.onSkipped?.(skipped)
+        } catch (error: unknown) {
+            logger.warn(`[baseline] skipped-command callback failed (ignored): ${toErrorMessage(error)}`)
+        }
+    }
+    return baselineResults
 }
 
 /**

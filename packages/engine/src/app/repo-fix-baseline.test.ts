@@ -9,12 +9,12 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { NormalizedSecurityAlert } from '@dependfix/core'
+import type { BaselineSkippedCommand, NormalizedSecurityAlert } from '@dependfix/core'
 import type { CommandResult } from '../runners/verification-runner'
 import type { AppContext } from './helpers'
 import { processRepoFix, type RepoFixCtx } from './repo-fix'
 import { ensureVerificationBaseline } from './repo-fix-finalize'
-import { computeExitCode } from './result-assembly'
+import { computeExitCode, computeSummary } from './result-assembly'
 import { findInstallBaselineFailure } from './verify-project'
 
 const {
@@ -222,6 +222,35 @@ describe('processRepoFix 修复前基线采样面', () => {
         expect(ctx.repoResults[0].verificationSkipped).toBe('no-write')
     })
 
+    it('基线安装失败：未采样命令透传到 RepositoryResult 与 summary', async () => {
+        mockFetchRepoAlerts.mockResolvedValue([makeAutoFixableCodeScanningAlert()])
+        const skipped: BaselineSkippedCommand[] = [
+            { command: 'pnpm lint', reason: 'install-baseline-failed' },
+            { command: 'pnpm test', reason: 'install-baseline-failed' },
+        ]
+        mockSampleVerificationBaseline.mockImplementation(async (
+            _ctx: RepoFixCtx,
+            _repo: string,
+            options?: { onSkipped?: (items: BaselineSkippedCommand[]) => void },
+        ) => {
+            options?.onSkipped?.(skipped)
+            return [{
+                command: 'pnpm install --frozen-lockfile',
+                exitCode: 1,
+                durationMs: 1,
+                stdout: 'ERR_PNPM_BROKEN_LOCKFILE',
+                stderr: '',
+            }]
+        })
+        const ctx = makeCtx(workDir)
+
+        await processRepoFix(ctx, null, 'foo/bar')
+
+        expect(ctx.repoResults[0].baselineSkippedCommands).toEqual(skipped)
+        computeSummary(ctx)
+        expect(ctx.summary.baselineSkippedCommands).toBe(2)
+    })
+
     it('有告警但全部不可修复：不采样基线、也不跑终验（0 写入）', async () => {
         mockFetchRepoAlerts.mockResolvedValue([makeAlert()])
         const ctx = makeCtx(workDir)
@@ -337,23 +366,30 @@ describe('ensureVerificationBaseline 仓库归属', () => {
         stderr: '',
     }
 
+    const skippedCommands: BaselineSkippedCommand[] = [
+        { command: 'pnpm test', reason: 'install-baseline-failed' },
+    ]
+
     it('A 仓的基线不用于 B 仓的快速失败', async () => {
         const ctx = makeCtx(process.cwd())
-        ctx.verificationBaseline = { repo: 'foo/a', value: [installFailure] }
+        ctx.verificationBaseline = { repo: 'foo/a', value: [installFailure], skipped: skippedCommands }
 
         const result = await ensureVerificationBaseline(ctx, 'foo/b', { hasWork: true })
 
         expect(result.baseline).toBeUndefined()
         expect(result.exemptAttribution).toBe(false)
+        // 未采样记录同样只归属采样仓库：不得挂到 B 仓（串仓披露）
+        expect(result.baselineSkipped).toBeUndefined()
     })
 
     it('采样仓库自身可取回基线', async () => {
         const ctx = makeCtx(process.cwd())
-        ctx.verificationBaseline = { repo: 'foo/a', value: [installFailure] }
+        ctx.verificationBaseline = { repo: 'foo/a', value: [installFailure], skipped: skippedCommands }
 
         const result = await ensureVerificationBaseline(ctx, 'foo/a', { hasWork: true })
 
         expect(result.baseline).toEqual([installFailure])
+        expect(result.baselineSkipped).toEqual(skippedCommands)
     })
 })
 

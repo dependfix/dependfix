@@ -69,6 +69,14 @@ export interface VerificationParams {
      * test 的既有失败（nest-template 形态）。
      */
     stopOnFailure?: boolean
+    /**
+     * 失败后立即停止的**附加谓词**（与 `stopOnFailure` 并列，命中即短路）。
+     *
+     * 修复前基线采样传安装命令判定：安装失败时后续命令必然同因失败（同一工作区、同一
+     * lockfile），继续跑只是烧预算且不产生新读数。非安装命令失败仍继续执行，
+     * 保留「install 红不遮蔽 test 红」的独立结论。
+     */
+    stopOnFailureWhen?: (command: string) => boolean
 }
 
 /**
@@ -98,7 +106,7 @@ export interface VerificationResult {
  *   （实测移出 `packages/{core,engine,cli}/dist` 后 `pnpm --filter @dependfix/platform typecheck`
  *   报大量 `TS2307 Cannot find module`）。
  * - typecheck 排在 test 之前：类型错误优先于测试运行短路；修复前基线使用
- *   完整链（`stopOnFailure:false`），不再受首失败前缀覆盖。
+ *   完整链（`stopOnFailure:false`），非安装命令失败不再受首失败前缀覆盖。
  *
  * **为何纳入 typecheck**：改动前的四条命令互不重叠地都不做类型检查——lint 只跑规则
  * （类型解析失败通常降级为规则告警而非错误）、tsdown 的 `dts` 只发射声明、vitest 走 esbuild
@@ -117,7 +125,9 @@ export interface VerificationResult {
  *
  * **已知边界**：脚本语义不实（如 `"typecheck": "tsc --noEmit || true"`）无法机检；
  * 「typecheck / test 长期为红」的仓库由命令级既有失败基线豁免；基线完整链采样全部命令
- * （`sampleVerificationBaseline` 传 `stopOnFailure:false`），修复后验证仍首失败即停；
+ * （`sampleVerificationBaseline` 传 `stopOnFailure:false`），**安装命令失败除外**——
+ * 其后命令不再采样并记 `install-baseline-failed` 未采样（见 `BASELINE_SKIP_REASONS`）；
+ * 修复后验证仍首失败即停；
  * 需 `nuxt prepare` 之类前置步骤的仓库默认链不成立，走 `--commands` / 平台 `verifyCommands` /
  * action `commands` 逃生舱。
  */
@@ -300,7 +310,7 @@ export async function runVerification(params: VerificationParams): Promise<Verif
                     ? `command "${command}" timed out after ${result.durationMs}ms`
                     : `command "${command}" exited with code ${result.exitCode}`
                 firstFailure ??= { command, failure }
-                if (stopOnFailure) {
+                if (stopOnFailure || params.stopOnFailureWhen?.(command) === true) {
                     return {
                         success: false,
                         commandResults,

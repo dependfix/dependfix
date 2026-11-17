@@ -49,6 +49,25 @@ describe('computeSummary', () => {
         expect(ctx.summary.verificationSkippedByReason).toEqual({ 'no-write': 2, budget: 1 })
     })
 
+    it('counts baseline not-sampled commands by command (not by repository)', () => {
+        const ctx = makeCtx({
+            repoResults: [
+                {
+                    repository: 'foo/a',
+                    baselineSkippedCommands: [
+                        { command: 'pnpm lint', reason: 'install-baseline-failed' },
+                        { command: 'pnpm test', reason: 'install-baseline-failed' },
+                    ],
+                },
+                { repository: 'foo/b', verificationPassed: true },
+            ] as never,
+        })
+        computeSummary(ctx)
+        expect(ctx.summary.baselineSkippedCommands).toBe(2)
+        // 未采样不等于「验证跳过」：终验照常执行，不计入该家族
+        expect(ctx.summary.verificationsSkipped).toBe(0)
+    })
+
     it('counts environmental failures from ENVIRONMENT_ERROR audit entries only', () => {
         const ctx = makeCtx({
             allErrors: [

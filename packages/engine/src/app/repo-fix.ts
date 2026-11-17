@@ -8,6 +8,7 @@ import {
     prioritizeAlerts,
     toErrorMessage,
     type AiUsageAggregate,
+    type BaselineSkippedCommand,
     type FixAction,
     type NormalizedSecurityAlert,
     type VerificationSkipReason,
@@ -71,6 +72,8 @@ export interface RepoFixProgress {
     verificationBlocking: boolean | undefined
     /** 主动跳过验证的原因（运行预算不足 / 本次无写入；见 RepositoryResult.verificationSkipped） */
     verificationSkipped?: VerificationSkipReason
+    /** 修复前基线被短路的命令（未采样 ≠ 通过；见 RepositoryResult.baselineSkippedCommands） */
+    baselineSkippedCommands?: BaselineSkippedCommand[]
     defaultBranch: string
 }
 
@@ -92,7 +95,7 @@ export interface RepoFixCtx extends AppContext {
      * - 未提供（如测试直接构造 ctx）⇒ 不采样，退回原始「全量归因」口径
      */
     /** `repo` = 采样时的仓库（运行级首采只对采样仓库自身可信，多仓复用不用于快速失败判定） */
-    verificationBaseline?: { repo?: string, value?: CommandResult[] }
+    verificationBaseline?: { repo?: string, value?: CommandResult[], skipped?: BaselineSkippedCommand[] }
     /**
      * 单元回滚 checkpoint 持有器（run 级；由 index.ts 创建并跨仓库传递）。
      * 每个依赖修复单元 probe 开始前记录；终验失败时 finalizeRepoFix 取当前仓库最近一个。
@@ -171,7 +174,10 @@ export async function processRepoFix(
         const fixableMemberAlerts = planned.memberManifestAlerts.some((item) => item.alert.recommendedVersion)
         const hasWork = fixableNonLockfileRoot || fixableMemberAlerts || codeScanningFixable
             || (fixableLockfileRoot && !crossMajorOnly)
-        const { exemptAttribution, baseline } = await ensureVerificationBaseline(ctx, repo, { hasWork })
+        const { exemptAttribution, baseline, baselineSkipped } = await ensureVerificationBaseline(ctx, repo, { hasWork })
+        if (baselineSkipped && baselineSkipped.length > 0) {
+            progress.baselineSkippedCommands = baselineSkipped
+        }
         // pristine 安装失败 ⇒ overrides 安装必然同因失败；逐包重试只会耗尽预算，写盘前快速失败
         const installBaselineFailure = recordInstallBaselineFailure(ctx, repo, baseline)
         const sets = await prepareRepoFixSets(ctx, repo, planned, alertInputs, progress)
@@ -221,6 +227,7 @@ export async function processRepoFix(
         verificationPassed: progress.verificationPassed,
         verificationBlocking: progress.verificationBlocking,
         verificationSkipped: progress.verificationSkipped,
+        baselineSkippedCommands: progress.baselineSkippedCommands,
         durationMs: Date.now() - startTime,
     })
 }

@@ -5,6 +5,7 @@
 // 两段职责的耦合点只有运行级基线持有器：采样时机决定是否需要付基线成本，收尾消费采样结果做归因豁免。
 // 验证链口径见 docs/design/modules/dependency-fixer-records.md §12.9。
 import type { Octokit } from '@octokit/rest'
+import type { BaselineSkippedCommand } from '@dependfix/core'
 import { formatVerificationError, type CommandResult } from '../runners/verification-runner'
 import { tryLockfileRepair } from './helpers'
 import type { RepoFixCtx, RepoFixProgress } from './repo-fix'
@@ -26,7 +27,7 @@ export async function ensureVerificationBaseline(
     ctx: RepoFixCtx,
     repo: string,
     options: { hasWork: boolean },
-): Promise<{ exemptAttribution: boolean, baseline?: CommandResult[] }> {
+): Promise<{ exemptAttribution: boolean, baseline?: CommandResult[], baselineSkipped?: BaselineSkippedCommand[] }> {
     if (ctx.config.dryRun || !ctx.verificationBaseline) {
         return { exemptAttribution: false }
     }
@@ -35,11 +36,16 @@ export async function ensureVerificationBaseline(
         return { exemptAttribution: false }
     }
     if (ctx.verificationBaseline.value) {
+        // 运行级首采只对采样仓库自身可信：多仓运行时不能把 A 仓的安装失败套到 B 仓，
+        // 否则会把 B 仓的修复链误跳过。归因口径仍沿用运行级基线（见 currentBaseline）。
+        // 「基线未采样」记录同理只回给采样仓库自身。
+        const sameRepo = ctx.verificationBaseline.repo === repo
         return {
             exemptAttribution: false,
-            // 运行级首采只对采样仓库自身可信：多仓运行时不能把 A 仓的安装失败套到 B 仓，
-            // 否则会把 B 仓的修复链误跳过。归因口径仍沿用运行级基线（见 currentBaseline）。
-            baseline: ctx.verificationBaseline.repo === repo ? ctx.verificationBaseline.value : undefined,
+            baseline: sameRepo ? ctx.verificationBaseline.value : undefined,
+            ...(sameRepo && ctx.verificationBaseline.skipped
+                ? { baselineSkipped: ctx.verificationBaseline.skipped }
+                : {}),
         }
     }
     if (!options.hasWork) {
@@ -49,12 +55,24 @@ export async function ensureVerificationBaseline(
         )
         return { exemptAttribution: true }
     }
-    const value = await sampleVerificationBaseline(ctx, repo)
+    let baselineSkipped: BaselineSkippedCommand[] | undefined
+    const value = await sampleVerificationBaseline(ctx, repo, {
+        onSkipped: (skipped) => {
+            baselineSkipped = skipped
+        },
+    })
     if (value) {
         ctx.verificationBaseline.value = value
         ctx.verificationBaseline.repo = repo
+        if (baselineSkipped && baselineSkipped.length > 0) {
+            ctx.verificationBaseline.skipped = baselineSkipped
+        }
     }
-    return { exemptAttribution: false, baseline: value }
+    return {
+        exemptAttribution: false,
+        baseline: value,
+        ...(baselineSkipped ? { baselineSkipped } : {}),
+    }
 }
 
 /** 读取本次运行的修复前基线（未采样 / 采样失败时为 undefined ⇒ 全量归因）。 */

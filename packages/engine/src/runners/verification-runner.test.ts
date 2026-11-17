@@ -945,7 +945,7 @@ describe('runVerification complete-chain baseline mode', () => {
         const result = await runVerification({
             workDir: '/tmp/complete-chain',
             commands: ['pnpm install --frozen-lockfile', 'pnpm test'],
-            stopOnFailure: false,
+            stopOnFailure: false, stopOnFailureWhen: () => false,
             networkAuditDisabled: true,
         })
 
@@ -969,6 +969,17 @@ describe('runVerification complete-chain baseline mode', () => {
 
         expect(result.commandResults).toHaveLength(1)
         expect(result.failedCommand).toBe('pnpm install --frozen-lockfile')
+    })
+
+    it('stopOnFailureWhen 命中即短路', async () => {
+        mockSpawn.mockImplementationOnce(() => failedCp(1, 'install failed'))
+        mockDiscoverRegistryHosts.mockReturnValue({ hosts: [] })
+        const result = await runVerification({
+            workDir: '/tmp/stop-when', commands: ['pnpm install --frozen-lockfile', 'pnpm test'],
+            stopOnFailure: false, stopOnFailureWhen: (cmd) => cmd.startsWith('pnpm install'),
+            networkAuditDisabled: true,
+        })
+        expect(result.commandResults).toHaveLength(1)
     })
 })
 

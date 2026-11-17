@@ -113,6 +113,8 @@ const scanRunSchema = z.object({
             budget: z.number().int().min(0).optional(),
             'no-write': z.number().int().min(0).optional(),
         }).optional(),
+        /** 修复前基线未采样命令数（安装失败短路；按命令计，仅统计采样仓库） */
+        baselineSkippedCommands: z.number().int().min(0).optional(),
         /** 跳过总数与按原因分组（结果披露） */
         alertsSkipped: z.number().int().min(0).optional(),
         alertsSkippedByReason: z.object({

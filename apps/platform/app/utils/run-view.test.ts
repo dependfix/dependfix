@@ -2,6 +2,7 @@ import { ALERT_SEVERITIES, SKIP_REASONS, VERIFICATION_SKIP_REASONS } from '@depe
 import { describe, expect, it } from 'vitest'
 import {
     alertsFound,
+    baselineSkippedCommands,
     deliverySkipDraftPrs,
     deliverySkipIssues,
     deliverySkipped,
@@ -237,6 +238,23 @@ describe('verificationsSkipped', () => {
         expect(verificationSkipSummary({ verificationSkippedByReason: { 'no-write': 2, budget: 1 } }, t))
             .toBe('t:runs.verificationSkipReason.budget: 1 · t:runs.verificationSkipReason.noWrite: 2')
         expect(verificationSkipSummary({}, t)).toBe('')
+    })
+})
+
+describe('baselineSkippedCommands', () => {
+    it('按命令读取基线未采样数，且与验证跳过计数互不替代', () => {
+        expect(baselineSkippedCommands({ baselineSkippedCommands: 3 })).toBe(3)
+        // 未采样命令数独立于「验证跳过仓库数」：缺键时不得回退到另一个分母
+        expect(baselineSkippedCommands({ verificationsSkipped: 2 })).toBe(0)
+        expect(baselineSkippedCommands({})).toBe(0)
+        expect(baselineSkippedCommands(null)).toBe(0)
+    })
+
+    it('脏数据一律降级为 0（旧 summaryJson 兼容）', () => {
+        expect(baselineSkippedCommands({ baselineSkippedCommands: '3' })).toBe(0)
+        expect(baselineSkippedCommands({ baselineSkippedCommands: -1 })).toBe(0)
+        expect(baselineSkippedCommands({ baselineSkippedCommands: Number.NaN })).toBe(0)
+        expect(baselineSkippedCommands({ baselineSkippedCommands: null })).toBe(0)
     })
 })
 

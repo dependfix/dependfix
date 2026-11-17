@@ -23,6 +23,7 @@ import {
     networkViolationSummary,
     runDelivery,
     verificationsSkipped,
+    baselineSkippedCommands,
 } from '~/utils/run-view'
 import { scanSeverityLabel } from '~/utils/scan-options'
 import { downloadFile } from '~/utils/download'
@@ -374,6 +375,13 @@ watch(() => props.runId, (runId) => {
                         <template v-if="verificationSkipSummaryText">
                             · {{ verificationSkipSummaryText }}
                         </template>
+                    </strong>
+                </div>
+                <div v-if="!isRunResultMissing(detail) && baselineSkippedCommands(detail.summary) > 0" class="run-detail__meta-item">
+                    <span class="run-detail__meta-label">{{ t('runs.baselineSkippedLabel') }}</span>
+                    <strong :title="t('runs.baselineSkippedHint')">
+                        {{ t('runs.baselineSkipped', {count: baselineSkippedCommands(detail.summary)}) }}
+                        · {{ t('runs.baselineSkippedInline') }}
                     </strong>
                 </div>
                 <div v-if="!isRunResultMissing(detail) && networkViolations(detail.summary) > 0" class="run-detail__meta-item">

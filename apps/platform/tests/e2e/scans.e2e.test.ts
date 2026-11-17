@@ -493,6 +493,60 @@ test('case 10: /scans 运行详情展示验证跳过与原因', async ({ page })
 })
 
 /**
+ * 基线未采样：`summary.baselineSkippedCommands` > 0 时运行详情显示未采样命令数与「未采样」限定语，
+ * 不得把「没有基线读数」渲染成验证通过或「已确认既有失败」。
+ */
+test('case 10b: /scans 运行详情展示基线未采样命令数', async ({ page }) => {
+    const stamp = Date.now()
+    const owner = `e2e-scans-baseline-${stamp}`
+    const name = `app-${stamp}`
+    const created = await page.request.post('/api/e2e/fixtures', {
+        data: {
+            repos: [{ owner, name }],
+            scanRuns: [
+                {
+                    repositoryOwner: owner,
+                    repositoryName: name,
+                    status: 'completed',
+                    mode: 'fix',
+                    summary: {
+                        alertsFound: 3,
+                        alertsFixed: 0,
+                        alertsUnfixed: 3,
+                        baselineSkippedCommands: 4,
+                    },
+                    exitCode: 0,
+                },
+                {
+                    repositoryOwner: owner,
+                    repositoryName: name,
+                    status: 'completed',
+                    mode: 'fix',
+                    summary: { alertsFound: 1, alertsFixed: 0, alertsUnfixed: 1 },
+                    exitCode: 0,
+                },
+            ],
+        },
+    })
+    expect(created.status()).toBe(200)
+    const { scanRuns } = await created.json() as { scanRuns: { id: string }[] }
+
+    await page.goto(`/scans?run=${scanRuns[0]!.id}`)
+    await waitForHydration(page)
+    const dialog = page.locator('.caomei-dialog__content')
+    await expect(dialog).toBeVisible({ timeout: 15000 })
+    const outcome = dialog.locator('.repo-history__outcome')
+    // 「未采样」限定语在正文内可见（不依赖悬停，触摸端 / 读屏同样可达）
+    await expect(outcome).toContainText('4 条命令 · 未采样')
+
+    // 负向：summary 无该字段 → 不渲染该标签
+    await page.goto(`/scans?run=${scanRuns[1]!.id}`)
+    await waitForHydration(page)
+    await expect(dialog).toBeVisible({ timeout: 15000 })
+    await expect(dialog.locator('.repo-history__outcome')).not.toContainText('基线未采样')
+})
+
+/**
  * 沙箱启动时降级（A 场景）：运行详情需展示结构化原因与处置链接。
  * 用 fixtures 注入 degraded + sandbox_unavailable，覆盖 UI 可见性（非仅状态标签）。
  */

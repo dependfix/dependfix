@@ -83,6 +83,14 @@ export const deliverySkipDraftPrs = (summary: Record<string, unknown> | null) =>
 /** 验证被跳过的仓库数（预算不足 / 0 写入；不交付、不回滚）。 */
 export const verificationsSkipped = (summary: Record<string, unknown> | null) => summaryNumber(summary, 'verificationsSkipped')
 
+/**
+ * 修复前基线链被短路的**命令数**（`summary.baselineSkippedCommands`）。
+ *
+ * >0 表示安装命令已判红 → 后续命令没有基线读数：未采样 ≠ 通过，也不等于「已确认既有失败」，
+ * 详情必须按「未采样」披露（口径见 docs/design/modules/dependency-fixer-records.md §12.9）。
+ */
+export const baselineSkippedCommands = (summary: Record<string, unknown> | null) => summaryNumber(summary, 'baselineSkippedCommands')
+
 /** 验证跳过原因展示顺序；与 `packages/core/src/report/types.ts#VERIFICATION_SKIP_REASONS` 同序。 */
 export const VERIFICATION_SKIP_REASON_ORDER = ['budget', 'no-write'] as const
 

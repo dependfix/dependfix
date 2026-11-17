@@ -16,6 +16,7 @@ import { ArrowLeft, Copy, Download, ExternalLink, Eye } from '@lucide/vue'
 import { scanSeverityLabel } from '~/utils/scan-options'
 import {
     alertsFound,
+    baselineSkippedCommands,
     deliverySkipDraftPrs,
     deliverySkipIssues,
     deliverySkipped,
@@ -444,6 +445,15 @@ watch(() => route.query[props.queryKey], async (newVal) => {
                             <template v-if="verificationSkipSummaryText">
                                 · {{ verificationSkipSummaryText }}
                             </template>
+                        </CaomeiTag>
+                    </span>
+                    <span
+                        v-if="baselineSkippedCommands(detail.summary ?? null) > 0"
+                        :title="t('runs.baselineSkippedHint')"
+                    >
+                        <CaomeiTag tone="warning">
+                            {{ t('runs.baselineSkipped', {count: baselineSkippedCommands(detail.summary ?? null)}) }}
+                            · {{ t('runs.baselineSkippedInline') }}
                         </CaomeiTag>
                     </span>
                 </template>

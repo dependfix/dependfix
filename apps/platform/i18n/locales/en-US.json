@@ -903,6 +903,10 @@
         "verificationsSkipped": "{count} repo(s) verification skipped",
         "verificationsSkippedLabel": "Verification skipped",
         "verificationsSkippedHint": "Verification did not run (budget exhausted / no writes in this run); not a failure and not a pass: budget skips block delivery, while no-write runs have nothing to deliver",
+        "baselineSkipped": "{count} baseline command(s) not sampled",
+        "baselineSkippedLabel": "Baseline not sampled",
+        "baselineSkippedHint": "The pre-fix baseline stopped at a failing install command, so these commands have no baseline reading (sampling repository only). Not sampled is neither a pass nor a confirmed pre-existing failure: if final verification runs, its failures are attributed to this change conservatively; if this run wrote nothing, final verification is reported as skipped instead",
+        "baselineSkippedInline": "not sampled",
         "verificationSkipReason": {
             "budget": "Run budget exhausted",
             "noWrite": "No writes in this run"

@@ -903,6 +903,10 @@
         "verificationsSkipped": "验证跳过 {count} 个仓库",
         "verificationsSkippedLabel": "验证跳过",
         "verificationsSkippedHint": "验证未执行（运行预算不足 / 本次无写入）；不计为失败，也不代表验证通过：预算跳过会阻断交付，本次无写入则无交付内容",
+        "baselineSkipped": "基线未采样 {count} 条命令",
+        "baselineSkippedLabel": "基线未采样",
+        "baselineSkippedHint": "修复前基线链在安装命令失败处短路：这些命令没有基线读数（仅统计采样仓库）。未采样不等于通过，也不等于已确认既有失败：终验若执行，其失败按本次改动保守归因；若本次无写入则终验按「验证跳过」口径处理",
+        "baselineSkippedInline": "未采样",
         "verificationSkipReason": {
             "budget": "运行预算不足",
             "noWrite": "本次无写入"

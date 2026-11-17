@@ -1,4 +1,4 @@
-import { copyFileSync, existsSync, readFileSync, renameSync, rmSync } from 'node:fs'
+import { existsSync, readFileSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { resolveInstallTimeoutMs } from '../install-timeouts'
 import {
@@ -10,6 +10,15 @@ import {
     type ExecError,
 } from '../process-signals'
 import { getAbortReason, isAbortRequested, runTrackedCommand } from '../../runners/process-control'
+import {
+    backupLockfilePath,
+    inspectLockfileArtifact,
+    LOCKFILE_NAME,
+    moveLockfileAside,
+    removeQuietly,
+    restoreLockfileFromBackup,
+    rollback,
+} from './lockfile-artifact'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -470,8 +479,6 @@ export function resolvePnpmVersion(
 // Main
 // ---------------------------------------------------------------------------
 
-const LOCKFILE_NAME = 'pnpm-lock.yaml'
-
 /**
  * 在 workDir 中使用 `pnpm install --frozen-lockfile` 验证 lockfile 合规性。
  * 验证通过 → 返回 ret:0；失败 → 返回 ret:1 + stderr。
@@ -497,84 +504,6 @@ async function verifyFrozenLockfile(workDir: string): Promise<{ ret: number, std
         ret: 1,
         // 字段名保持 stderr 以兼容调用方；内容为 stderr + stdout 的合并诊断
         stderr: getInstallDiagnostics(toExecLikeError('pnpm install --frozen-lockfile', outcome)),
-    }
-}
-
-/**
- * 备份 pnpm-lock.yaml → `<name>.bak`，返回备份路径。
- * lockfile 不存在时会创建空 .bak（回滚时删除即可）。
- */
-function backupLockfilePath(workDir: string): string {
-    const src = join(workDir, LOCKFILE_NAME)
-    const bak = `${src}.bak`
-    if (existsSync(src)) {
-        copyFileSync(src, bak)
-    }
-    return bak
-}
-
-/** 从 .bak 还原 lockfile，并删除 .bak。 */
-function rollback(bakPath: string, workDir: string): void {
-    const target = join(workDir, LOCKFILE_NAME)
-    try {
-        if (existsSync(bakPath)) {
-            copyFileSync(bakPath, target)
-        }
-    } finally {
-        try {
-            rmSync(bakPath)
-        } catch {
-            /* ignore */
-        }
-    }
-}
-
-/**
- * 结构兜底的前置动作：把当前锁文件移到 `<name>.broken` 并返回该路径。
- *
- * 移出而不是删除——覆盖 rename 失败等异常的兜底由调用方处理；文件不存在时返回 undefined。
- */
-function moveLockfileAside(workDir: string): string | undefined {
-    const src = join(workDir, LOCKFILE_NAME)
-    if (!existsSync(src)) {
-        return undefined
-    }
-    const aside = `${src}.broken`
-    try {
-        removeQuietly(aside)
-        renameSync(src, aside)
-        return aside
-    } catch {
-        // 移出失败：保留原文件，退化为原地策略（策略命令自身会失败并被记为一次尝试）
-        return undefined
-    }
-}
-
-/**
- * 从 .bak 复制回锁文件但**保留** .bak（供后续策略与最终回滚继续使用）。
- *
- * 返回是否已恢复到本次修复前的状态：`false` 时调用方**不得**删除移出件
- * （宁可留下 `.broken` 证据，也不能让锁文件凭空消失）。
- */
-function restoreLockfileFromBackup(bakPath: string, workDir: string): boolean {
-    if (!existsSync(bakPath)) {
-        // 原本就没有锁文件：清掉策略可能生成的部分产物，回到「无锁文件」起点
-        removeQuietly(join(workDir, LOCKFILE_NAME))
-        return true
-    }
-    try {
-        copyFileSync(bakPath, join(workDir, LOCKFILE_NAME))
-        return true
-    } catch {
-        return false
-    }
-}
-
-function removeQuietly(path: string): void {
-    try {
-        rmSync(path, { force: true })
-    } catch {
-        /* ignore */
     }
 }
 
@@ -714,6 +643,19 @@ export async function repairLockfile(params: RepairLockfileParams): Promise<Lock
             strategySignal = signals.signal
         }
 
+        // 命令成功 ≠ 修复生效：产物必须存在且可解析（见 inspectLockfileArtifact）。
+        // 否则「移出原锁文件 → pnpm 因 up-to-date 短路未重建」会被当成功，最终把删除发布出去。
+        const lockfilePath = join(workDir_, LOCKFILE_NAME)
+        let artifactUnusable = false
+        if (strategySuccess) {
+            const artifact = inspectLockfileArtifact(workDir_)
+            if (!artifact.ok) {
+                strategySuccess = false
+                artifactUnusable = true
+                strategyError = `\`${command}\` did not produce a usable lockfile: ${artifact.reason}`
+            }
+        }
+
         const durationMs = Date.now() - t0
         attempts.push({
             strategy,
@@ -727,11 +669,14 @@ export async function repairLockfile(params: RepairLockfileParams): Promise<Lock
 
         if (!strategySuccess) {
             lastError = strategyError ?? lastError
-            // 策略未生效：恢复本次修复前的锁文件（保留 .bak 供后续策略 / 最终回滚），
-            // 避免「原文件被移出」影响后续策略的输入假设。
-            if (movedAsidePath) {
+            // 策略未生效：恢复本次修复前的锁文件（保留 .bak 供后续策略 / 最终回滚）。
+            // 覆盖三种破坏面：结构兜底移出、pnpm 自行删除、策略写出不可解析的产物——
+            // 后续策略必须回到「修复前」的输入假设，最终净结果也不会留下删除 / 损坏。
+            if (movedAsidePath || artifactUnusable || !existsSync(lockfilePath)) {
                 if (restoreLockfileFromBackup(bakPath, workDir_)) {
-                    removeQuietly(movedAsidePath)
+                    if (movedAsidePath) {
+                        removeQuietly(movedAsidePath)
+                    }
                 } else {
                     // 恢复失败：后续策略会在「锁文件缺失」的错误前提下运行，直接走最终回滚
                     break
@@ -740,12 +685,13 @@ export async function repairLockfile(params: RepairLockfileParams): Promise<Lock
             continue
         }
 
-        // 策略命令成功 → 验证 frozen-lockfile
+        // 策略命令成功 → 验证 frozen-lockfile。成功判据 = 冻结安装通过 **且** 产物可用
+        // （frozen 验证同样可能被 pnpm 的 up-to-date 快路径短路，不能单独作为结论）。
         const verify = await verifyFrozenLockfile(workDir_)
+        const artifact = inspectLockfileArtifact(workDir_)
 
-        if (verify.ret === 0) {
+        if (verify.ret === 0 && artifact.ok) {
             // 验证通过 → 计算 diff + 格式漂移检测（lockfileVersion 前后对比）
-            const lockfilePath = join(workDir_, LOCKFILE_NAME)
             const diff = computeLockfileDiff(bakPath, lockfilePath)
             const changed = !filesEqual(bakPath, lockfilePath)
             const afterLockfileVersion = readLockfileVersionOf(workDir_)
@@ -766,14 +712,20 @@ export async function repairLockfile(params: RepairLockfileParams): Promise<Lock
             }
         }
 
-        // 命令成功但冻结安装仍失败：回到本次修复前状态，继续下一个策略
-        if (movedAsidePath) {
+        // 命令成功但冻结安装仍失败 / 产物不可用：回到本次修复前状态，继续下一个策略
+        if (verify.ret === 0) {
+            lastError = `frozen-lockfile verification passed but the lockfile is unusable: ${artifact.reason ?? 'unknown reason'}`
+        } else {
+            lastError = verify.stderr
+        }
+        if (movedAsidePath || !artifact.ok) {
             if (!restoreLockfileFromBackup(bakPath, workDir_)) {
                 break
             }
-            removeQuietly(movedAsidePath)
+            if (movedAsidePath) {
+                removeQuietly(movedAsidePath)
+            }
         }
-        lastError = verify.stderr
     }
 
     // ---- 5. 全部失败 → 回滚 ----

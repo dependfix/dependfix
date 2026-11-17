@@ -150,4 +150,26 @@ describe('repairLockfile — known-broken lockfile invariant', () => {
             'REGENERATE_FROM_MANIFEST',
         ])
     })
+
+    // 回归：pnpm 在 node_modules 已是最新时对 install 直接返回 0（"Already up to date"），
+    // 既不重建被移出的锁文件，也让 frozen 验证短路通过——旧的「命令成功 + 验证通过」判据
+    // 会把删除当修复发布（PR 只剩 pnpm-lock.yaml 删除）。成功必须有可用产物。
+    it('never treats a zero-exit pnpm run without a lockfile as a successful repair', async () => {
+        // 现网形态：原锁文件结构损坏（重复 key），pnpm 全部命令因 up-to-date 返回 0 且不写文件
+        const corrupt = 'lockfileVersion: \'9.0\'\npackages:\n  /a@1.0.0: {}\n  /a@1.0.0: {}\n'
+        writeFileSync(lockfilePath, corrupt)
+        mockRunTrackedCommand.mockImplementation(async () => okOutcome())
+
+        const result = await repairLockfile({ workDir: dir, knownBrokenLockfile: baselineFailure })
+
+        expect(result.success).toBe(false)
+        expect(result.failureCategory).toBe('PRECONDITION_FAILED')
+        // 原锁文件逐字节恢复，备份 / 移出件均不残留
+        expect(readFileSync(lockfilePath, 'utf-8')).toBe(corrupt)
+        expect(existsSync(`${lockfilePath}.bak`)).toBe(false)
+        expect(existsSync(`${lockfilePath}.broken`)).toBe(false)
+        // 每个策略的失败原因都指向产物缺失（而不是伪装成安装失败）
+        expect(result.attemptHistory.some((attempt) => attempt.error?.includes('did not produce a usable lockfile'))).toBe(true)
+    })
+
 })

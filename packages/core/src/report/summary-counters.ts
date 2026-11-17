@@ -3,9 +3,9 @@ import {
     SKIP_REASONS,
     type AlertsSkippedByReason,
     type AlertsTruncatedBySeverity,
-    type RunSummary,
     type SkipReason,
 } from './types'
+import type { RunSummary } from './run-summary'
 
 /**
  * 分组展示行。`other` 用于旧 summaryJson 缺分组字段时的降级：

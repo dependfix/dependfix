@@ -43,6 +43,7 @@ import { redactNetworkTarget } from './network-audit-target'
  * 5.7. Verification Alignment（有验证链口径记录时才渲染）
  * 2.8. Verification Skipped（有终验跳过记录时才渲染）
  * 2.9. Baseline Skipped（有基线未采样记录时才渲染）
+ * 2.10. Command OOM（有命令级 OOM 时才渲染）
  * 3.6. Alerts Disabled（有未启用记录时才渲染）
  * 6. Fix Actions 表
  * 7. Errors 节（有错误时才渲染）
@@ -73,6 +74,33 @@ function appendBaselineSkippedSection(sections: string[], repositories: Reposito
                 `| \`${escapeMd(repo.repository)}\` | \`${escapeMd(item.command)}\` | ${formatBaselineSkipReason(item.reason)} |`,
             )
         }
+    }
+    sections.push('')
+}
+
+/**
+ * 追加 `## Command OOM` 段：被 OOM 杀死的**命令**（命令级，非运行级 cgroup OOM）。
+ *
+ * 分层理由：运行级 `oomKilled` 由执行器 cgroup 计数得出（执行窗口内有进程被 OOM 杀），
+ * 与「运行被 OOM 终止」不是同一事实；命令级 OOM 常出现在 `completed` 运行里，
+ * 写成「OOM 终止」会让离线复盘误判交付结论。命令级 OOM 不改变运行失败率。
+ */
+function appendCommandOomSection(sections: string[], actions: FixAction[]): void {
+    const oomActions = actions.filter((action) => action.oomKilled === true)
+    if (oomActions.length === 0) {
+        return
+    }
+    sections.push(
+        '## Command OOM',
+        '',
+        '> 下列命令判定为**命令级 OOM**（SIGKILL / 退出码 137 / 堆错误文本）：运行终态仍可能是 `completed`，',
+        '> 不得读成「运行 OOM 终止」；该命令的验证结论按失败处理，但不改变运行失败率。',
+        '',
+        '| Repository | Command |',
+        '|------------|---------|',
+    )
+    for (const action of oomActions) {
+        sections.push(`| \`${escapeMd(action.repository)}\` | \`${escapeMd(action.target)}\` |`)
     }
     sections.push('')
 }
@@ -261,6 +289,9 @@ export function generateMarkdownReport(result: RunResult): string {
 
     // ---- 2.9 Baseline Skipped（修复前基线在安装命令失败处短路；命令级「未采样」）----
     appendBaselineSkippedSection(sections, repositories)
+
+    // ---- 2.10 Command OOM（命令级 OOM；与运行级 cgroup OOM 分层）----
+    appendCommandOomSection(sections, actions)
 
     // ---- 3. AI Usage（仅 --ai 实际调用时渲染；run 级聚合）----
     if (result.aiUsage && result.aiUsage.calls > 0) {

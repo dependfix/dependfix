@@ -65,7 +65,8 @@ describe('日志导出：失败归因', () => {
         const body = await callExport(`?repositoryId=${repositoryId}`) as string
 
         expect(body).toContain('（无执行日志）')
-        expect(body).toContain('# 失败归因：错误码：execution_timeout | 失败阶段：execute | 失败类别：timeout | 峰值 RSS：64 MB')
+        // failure_code 未落库时回退 errorJson.code，仍能标出「超时终止」
+        expect(body).toContain('# 失败归因：错误码：execution_timeout | 失败阶段：execute | 失败类别：timeout | 超时终止：是 | 峰值 RSS：64 MB')
     })
 
     it('外联违规随导出可见（计数 + 最小化目标）', async () => {
@@ -93,6 +94,55 @@ describe('日志导出：失败归因', () => {
 
         expect(body).toContain('外联违规：2')
         expect(body).toContain('外联目标：evil.example.com, cdn.example.com')
+    })
+
+    it('命令级 OOM 与运行级 OOM 分层：completed 运行不写「运行级 OOM」', async () => {
+        const ds = await ensureDatabaseInitialized()
+        const repo = ds.getRepository(ScanRun)
+        await repo.save(repo.create({
+            repositoryId,
+            mode: 'fix',
+            severityThreshold: 'high',
+            executorKind: 'container',
+            status: 'completed',
+            startedAt: new Date('2026-10-03T00:00:00Z'),
+            summaryJson: JSON.stringify({
+                repositoriesScanned: 1,
+                commandOomKills: 1,
+                commandOomCommands: ['pnpm test'],
+            }),
+            oomKilled: true,
+            logsJson: JSON.stringify([{ timestamp: '2026-10-03T00:00:00.000Z', level: 'info', message: 'done' }]),
+        }))
+
+        const body = await callExport(`?repositoryId=${repositoryId}`) as string
+
+        expect(body).toContain('命令级 OOM：1 次（pnpm test）')
+        // cgroup 计数增加可由命令级 OOM 解释 → 不再声称运行级 OOM
+        expect(body).not.toContain('运行级 OOM')
+    })
+
+    it('运行级 OOM（无命令级归因）与超时并列可分辨', async () => {
+        const ds = await ensureDatabaseInitialized()
+        const repo = ds.getRepository(ScanRun)
+        await repo.save(repo.create({
+            repositoryId,
+            mode: 'report-only',
+            severityThreshold: 'high',
+            executorKind: 'container',
+            status: 'failed',
+            startedAt: new Date('2026-10-04T00:00:00Z'),
+            errorJson: JSON.stringify({ code: 'execution_timeout', message: 'timed out' }),
+            failureCode: 'execution_timeout',
+            oomKilled: true,
+            logsJson: null,
+        }))
+
+        const body = await callExport(`?repositoryId=${repositoryId}`) as string
+
+        expect(body).toContain('运行级 OOM：是')
+        expect(body).toContain('超时终止：是')
+        expect(body).not.toContain('命令级 OOM')
     })
 
     it('成功运行不输出失败归因行', async () => {

@@ -312,6 +312,26 @@ describe('GET /api/scan-history/summary', () => {
         expect(res.totals.totalFixed).toBeGreaterThanOrEqual(3)
     })
 
+    it('命令级 OOM 不改变运行状态分布（completed 不因 OOM 计为 failed）', async () => {
+        // 状态分布 / 批次计数只看 run.status；命令级 OOM 是命令级事实，不进入失败率口径。
+        // 同库既有用例已写入历史 run → 用增量断言（绝对值为文件内累计）
+        const before = await call('GET', '/api/scan-history/summary') as SummaryResponse
+        await seedRun(repositoryA, {
+            status: 'completed',
+            summaryJson: JSON.stringify({ alertsFound: 2, alertsFixed: 1, commandOomKills: 1, commandOomCommands: ['pnpm test'] }),
+        })
+        await seedRun(repositoryB, {
+            status: 'completed',
+            summaryJson: JSON.stringify({ alertsFound: 1, alertsFixed: 0, commandOomKills: 2 }),
+        })
+
+        const res = await call('GET', '/api/scan-history/summary') as SummaryResponse
+
+        expect(res.byStatus.completed).toBe((before.byStatus.completed ?? 0) + 2)
+        // 命令级 OOM 不把 completed 运行计成 failed
+        expect(res.byStatus.failed).toBe(before.byStatus.failed ?? 0)
+    })
+
     it('aggregates per-repository runCount/alertCount/fixedCount', async () => {
         const runA1 = await seedRun(repositoryA, { status: 'completed', summaryJson: null })
         const runA2 = await seedRun(repositoryA, { status: 'completed', summaryJson: null })

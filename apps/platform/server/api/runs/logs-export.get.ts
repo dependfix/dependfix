@@ -21,6 +21,9 @@ export const MAX_EXPORT_BYTES = 5 * 1024 * 1024
 
 const SEPARATOR = '='.repeat(80)
 
+/** 超时类失败码（导出 / 详情把「超时终止」与两类 OOM 并列披露）。 */
+export const TIMEOUT_FAILURE_CODES: ReadonlySet<string> = new Set(['execution_timeout', 'clone_timeout'])
+
 /**
  * 查询参数：共用筛选（`runsFilterShape`）+ 共用分页 / 排序片段（`runsPaginationShape` / `runsSortShape`）。
  *
@@ -79,6 +82,7 @@ export const describeExportScope = (
 export const describeRunAttribution = (run: ScanRun): string | null => {
     const parts: string[] = []
     const error = parseJsonObject(run.errorJson)
+    const summary = parseJsonObject(run.summaryJson)
     if (typeof error?.code === 'string' && error.code) {
         parts.push(`错误码：${error.code}`)
     }
@@ -88,14 +92,34 @@ export const describeRunAttribution = (run: ScanRun): string | null => {
     if (run.failureKind) {
         parts.push(`失败类别：${run.failureKind}`)
     }
-    if (run.oomKilled === true) {
-        parts.push('OOM 终止：是')
+    // OOM 分层：命令级（summary 计数，可能发生在 completed 运行）与运行级（cgroup 计数）分开。
+    // 命令级存在时不再写「运行级 OOM」——执行窗口内的 cgroup 计数增加可由这些命令解释。
+    const commandOomKills = typeof summary?.commandOomKills === 'number' ? summary.commandOomKills : 0
+    if (commandOomKills > 0) {
+        const commands = Array.isArray(summary?.commandOomCommands)
+            ? [...new Set(summary.commandOomCommands.filter(
+                (item): item is string => typeof item === 'string' && item.length > 0,
+            ))].slice(0, 10)
+            : []
+        parts.push(`命令级 OOM：${commandOomKills} 次${commands.length > 0 ? `（${commands.join(', ')}）` : ''}`)
+    }
+    // 运行级与命令级只在「completed + 命令级已归因」时互斥（cgroup 计数可由命令解释）；
+    // failed 运行两类并列，避免掩盖「另有进程被 OOM 杀」。
+    if (run.oomKilled === true && !(commandOomKills > 0 && run.status === 'completed')) {
+        parts.push('运行级 OOM：是')
+    }
+    // 超时单列：与两类 OOM 并列，离线复盘需一眼分辨「被杀于 OOM」与「跑超时」。
+    // 存量行 `failure_code` 未回填时回退 errorJson.code（迁移前的超时 run 只有后者）。
+    const persistedFailureCode = typeof run.failureCode === 'string' && run.failureCode ? run.failureCode : null
+    const failureCode = persistedFailureCode
+        ?? (typeof error?.code === 'string' ? error.code : null)
+    if (failureCode !== null && TIMEOUT_FAILURE_CODES.has(failureCode)) {
+        parts.push('超时终止：是')
     }
     if (typeof run.peakRssBytes === 'number' && run.peakRssBytes > 0) {
         parts.push(`峰值 RSS：${Math.round(run.peakRssBytes / 1024 / 1024)} MB`)
     }
     // 外联审计：违规数与最小化目标随导出可见（离线复盘需区分「验证通过」与「外联被拦」）
-    const summary = parseJsonObject(run.summaryJson)
     const violations = typeof summary?.networkViolations === 'number' ? summary.networkViolations : 0
     if (violations > 0) {
         parts.push(`外联违规：${violations}`)

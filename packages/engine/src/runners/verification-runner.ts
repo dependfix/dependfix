@@ -34,10 +34,55 @@ export interface CommandResult {
     timedOut?: boolean
     /** 超时兜底落定时是否未能确认直接子进程已退出 */
     terminationUnconfirmed?: boolean
+    /**
+     * 该命令是否被 **OOM 杀死**（命令级；与运行级 cgroup `oomKilled` 分层）。
+     *
+     * 判据：非本次超时 / 取消 / 成功（`exitCode !== 0`），且 `SIGKILL` / 退出码 137 /
+     * 堆错误文本三选一命中。
+     * 命令级 OOM 常发生在 `completed` 运行里，报告与平台须按命令级披露，不得写成运行 OOM 终止。
+     */
+    oomKilled?: boolean
     /** stdout 摘要（截断到 200 行，已脱敏） */
     stdout: string
     /** stderr 摘要（截断到 200 行，已脱敏） */
     stderr: string
+}
+
+/**
+ * 堆内存耗尽特征（V8 在堆上限触发时先打印这些文本，随后进程被 abort / 非零退出）。
+ *
+ * 与 `SIGKILL` / 137 并列：cgroup OOM 杀进程不留文本，堆 OOM 留文本但退出码常为 1 / 134。
+ */
+const HEAP_OOM_PATTERN = /JavaScript heap out of memory|Reached heap limit/i
+
+/** 命令级 OOM 判定输入（便于单测直接构造三态）。 */
+export interface CommandOomInput {
+    exitCode: number
+    /** 子进程退出信号（`cp.on('exit', (code, signal))`） */
+    signal?: NodeJS.Signals | null
+    timedOut?: boolean
+    /** 本次运行是否已请求取消（取消杀进程不算 OOM） */
+    aborted?: boolean
+    /** 命令输出（stdout + stderr，已捕获的原文即可） */
+    output?: string
+}
+
+/**
+ * 判定单条命令是否被 OOM 杀死（命令级）。
+ *
+ * 只认三类信号，且**排除**本次运行主动发起的超时与取消（那两类由 `timedOut` / 取消语义承载，
+ * 不得混记为 OOM）。三者是并列判据而非同时成立：cgroup OOM 只有 `SIGKILL` / 137，
+ * 堆 OOM 只有文本。
+ */
+export function isCommandOomKilled(input: CommandOomInput): boolean {
+    // 成功命令不算 OOM：命令内部子进程 OOM 后被工具重试成功时，输出里仍可能留堆错误文本
+    if (input.timedOut === true || input.aborted === true || input.exitCode === 0) {
+        return false
+    }
+    if (input.signal === 'SIGKILL' || input.exitCode === 137) {
+        return true
+    }
+    return HEAP_OOM_PATTERN.test(input.output ?? '')
 }
 
 /**
@@ -406,6 +451,7 @@ function execCommand(
 
         let settled = false
         let exited = false
+        let exitSignal: NodeJS.Signals | null = null
         let closeGraceTimer: NodeJS.Timeout | undefined
 
         const timer = setTimeout(() => {
@@ -427,12 +473,22 @@ function execCommand(
             untrackChildProcess(cp.pid)
             const stdout = truncateLines(stdoutChunks.join(''), MAX_OUTPUT_LINES)
             const stderr = errorMessage ?? truncateLines(stderrChunks.join(''), MAX_OUTPUT_LINES)
+            const oomKilled = isCommandOomKilled({
+                exitCode,
+                signal: exitSignal,
+                timedOut,
+                aborted: isAbortRequested(),
+                // 堆错误块通常落在输出尾部：探针取**原始** chunk 的末尾 4000 字符
+                // （展示用的 stdout/stderr 已按头部 200 行截断，直接复用会丢掉尾部堆错误块）
+                output: `${stdoutChunks.join('').slice(-4000)}\n${stderrChunks.join('').slice(-4000)}`,
+            })
             resolve({
                 command,
                 exitCode,
                 durationMs: Date.now() - startTime,
                 timedOut,
                 terminationUnconfirmed: timedOut && !exited ? true : undefined,
+                ...(oomKilled ? { oomKilled: true } : {}),
                 stdout: sanitizeOutput(stdout),
                 stderr: sanitizeOutput(stderr),
             })
@@ -470,8 +526,9 @@ function execCommand(
             finish(-1, err.message)
         })
 
-        cp.on('exit', (code) => {
+        cp.on('exit', (code, signal) => {
             exited = true
+            exitSignal = signal
             settleAfterStreamGrace(code ?? -1)
         })
 

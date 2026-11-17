@@ -68,6 +68,21 @@ describe('computeSummary', () => {
         expect(ctx.summary.verificationsSkipped).toBe(0)
     })
 
+    it('命令级 OOM 按命令计数并去重，不改变失败计数', () => {
+        const ctx = makeCtx({
+            allActions: [
+                { type: 'verification', repository: 'foo/a', target: 'pnpm test', success: false, oomKilled: true },
+                { type: 'verification', repository: 'foo/a', target: 'pnpm test', success: false, oomKilled: true },
+                { type: 'verification', repository: 'foo/a', target: 'pnpm lint', success: false },
+            ] as never,
+        })
+        computeSummary(ctx)
+        expect(ctx.summary.commandOomKills).toBe(2)
+        expect(ctx.summary.commandOomCommands).toEqual(['pnpm test'])
+        // 命令级 OOM 不进入告警级失败计数（失败率看运行终态与 verificationBlocking）
+        expect(ctx.summary.alertsFailed).toBe(0)
+    })
+
     it('counts environmental failures from ENVIRONMENT_ERROR audit entries only', () => {
         const ctx = makeCtx({
             allErrors: [

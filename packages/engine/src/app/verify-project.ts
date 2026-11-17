@@ -534,6 +534,8 @@ export async function verifyProject(
                 ...(preExisting ? { preExisting: true } : {}),
                 // 来源逐条标注（默认链 / 仓库自定义链 / CI 镜像脚本）
                 ...(plan.sources.get(cr.command) ? { commandSource: plan.sources.get(cr.command) } : {}),
+                // 命令级 OOM（非运行级）：报告与平台按层级披露，不写成「运行 OOM 终止」
+                ...(cr.oomKilled ? { oomKilled: true } : {}),
                 durationMs: cr.durationMs,
             }
         })

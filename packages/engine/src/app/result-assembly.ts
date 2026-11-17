@@ -113,6 +113,16 @@ export function computeSummary(
         (sum, result) => sum + (result.baselineSkippedCommands?.length ?? 0),
         0,
     )
+    // 命令级 OOM（非运行级 cgroup OOM）：按命令计数 + 去重命令名（上限 10，随 summary 快照披露）。
+    // 命令级 OOM 不改变运行失败率：失败率看运行终态与 verificationBlocking，不看该计数。
+    const oomActions = ctx.allActions.filter((action) => action.oomKilled === true)
+    summary.commandOomKills = oomActions.length
+    const oomCommands = [...new Set(oomActions.map((action) => action.target))].slice(0, 10)
+    if (oomCommands.length > 0) {
+        summary.commandOomCommands = oomCommands
+    } else {
+        delete summary.commandOomCommands
+    }
     // 交付跳过（基线红）：按去重后的仓库集计数；载体计数按 run 级记录派生（幂等，可重复调用）
     const deliverySkips = ctx.deliverySkips ?? []
     summary.deliverySkipped = new Set(deliverySkips.flatMap((record) => record.repositories)).size

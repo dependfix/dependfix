@@ -57,6 +57,7 @@ export const SKIP_REASON_ORDER = [
     'peer-only',
     'mixed-instance',
     'transitive-only',
+    'install-baseline-failed',
 ] as const
 
 /**
@@ -73,6 +74,7 @@ export const SKIP_REASON_I18N_KEYS: Record<string, string> = {
     'override-protected': 'runs.breakdown.reason.overrideProtected',
     'repeated-failure': 'runs.breakdown.reason.repeatedFailure',
     'peer-only': 'runs.breakdown.reason.peerOnly',
+    'install-baseline-failed': 'runs.breakdown.reason.installBaselineFailed',
 }
 
 /** 跳过原因的 i18n 键（未知原因 `undefined`）。 */

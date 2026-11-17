@@ -945,6 +945,7 @@
                 "crossMajor": "跨大版本 / 人工复核",
                 "mixedInstance": "混合实例（低版本仍在受影响区间）",
                 "transitiveOnly": "仅传递依赖（自动跨大版本不适用）",
+                "installBaselineFailed": "修复前安装失败（依赖升级链跳过）",
                 "notFixable": "不可自动修复",
                 "overrideProtected": "保护名单",
                 "repeatedFailure": "同告警重复失败（尝试上限）",

@@ -945,6 +945,7 @@
                 "crossMajor": "Cross-major / manual review",
                 "mixedInstance": "Mixed instances (lower instance still affected)",
                 "transitiveOnly": "Transitive only (auto major upgrade not applicable)",
+                "installBaselineFailed": "Pre-fix install failed (dependency chain skipped)",
                 "notFixable": "Not auto-fixable",
                 "overrideProtected": "Protected by policy",
                 "repeatedFailure": "Repeated failure (attempt limit)",

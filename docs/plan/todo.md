@@ -114,7 +114,7 @@
   - **审计**：standard 单分区 R1 **Reject**（基线只读链命令名与修复后写模式命令失配 → 既有失败豁免与 quick-verify 跳过同时失效；「修复后仍走写模式」无用例）→ 收口（`expandLintCommandAliases` 别名 + 两处消费点 + 3 例用例 + 文档口径）→ R2 **Pass**（允许提交）。
   - **残余**：① 只读链依赖目标仓库声明 `lint:check`（未声明则仍为写模式，保持既有行为）；② 目标仓库的 `lint:check` 若自身写盘（脚本语义不实）无法机检，与既有「脚本语义不实」边界同类。
 
-### M62.5 安装基线失败后的告警结论与有界重试（P2 🛠️📚）
+### M62.5 安装基线失败后的告警结论与有界重试（P2 🛠️📚）—— 🛠️ 实现完成，待审计 / 提交
 
 - **目标**：坏 lockfile 仓库的每条告警都有明确 skipped 原因；修复成功且安装复检通过后，按预算允许一次升级链重试。
 - **优先级**：P2（`no skipped outcome recorded` 会让告警级结论整批丢失）。
@@ -124,6 +124,16 @@
 - **依赖**：`recordInstallBaselineFailure` / `findInstallBaselineFailure`；`finalizeRepoFix` 顺序。
 - **交付物**：3-4 commits / 6-8 files / 350-500 行。
 - **风险与缓解**：重试放大预算 → 单次 + 预算门；告警级原因与汇总不一致 → 以告警级为单一事实源并加汇总断言。
+- **执行记录（2026-11-17，按 3 个 commit 拆分（待提交）：core 原因 / engine 结论与重试 / platform 与文档台账）**：
+  - **实现**：`SKIP_REASONS` 新增 `install-baseline-failed`；安装基线失败时 `processRepoFix` 记录被整链跳过的告警（`progress.installSkippedAlerts`）并把升级链抽为可复用闭包；`finalizeRepoFix` 两条出口——repair 真正改写文件且预算允许 → 重试升级链一次 + `INSTALL_BASELINE_RETRY` 审计条目（跳过类白名单），否则逐告警 `skipped('install-baseline-failed')` + `alertsSkippedByReason` 计数；平台原因表 / i18n 双语同步。
+  - **AC①（坏 lockfile 报告无「无跳过结论」）**：repair 未生效用例断言 `alertsSkippedByReason['install-baseline-failed'] = 1` 且告警级 outcome 为 `skipped`；端到端用例（`versioned-overrides-batch`）断言 4 条告警全部落该原因、不落兜底行。**边界**：重试路径不补记该原因（重试链提前中断时可能回落兜底行），AC① 限定为非重试路径。
+  - **AC②（重试一次 + 审计 + 预算上限）**：repair 成功用例断言重试闭包调用 1 次、`INSTALL_BASELINE_RETRY` 审计条目存在、不再落整链跳过结论；预算不足 / 安装复检未通过两例断言不重试且仍逐告警落结论（复检用基线失败命令原样再跑一次，repair 成功不等于环境可安装）。
+  - **AC③（非坏 lockfile 零回归）**：engine 全量（含既有收尾守卫用例）通过；`retryUpgradeChain` 仅在 `installBaselineFailure` 存在时传入；`INSTALL_BASELINE_RETRY` 进跳过类白名单并有 exit-code 用例锁定。
+  - **AC④（单测三态 + 复检）**：`repo-fix-finalize.test.ts` 新增 4 例（不重试直接落结论 / 修复成功后重试 / 预算不足不重试 / 安装复检未通过不重试）。
+  - **AC⑤**：`gates:docs` 21 项；`typecheck` / `lint:check` / 定向与全量测试通过。
+  - **规模**：18 文件 / +328 −28（合计 356 行；含 3 份设计文档、2 份 i18n、本台账；`git status --porcelain | wc -l` = 18），预估 6-8 文件 / 350-500 行。
+  - **审计**：standard 单分区，结论见本批收口提交。
+  - **残余**：① 重试闭包会重跑整条升级链（含 lockfile 策略外的成员 / 分组），预算已由 `budgetAllows` 兜住；② `install-baseline-failed` 结论只覆盖依赖链告警，code-scanning / code-quality 走独立链；③ 重试路径不补记原因（链提前中断时回落兜底行）；④ `repo-fix.ts` 非空行 799/800——下一原子改动前必须先拆分（`applyGroupUpgrades` 收敛/归因可继续下沉）。
 
 ### M62.6 收尾未 settle 导致的假超时与取消诊断（P2 🛠️🧪）
 

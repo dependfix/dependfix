@@ -58,7 +58,7 @@ export interface ScanRunFixture {
         alertsSkipped?: number
         alertsSkippedByReason?: Partial<Record<
             | 'subdirectory-manifest' | 'cross-major' | 'not-fixable' | 'override-protected' | 'repeated-failure'
-            | 'peer-only' | 'mixed-instance' | 'transitive-only',
+            | 'peer-only' | 'mixed-instance' | 'transitive-only' | 'install-baseline-failed',
             number
         >>
         /** 截断总数与按严重级别分组（结果披露） */

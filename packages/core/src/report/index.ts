@@ -20,6 +20,8 @@ export function createEmptyExecutionSummary(): ExecutionSummary {
 }
 
 export * from './types'
+export * from './run-summary'
+export * from './baseline-skip'
 export * from './alert-outcomes'
 export * from './skipped-packages'
 export * from './network-audit-target'

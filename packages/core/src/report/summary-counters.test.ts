@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createEmptyRunSummary } from './types'
+import { createEmptyRunSummary } from './run-summary'
 import {
     addSkipped,
     addTruncatedBySeverity,

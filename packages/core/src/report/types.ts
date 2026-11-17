@@ -4,6 +4,7 @@ import type { CheckAttribution } from './check-attribution'
 import type { AlertFixOutcome } from './alert-outcomes'
 import type { NetworkAuditEntry } from './network-audit'
 import type { RunDelivery } from './run-delivery'
+import type { BaselineSkippedCommand } from './baseline-skip'
 
 /**
  * 跳过原因枚举（`alertsSkippedByReason` 的 key）。
@@ -146,6 +147,13 @@ export interface RunSummary {
     verificationsSkipped: number
     /** 按原因分组的验证跳过计数；旧 summaryJson 缺失时展示层回退总数。 */
     verificationSkippedByReason: VerificationsSkippedByReason
+    /**
+     * 修复前基线链被短路的**命令数**（run 级合计，按命令计而非按仓库计）。
+     *
+     * > 0 表示这些命令没有基线读数（安装命令已判红 → 后续命令不再采样）：
+     * 报告与平台详情必须显示为「未采样」，不得折叠成验证通过或「已确认既有失败」。
+     */
+    baselineSkippedCommands: number
     /** 本次运行创建的 PR 数（fix-and-pr 恒为 0 或 1） */
     prsOpened: number
     /** 因内容指纹相同被跳过的 PR 数（已有同内容 PR） */
@@ -211,6 +219,13 @@ export interface RepositoryResult {
      * `no-write` 不阻断（`verificationBlocking=false`，无改动可交付）。
      */
     verificationSkipped?: VerificationSkipReason
+    /**
+     * 修复前基线链被短路的命令（命令级；当前只有 `install-baseline-failed`）。
+     *
+     * 仅记录「未采样」事实：这些命令没有基线读数，既不能作为既有失败豁免依据，
+     * 也不得在报告 / 平台详情里显示为通过。终验照常执行（与 `verificationSkipped` 不同）。
+     */
+    baselineSkippedCommands?: BaselineSkippedCommand[]
     durationMs: number
 }
 
@@ -818,39 +833,6 @@ export function actionTypeLabel(type: FixAction['type']): string {
  */
 export function statusIcon(success: boolean): string {
     return success ? '✅' : '❌'
-}
-
-/**
- * 创建空的 RunSummary。
- */
-export function createEmptyRunSummary(): RunSummary {
-    return {
-        repositoriesScanned: 0,
-        alertsFound: 0,
-        alertsFixable: 0,
-        alertsFixed: 0,
-        alertsUnfixed: 0,
-        alertsFailed: 0,
-        alertsSkipped: 0,
-        alertsSkippedByReason: {},
-        alertsConverged: 0,
-        environmentalFailures: 0,
-        alertsTruncated: 0,
-        alertsTruncatedBySeverity: {},
-        reposWithAlertsDisabled: 0,
-        lockfileRepairs: 0,
-        verificationsPassed: 0,
-        verificationsFailed: 0,
-        verificationsSkipped: 0,
-        verificationSkippedByReason: {},
-        prsOpened: 0,
-        prsSkippedByFingerprint: 0,
-        prsClosedAfterFailure: 0,
-        checksTimedOut: 0,
-        deliverySkipped: 0,
-        deliverySkipIssues: 0,
-        deliverySkipDraftPrs: 0,
-    }
 }
 
 export type { NetworkAuditEntry, NetworkAuditSource } from './network-audit'

@@ -42,6 +42,7 @@ export const EMPTY_RUN_RESULT: RunResult = {
         verificationsFailed: 0,
         verificationsSkipped: 0,
         verificationSkippedByReason: {},
+        baselineSkippedCommands: 0,
         prsOpened: 0,
         prsSkippedByFingerprint: 0,
         prsClosedAfterFailure: 0,

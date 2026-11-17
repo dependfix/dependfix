@@ -13,7 +13,9 @@ import {
     isAlertFixedByActions,
     statusIcon,
     formatVerificationSkipReason,
+    type RepositoryResult,
 } from './types'
+import { formatBaselineSkipReason } from './baseline-skip'
 import { collectCodeScanningSuggestions } from './suggestions'
 import { collectCodeQualityFindings } from './code-quality-suggestions'
 import { groupCheckAttributions } from './check-attribution'
@@ -39,10 +41,42 @@ import { redactNetworkTarget } from './network-audit-target'
  * 5.5. Code Scanning Suggestions（有建议时才渲染）
  * 5.6. Code Quality Findings（有 findings 时才渲染）
  * 5.7. Verification Alignment（有验证链口径记录时才渲染）
+ * 2.8. Verification Skipped（有终验跳过记录时才渲染）
+ * 2.9. Baseline Skipped（有基线未采样记录时才渲染）
  * 3.6. Alerts Disabled（有未启用记录时才渲染）
  * 6. Fix Actions 表
  * 7. Errors 节（有错误时才渲染）
  */
+/**
+ * 追加 `## Baseline Skipped` 段：修复前基线链被短路的命令（命令级「未采样」）。
+ *
+ * 与 `## Verification Skipped` 语义不同（后者=终验未执行）但可同时出现；
+ * 未采样 ≠ 通过，也不等于「已确认既有失败」，终验若执行则其失败按保守口径归因本次改动。
+ */
+function appendBaselineSkippedSection(sections: string[], repositories: RepositoryResult[]): void {
+    const baselineSkipped = repositories.filter((repo) => (repo.baselineSkippedCommands?.length ?? 0) > 0)
+    if (baselineSkipped.length === 0) {
+        return
+    }
+    sections.push(
+        '## Baseline Skipped',
+        '',
+        '> 修复前基线链在**安装命令失败**处短路：下列命令**未采样**（没有基线读数）。',
+        '> 未采样 ≠ 通过，也不等于「已确认既有失败」；终验若执行，其失败仍按本次改动保守归因。',
+        '',
+        '| Repository | Command | Reason |',
+        '|------------|---------|--------|',
+    )
+    for (const repo of baselineSkipped) {
+        for (const item of repo.baselineSkippedCommands ?? []) {
+            sections.push(
+                `| \`${escapeMd(repo.repository)}\` | \`${escapeMd(item.command)}\` | ${formatBaselineSkipReason(item.reason)} |`,
+            )
+        }
+    }
+    sections.push('')
+}
+
 export function generateMarkdownReport(result: RunResult): string {
     const { runId, startedAt, finishedAt, config, summary, repositories, alerts, actions, errors } = result
     const unfixed = countUnfixedAlerts(summary)
@@ -224,6 +258,9 @@ export function generateMarkdownReport(result: RunResult): string {
         }
         sections.push('')
     }
+
+    // ---- 2.9 Baseline Skipped（修复前基线在安装命令失败处短路；命令级「未采样」）----
+    appendBaselineSkippedSection(sections, repositories)
 
     // ---- 3. AI Usage（仅 --ai 实际调用时渲染；run 级聚合）----
     if (result.aiUsage && result.aiUsage.calls > 0) {

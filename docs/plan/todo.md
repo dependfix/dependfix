@@ -51,7 +51,7 @@
   - **审计**：deep（19 文件跨 core / engine / platform 三包）两分区并发 R1 均 **Reject**（A：todo 记录缺失 + 3 处回退后仍绿；B：`report-generator` 「互斥」口径与实现相反 + 平台「逐条披露」过度声称）→ 全部收口（补 3 组回退探针、简化冗余索引守卫、补齐旧口径注释与文档、两处详情 + e2e、i18n 条件句与正文限定语）→ R2 Reject（§12.13 结论句与节次地图编号）→ 收口 → R3 **Pass**（代码与测试面无新增 blocker，文档面两处已修净）。
   - **残余**：① AC② 措辞待用户裁决；② 真实仓库对比待环境（github.com 出站）；③ `quickVerifyProject` 的「基线已红命令不重跑」只认真实失败命令，install 红 + 自动修复型 Code Scanning 告警的仓库会在批级 quick-verify 重跑一次 lint（成本面，方向仍为净收益：基线省 3-4 条命令 vs quick-verify 多 1 条）。
 
-### M62.2 命令级 OOM 与运行终态分离（P1 🛠️🧪）
+### M62.2 命令级 OOM 与运行终态分离（P1 🛠️🧪）—— ✅ 已闭环
 
 - **目标**：同一「OOM」信号只落一个字段层级——运行级 cgroup OOM 与命令级堆 OOM 分开，`completed` 运行不再出现「OOM 终止」。
 - **优先级**：P1（completed + OOM 并置会误导交付结论；11-16 复现：rss-impact-server 11-13/14/15 连续 3 次「OOM 终止：是」+ completed）。
@@ -61,6 +61,16 @@
 - **依赖**：`ScanRun.oomKilled` 与资源快照（M59.4 / M60.4）；`run-failure-taxonomy` 现有分类。
 - **交付物**：3-4 commits / 8-12 files / 400-600 行。
 - **风险与缓解**：特征误判 → 只认 SIGKILL + 137 + 堆错误文本三者组合；展示层遗漏 → 列表 / 详情 / 导出三处同批改并留快照。
+- **执行记录（2026-11-17，5 commits：`48bd6c13` core 契约 / `4c3ab1d7` engine 判定 / `e46a6c84` platform 详情 / `778e1b23` platform 导出与状态分布 / `33ae9973` 文档）**：
+  - **实现**：`CommandResult.oomKilled`（`isCommandOomKilled`：非超时 / 非取消 / 非成功，且 `SIGKILL`、退出码 137、堆错误文本 `JavaScript heap out of memory` / `Reached heap limit` 三选一；文本探针取输出末 4000 字符）→ 验证动作 `FixAction.oomKilled` → `summary.commandOomKills`（按命令实例计）+ `commandOomCommands`（去重 ≤10，样本子集）；报告新增 `## Command OOM` 段；平台导出 `describeRunAttribution` 分层（命令级优先，`completed` 时抑制运行级；`failed` 两类并列；「超时终止」单列且 `failure_code` 未回填时回退 `errorJson.code`）；详情新增命令级行（正文内命令名）+ 运行级行改分层可见性（composable `use-run-oom`）。运行级 `ScanRun.oomKilled` 语义不变。
+  - **AC①（completed 不再输出「OOM 终止」）**：导出用例锁定 `completed + oomKilled=true + commandOomKills=1` → 只输出「命令级 OOM」，不含运行级；详情 e2e 同断言。
+  - **AC②（运行级仍输出）**：导出用例锁定 `failed + oomKilled=true`（无命令级）→「运行级 OOM：是」；详情 e2e 锁定「运行级 OOM 是」。**口径偏差（待用户裁决）**：标签由「OOM 终止」改为「运行级 OOM」（AC③ 三类可分辨所需），语义不变。
+  - **AC③（导出与详情可分辨三类）**：导出三行并列（命令级 / 运行级 / 超时终止）；详情为命令级行 + 运行级行 + 失败横幅错误码（`execution_timeout`）与 `failureCode`——详情侧超时不单列（已在设计记录写明，避免过度声称）。
+  - **AC④（平台失败率口径）**：平台**无独立失败率指标**（全仓 `失败率` / `failureRate` 零命中）；实际口径是状态分布与批次计数，只读 `run.status`。已加 `scan-history/summary.get.test.ts` 用例锁定「completed + commandOomKills>0 → `byStatus.completed` 增加、`failed` 不变」，并在 taxonomy §5.10 写明「阻断交付走 `verificationBlocking`」。**口径偏差（待用户裁决）**：AC④ 原文的「失败率」在本仓不存在，按「状态分布」解释。
+  - **AC⑤**：`pnpm -r build` / `typecheck` 7 项目 / `lint:check` 0 error（2 存量 warning）/ `gates:docs` 21 项 / e2e `alerts-sidebar` 5 + `scans` 14 通过；回退探针：删 `exitSignal = signal`、删 `aborted: isAbortRequested()`、删未执行过滤式 OOM 守卫均变红（wiring 用例 3 例 + 纯函数 4 例）。
+  - **规模偏差**：实际 28 文件（22 改 + 6 新增，预估 8-12）——展示面（导出 + 详情 + i18n + e2e）、契约面（summary / FixAction 字段）与测试面（5 个新测试文件 + 1 个 composable）同批落地；按 4 个 commit 拆分，单 commit ≤10 文件。
+  - **审计**：deep 两分区并发 R1 均 **Reject**（A：wiring 零覆盖 + 成功命令可被标 OOM + 堆文本过宽 + types.ts 预算贴顶；B：AC④ 无实现面 / 口径自相矛盾、导出漏存量超时、`v-if` 组合导致两行同消失、计数与名单口径不一致）→ 收口 → R2 **Reject**（文档字段挂错接口、抑制条件与可见性未同源、探针先截头再取尾、i18n 对 failed 过度声称、死导入）→ 收口 → R3 **Reject**（§2.7 类型归属、规模计数、标题状态词）→ 收口 → R4 **Pass**（3 处改净，允许提交）。
+  - **残余**：① AC② / AC④ 措辞待用户裁决；② fixer 侧安装命令 OOM 不产生 `FixAction.oomKilled`（仅验证链归因，已在 taxonomy §5.10 写为已知边界）；③ `/scans` 单 run 详情（`repo-history-dialog`）未展示资源 / OOM 项（本批范围外，后续可评估）；④ 报告 `## Command OOM` 段未区分 `preExisting`（红仓库已知 OOM 命令每轮都会列出）。
 
 ### M62.3 跨 major / 混合实例判定前移与 advisory 区间（P1 🛠️）
 

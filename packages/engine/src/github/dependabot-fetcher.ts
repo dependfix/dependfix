@@ -94,6 +94,8 @@ function normalizeAlert(
 ): NormalizedSecurityAlert {
     const firstPatched = alert.security_vulnerability.first_patched_version
     const fixable = firstPatched !== null
+    // 受影响区间（如 `>= 4.0.0, < 4.17.21`）：混合实例判定用，缺失时保守视为受影响
+    const vulnerableRange = alert.security_vulnerability.vulnerable_version_range
 
     return {
         id: alert.number,
@@ -110,6 +112,7 @@ function normalizeAlert(
         fixable,
         fixStrategy: fixable ? 'upgrade' : null,
         recommendedVersion: firstPatched?.identifier ?? '',
+        ...(vulnerableRange ? { vulnerableRange } : {}),
         dependencyType: normalizeDependencyRelationship(alert.dependency.relationship),
         upstreamId: normalizeUpstreamId('dependabot', { alertNumber: alert.number }),
         // 透传 GHSA + CVE ID 列表

@@ -109,12 +109,25 @@ interface RiskRecord {
     title: string
     htmlUrl: string
     patchedVersion: string | null
+    /** 受影响版本区间（legacy `vulnerable_versions` / modern `range`；缺失时保守视为受影响） */
+    vulnerableRange?: string
     /** GitHub Advisory ID（pnpm audit `advisory.github_advisory_id`，GitHub Advisory Database 收录时） */
     ghsaId?: string
     /** CVE ID 列表（pnpm audit `advisory.cves[]` 字符串数组） */
     cveIds?: string[]
     /** 依赖链路径（`advisories[].findings[].paths[]` 合并去重，每项一条完整链） */
     dependencyPaths?: string[]
+}
+
+/** 读取 advisory 受影响区间：modern（`range`）优先，回退 legacy（`vulnerable_versions`）。 */
+function readVulnerableRange(record: Record<string, unknown>): string | undefined {
+    const modern = typeof record.range === 'string' && record.range ? record.range : undefined
+    if (modern) {
+        return modern
+    }
+    return typeof record.vulnerable_versions === 'string' && record.vulnerable_versions
+        ? record.vulnerable_versions
+        : undefined
 }
 
 /** pnpm audit 修复版本的空值哨兵（无可用修复） */
@@ -209,6 +222,7 @@ function parseLegacyAuditReport(report: Record<string, unknown>): RiskRecord[] {
         )
         const extras = advisoryExtrasMap.get(id)
         const dependencyPaths = extractDependencyPaths(advisory)
+        const vulnerableRange = readVulnerableRange(advisory)
         risks.push({
             advisoryId: resolveAdvisoryId(advisory),
             packageName: typeof advisory.module_name === 'string' ? advisory.module_name : 'unknown-package',
@@ -216,6 +230,7 @@ function parseLegacyAuditReport(report: Record<string, unknown>): RiskRecord[] {
             title: typeof advisory.title === 'string' ? advisory.title : 'Untitled advisory',
             htmlUrl: typeof advisory.url === 'string' ? advisory.url : '',
             patchedVersion: patched,
+            ...(vulnerableRange ? { vulnerableRange } : {}),
             ...(extras ?? {}),
             ...(dependencyPaths.length > 0 ? { dependencyPaths } : {}),
         })
@@ -274,6 +289,9 @@ function parseModernAuditReport(report: Record<string, unknown>): RiskRecord[] {
 
         const viaItems = toArray(vulnerability.via).filter((item): item is Record<string, unknown> => item !== null && typeof item === 'object')
 
+        // legacy（npm v1）用 `vulnerable_versions`；modern（npm v2 / pnpm audit）用 `range`
+        const directVulnerableRange = readVulnerableRange(vulnerability)
+
         if (viaItems.length === 0) {
             const extras = extractIdentifiers(vulnerability)
             risks.push({
@@ -283,6 +301,7 @@ function parseModernAuditReport(report: Record<string, unknown>): RiskRecord[] {
                 title: typeof vulnerability.title === 'string' ? vulnerability.title : `${packageName} vulnerability`,
                 htmlUrl: typeof vulnerability.url === 'string' ? vulnerability.url : '',
                 patchedVersion: patchedFromFixAvailable,
+                ...(directVulnerableRange ? { vulnerableRange: directVulnerableRange } : {}),
                 ...(extras ?? {}),
             })
             continue
@@ -294,6 +313,7 @@ function parseModernAuditReport(report: Record<string, unknown>): RiskRecord[] {
                 severity = advisory.severity
             }
             const extras = extractIdentifiers(advisory)
+            const advisoryVulnerableRange = readVulnerableRange(advisory) ?? directVulnerableRange
             risks.push({
                 advisoryId: resolveAdvisoryId(advisory),
                 packageName: typeof advisory.name === 'string' && advisory.name ? advisory.name : packageName,
@@ -301,6 +321,7 @@ function parseModernAuditReport(report: Record<string, unknown>): RiskRecord[] {
                 title: typeof advisory.title === 'string' ? advisory.title : `${packageName} vulnerability`,
                 htmlUrl: typeof advisory.url === 'string' ? advisory.url : '',
                 patchedVersion: patchedFromFixAvailable,
+                ...(advisoryVulnerableRange ? { vulnerableRange: advisoryVulnerableRange } : {}),
                 ...(extras ?? {}),
             })
         }
@@ -404,6 +425,7 @@ function mapAuditRiskToAlert(risk: RiskRecord, repository: string): NormalizedSe
         fixable,
         fixStrategy: fixable ? 'upgrade' : null,
         recommendedVersion: risk.patchedVersion ?? '',
+        ...(risk.vulnerableRange ? { vulnerableRange: risk.vulnerableRange } : {}),
         // audit 输出的依赖链路径无法可靠区分 direct/transitive，留空
         dependencyType: undefined,
         upstreamId: normalizeUpstreamId('pnpm-audit', {

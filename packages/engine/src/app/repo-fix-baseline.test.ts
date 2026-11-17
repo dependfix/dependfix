@@ -290,6 +290,88 @@ describe('processRepoFix 修复前基线采样面', () => {
         expect(ctx.repoResults[0].verificationBlocking).toBe(true)
     })
 
+    it('全部告警都需人工跨 major：不采样基线（无可写工作）', async () => {
+        writeFileSync(join(workDir, 'pnpm-lock.yaml'), [
+            'lockfileVersion: \'9.0\'',
+            '',
+            '  lodash@3.10.1:',
+            '    resolution: {integrity: sha512-a}',
+            '',
+        ].join('\n'))
+        mockFetchRepoAlerts.mockResolvedValue([makeCrossMajorLockfileAlert()])
+        const ctx = makeCtx(workDir)
+
+        await processRepoFix(ctx, null, 'foo/bar')
+
+        expect(mockSampleVerificationBaseline).not.toHaveBeenCalled()
+        expect(ctx.repoResults[0].verificationSkipped).toBe('no-write')
+        expect(ctx.summary.alertsSkippedByReason?.['cross-major']).toBeGreaterThan(0)
+    })
+
+    it('开关开但仅传递依赖：不采样基线，跳过原因记 transitive-only', async () => {
+        writeFileSync(join(workDir, 'pnpm-lock.yaml'), [
+            'lockfileVersion: \'9.0\'',
+            '',
+            '  lodash@3.10.1:',
+            '    resolution: {integrity: sha512-a}',
+            '',
+        ].join('\n'))
+        mockFetchRepoAlerts.mockResolvedValue([makeCrossMajorLockfileAlert()])
+        const base = makeCtx(workDir)
+        const ctx = { ...base, config: { ...base.config, allowMajorUpgrade: true } as never }
+
+        await processRepoFix(ctx, null, 'foo/bar')
+
+        expect(mockSampleVerificationBaseline).not.toHaveBeenCalled()
+        expect(ctx.summary.alertsSkippedByReason?.['transitive-only']).toBeGreaterThan(0)
+        expect(ctx.summary.alertsSkippedByReason?.['cross-major'] ?? 0).toBe(0)
+    })
+
+    it('混合实例的低版本已不在受影响区间：不采样基线，按已收敛计数', async () => {
+        writeFileSync(join(workDir, 'pnpm-lock.yaml'), [
+            'lockfileVersion: \'9.0\'',
+            '',
+            '  lodash@4.17.21:',
+            '    resolution: {integrity: sha512-a}',
+            '',
+            '  lodash@3.10.1:',
+            '    resolution: {integrity: sha512-b}',
+            '',
+        ].join('\n'))
+        // 受影响区间不含 3.10.1（只覆盖 4.x 早期）：低实例已不在区间 → 无需写盘
+        mockFetchRepoAlerts.mockResolvedValue([makeCrossMajorLockfileAlert({ vulnerableRange: '>= 4.0.0, < 4.17.21' })])
+        const ctx = makeCtx(workDir)
+
+        await processRepoFix(ctx, null, 'foo/bar')
+
+        expect(mockSampleVerificationBaseline).not.toHaveBeenCalled()
+        expect(ctx.summary.alertsConverged).toBeGreaterThan(0)
+    })
+
+    it('group 路径：低实例部分仍在受影响区间 → 记 mixed-instance 且不写盘', async () => {
+        writeFileSync(join(workDir, 'pnpm-lock.yaml'), [
+            'lockfileVersion: \'9.0\'',
+            '',
+            '  lodash@3.9.0:',
+            '    resolution: {integrity: sha512-c}',
+            '',
+            '  lodash@3.10.1:',
+            '    resolution: {integrity: sha512-a}',
+            '',
+            '  lodash@4.17.21:',
+            '    resolution: {integrity: sha512-b}',
+            '',
+        ].join('\n'))
+        // 区间只覆盖 3.10.x：3.9.0 已不受影响、3.10.1 仍受影响 → mixed-instance
+        mockFetchRepoAlerts.mockResolvedValue([makeCrossMajorLockfileAlert({ vulnerableRange: '>= 3.10.0, < 4.0.0' })])
+        const ctx = makeCtx(workDir)
+
+        await processRepoFix(ctx, null, 'foo/bar')
+
+        expect(ctx.summary.alertsSkippedByReason?.['mixed-instance']).toBeGreaterThan(0)
+        expect(ctx.summary.alertsSkippedByReason?.['cross-major'] ?? 0).toBe(0)
+    })
+
     it('多仓共享 workDir：零告警仓库先处理不采样，有可写工作的仓库采样一次（运行级首采复用不变）', async () => {
         mockFetchRepoAlerts
             .mockResolvedValueOnce([])

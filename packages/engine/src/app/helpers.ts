@@ -30,6 +30,7 @@ import {
     normalizeOverrideKey,
 } from '../fixers/dependency'
 import { applyCodeScanningFix, restoreSourceFile, snapshotSourceFile } from '../fixers/code-scanning'
+import { isVersionAffected } from '../fixers/dependency/vulnerable-range'
 import { inferRepoFromGitRemote, type RuntimeConfig } from '../config'
 
 import { quickVerifyProject } from '../helpers'
@@ -287,8 +288,10 @@ export function buildVersionedOverrides(
     for (const version of versions) {
         const major = String(parseMajorVersion(version))
         const target = targetByMajor.get(major)
-        // 该大版本线存在推荐目标且实例低于目标 → 脆弱，覆盖整条线
-        if (target && compareSemver(version, target) < 0) {
+        // 该大版本线存在推荐目标且实例低于目标 → 脆弱，覆盖整条线。
+        // 混合实例：低于目标但**已不在任何 advisory 受影响区间**的实例不构成待修工作（不写覆盖）。
+        const affected = alerts.some((alert) => isVersionAffected(version, alert.vulnerableRange))
+        if (target && compareSemver(version, target) < 0 && affected) {
             const canonicalKey = useVersionedKey ? `${packageName}@${major}` : packageName
             // 与已有条目协同：目标取 max，已有 >= 推荐则无需写入
             const existing = existingTarget(canonicalKey)

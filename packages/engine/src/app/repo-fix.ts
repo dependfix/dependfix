@@ -22,7 +22,6 @@ import {
 } from '../fixers/dependency'
 import {
     dedupeFixableAlerts,
-    isRootDirectDependency,
     partitionSubmanifestAlerts,
     quickVerifyProject,
     restoreTrackedFiles,
@@ -50,6 +49,10 @@ import { ensureVerificationBaseline, finalizeRepoFix, recordInstallBaselineFailu
 import { budgetAllows } from './budget'
 import { recordVerificationCheckpoint, type VerificationCheckpoint } from './verification-checkpoint'
 import { applyAutoMajorUpgrades } from './repo-fix-major'
+import {
+    assessLockfileWork, classifyBelowTargetInstances, createCrossMajorContext,
+    isManualCrossMajorAlert, recordManualCrossMajorSkips,
+} from './cross-major'
 import { applyRepeatedFailureSkips } from './repeated-failure'
 
 // ---------------------------------------------------------------------------
@@ -153,9 +156,12 @@ export async function processRepoFix(
             alert.source !== 'code-scanning' && alert.source !== 'code-quality'
             && alert.manifestPath.trim().replace(/\\/g, '/') === 'pnpm-lock.yaml'
             && alert.fixable && alert.recommendedVersion)
-        const crossMajorOnly = lockfileTargets.length > 0
-            && !ctx.config.allowMajorUpgrade
-            && lockfileTargets.every((alert) => isCrossMajorFixRequired(join(ctx.workDir, 'pnpm-lock.yaml'), alert))
+        const crossMajorCtx = createCrossMajorContext(ctx)
+        const lockfileWork = assessLockfileWork(lockfileTargets, crossMajorCtx)
+        if (lockfileWork.noWritableWork) {
+            ctx.logger.info(`[baseline] ${repo}: no writable lockfile work (${lockfileWork.manual.length} manual `
+                + `cross-major / ${lockfileWork.convergedMixed.length} non-writable mixed) — skipping pre-fix baseline`)
+        }
         // 修复前按需采样验证基线（首个有工作的仓库处采样，在任何改动之前；用于区分「本次引入」与「既有」失败）
         // 「有工作」按**可能写盘**判定（可修复的依赖告警 / 成员清单告警 / 可自动修复的 Code Scanning 告警）：
         // 全部不可修复的告警不会产生任何写入，其验证失败在 pristine 工作区下必然也是既有失败，无需付基线成本
@@ -173,7 +179,7 @@ export async function processRepoFix(
         ))
         const fixableMemberAlerts = planned.memberManifestAlerts.some((item) => item.alert.recommendedVersion)
         const hasWork = fixableNonLockfileRoot || fixableMemberAlerts || codeScanningFixable
-            || (fixableLockfileRoot && !crossMajorOnly)
+            || (fixableLockfileRoot && !lockfileWork.noWritableWork)
         const { exemptAttribution, baseline, baselineSkipped } = await ensureVerificationBaseline(ctx, repo, { hasWork })
         if (baselineSkipped && baselineSkipped.length > 0) {
             progress.baselineSkippedCommands = baselineSkipped
@@ -378,12 +384,10 @@ async function applyLockfileFixes(
         (a) => a.source !== 'code-scanning' && a.manifestPath.trim().replace(/\\/g, '/') === 'pnpm-lock.yaml'
             && a.fixable && a.recommendedVersion,
     )
+    const crossMajorCtx = createCrossMajorContext(ctx)
     const allCrossMajorAlerts = lockfileManifestAlerts.filter((a) => isCrossMajorFixRequired(lockfilePath, a))
-    const manualCrossMajorAlerts = allCrossMajorAlerts.filter(
-        (a) => !(ctx.config.allowMajorUpgrade
-            && isRootDirectDependency(ctx.workDir, a.packageName)
-            && readLockfileVersions(lockfilePath, a.packageName).length === 1),
-    )
+    // 与基线前置同一谓词（cross-major.ts）：人工跨 major 含「开关开但仅传递依赖」形态
+    const manualCrossMajorAlerts = allCrossMajorAlerts.filter((a) => isManualCrossMajorAlert(a, crossMajorCtx))
     const autoMajorAlertIds = new Set(
         allCrossMajorAlerts.filter((a) => !manualCrossMajorAlerts.some((m) => m.id === a.id)).map((a) => a.id),
     )
@@ -392,8 +396,7 @@ async function applyLockfileFixes(
         ctx.logger.warn(
             `[alerts] ${manualCrossMajorAlerts.length} alert(s) require a cross-major upgrade (no fix within the installed major line) — manual review required: ${manualCrossMajorAlerts.map((a) => `${a.packageName} → ${a.recommendedVersion}`).join(', ')}`,
         )
-        addSkipped(ctx.summary, 'cross-major', manualCrossMajorAlerts.length)
-        recordSkippedAlerts(ctx, manualCrossMajorAlerts, 'cross-major')
+        recordManualCrossMajorSkips(ctx, manualCrossMajorAlerts, crossMajorCtx)
     }
     const autoMajorAlerts = lockfileManifestAlerts.filter((a) => autoMajorAlertIds.has(a.id))
     const fixableLockfileAlerts = lockfileManifestAlerts.filter(
@@ -688,15 +691,25 @@ async function applyGroupUpgrades(
                     recordConvergedAlerts(ctx, convergedAlerts, 'all locked versions >= target')
                     continue
                 }
-                ctx.logger.warn(
-                    `Skipping ${alert.packageName}: locked instance(s) ${belowTarget.join(', ')} remain below target ${alert.recommendedVersion} `
-                    + '(lower-major / different manifest instance; cross-major upgrade or manual review required)',
-                )
-                addSkipped(ctx.summary, 'cross-major')
-                // 同包多告警逐条展开（与收敛分支口径一致：明细是实例级事实，summary 仍是 action 级计数）
-                recordSkippedAlerts(ctx, singleVersionAlerts.filter(
+                // 按 advisory 受影响区间过滤旧实例（同包多条 advisory 取并集）：
+                // 低于目标但已不在区间内的实例不构成待修工作
+                const packageAlerts = singleVersionAlerts.filter(
                     (a) => a.packageName === alert.packageName && a.fixable && a.recommendedVersion,
-                ), 'cross-major')
+                )
+                const instanceClass = classifyBelowTargetInstances(packageAlerts, belowTarget)
+                if (instanceClass === 'none-affected') {
+                    ctx.logger.info(`Skipping ${alert.packageName}: ${belowTarget.join(', ')} below target `
+                        + `${alert.recommendedVersion} outside advisory range (converged)`)
+                    ctx.summary.alertsConverged += packageAlerts.length
+                    recordConvergedAlerts(ctx, packageAlerts, 'lower instances outside advisory range')
+                    continue
+                }
+                const skipReason = instanceClass === 'mixed' ? 'mixed-instance' : 'cross-major'
+                ctx.logger.warn(`Skipping ${alert.packageName}: ${belowTarget.join(', ')} below target `
+                    + `${alert.recommendedVersion} (${skipReason}; lower-major instance needs manual review)`)
+                addSkipped(ctx.summary, skipReason)
+                // 同包多告警逐条展开（与收敛分支口径一致：明细是实例级事实，summary 仍是 action 级计数）
+                recordSkippedAlerts(ctx, packageAlerts, skipReason)
                 continue
             }
             if (lockedVersions.length === 0) {

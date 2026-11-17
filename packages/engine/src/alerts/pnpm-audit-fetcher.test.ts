@@ -135,6 +135,8 @@ describe('parseAuditReport', () => {
         // 透传 GitHub Advisory ID + CVE 列表（fixture 含 github_advisory_id + cves）
         expect(fastUri?.ghsaId).toBe('GHSA-f8p3-7c7w-h6x4')
         expect(fastUri?.cveIds).toEqual(['CVE-2023-36661'])
+        // modern 形态的区间字段是 via[].range（legacy 才是 vulnerable_versions）
+        expect(fastUri?.vulnerableRange).toBe('<=3.1.4')
 
         const lodash = risks.find((r) => r.packageName === 'lodash')
         expect(lodash?.patchedVersion).toBeNull()
@@ -225,6 +227,25 @@ describe('parseAuditReport', () => {
         expect(jsYaml.patchedVersion).toBe('3.14.1')
         expect(jsYaml.severity).toBe('high')
         expect(jsYaml.title).toBe('Code Injection via load() in js-yaml')
+    })
+
+    it('legacy 形态：advisories[].vulnerable_versions 映射为 vulnerableRange', () => {
+        const risks = parseAuditReport({
+            advisories: {
+                '1067349': {
+                    module_name: 'lodash',
+                    severity: 'high',
+                    title: 'Prototype pollution',
+                    url: 'https://github.com/advisories/GHSA-xxxx',
+                    vulnerable_versions: '<4.17.21',
+                    patched_versions: '>=4.17.21',
+                },
+            },
+            actions: [],
+            metadata: { vulnerabilities: { high: 1 } },
+        })
+        const lodash = risks.find((r) => r.packageName === 'lodash')
+        expect(lodash?.vulnerableRange).toBe('<4.17.21')
     })
 
     it('strips range prefix from patched_versions (legacy without actions)', () => {

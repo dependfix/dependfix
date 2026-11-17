@@ -105,6 +105,28 @@ describe('buildVersionedOverrides', () => {
         ].join('\n'))
     }
 
+    it('低于目标但已不在 advisory 受影响区间的实例不生成覆盖（混合实例）', () => {
+        // vite@5.4.14 低于目标 5.4.21，但区间只覆盖 5.0.x → 不受影响，不写覆盖
+        const overrides = buildVersionedOverrides(lockfilePath, [
+            alert('vite', '5.4.21', { vulnerableRange: '>= 5.0.0, < 5.1.0' }),
+        ])
+        expect(overrides).toEqual({})
+    })
+
+    it('低于目标且仍在受影响区间 → 生成覆盖；同包另一条仍受影响的告警不被连带跳过', () => {
+        const affected = buildVersionedOverrides(lockfilePath, [
+            alert('vite', '5.4.21', { vulnerableRange: '>= 5.0.0, < 5.4.21' }),
+        ])
+        expect(affected).toEqual({ 'vite@5': '^5.4.21' })
+
+        // 同包两条 advisory：一条区间不覆盖 5.x、一条覆盖 → 并集命中，仍须修复
+        const union = buildVersionedOverrides(lockfilePath, [
+            alert('vite', '5.4.21', { id: 1, vulnerableRange: '>= 5.0.0, < 5.1.0' }),
+            alert('vite', '5.4.21', { id: 2, vulnerableRange: '>= 5.4.0, < 5.4.21' }),
+        ])
+        expect(union).toEqual({ 'vite@5': '^5.4.21' })
+    })
+
     it('uses major-version key and covers the whole line (body-parser@1 style)', () => {
         const overrides = buildVersionedOverrides(lockfilePath, [alert('vite', '5.4.21')])
         // vite@5.4.14 < 5.4.21 → `vite@5` 大版本 key 覆盖整条 5.x 线；8.2.0 无推荐不覆盖

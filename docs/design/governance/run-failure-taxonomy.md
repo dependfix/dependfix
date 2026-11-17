@@ -217,6 +217,10 @@
 - `oom_killed` 三态：true = 执行前后 `oom_kill` 计数增加；false = 计数可读且未增加；**null = 不可采集**。非 Linux / 无 cgroup / B 模式 / sandbox 未接入 → null + `resource_json.degradedReason`，不伪造 0 / false。
 - 归因边界：cgroup `oom_kill` 只覆盖容器限额触发的 OOM；宿主级 OOM（未设容器 memory limit）不保证被捕获。`resource_json.sigkillDetected` 仅表示引擎错误文本出现 SIGKILL，**不单独断言 OOM**；引擎自身安装 / 验证超时也会产生 `signal SIGKILL, timed out`，需结合宿主 `journalctl -k` 与峰值 / 上限判断。
 - API `GET /api/runs` / `GET /api/runs/[id]` 返回三列与解析后的 `resource`；运行详情展示内存上限 / 峰值 / OOM 标记，不可采集时显示「不可采集」+ 原因 tooltip。
+- **命令级 OOM 与运行级 OOM 分层（2026-11-17）**：`scan_run.oom_killed` 保持**运行级**语义（执行窗口内 cgroup `oom_kill` 计数增加，含被命令杀死的进程）；引擎另在 `CommandResult.oomKilled` 记录**命令级**事实（非本次超时 / 取消 / 成功（`exitCode !== 0`），且 `SIGKILL` / 退出码 137 / 堆错误文本三选一命中），经验证动作 `FixAction.oomKilled` 汇总为 `summary.commandOomKills` + `commandOomCommands`（去重 ≤10）。
+  展示口径：命令级存在且运行 `completed` 时，详情显示「命令级 OOM：N 次 · 命令名」且不再单列运行级标记（cgroup 计数增加可由这些命令解释）；`failed` 运行两类并列（不掩盖另有进程被 OOM 杀）；其余按运行级三态显示。导出 `describeRunAttribution` 同源，并把「超时终止」与两类 OOM 并列（`execution_timeout` / `clone_timeout`，`failure_code` 未回填时回退 `errorJson.code`）；详情侧超时经失败横幅错误码 + `failureCode` 区分，不单列。
+  失败率口径：平台**没有独立失败率指标**——状态分布（`/api/scan-history/summary` 的 `byStatus`）与批次计数（`batch-aggregate` 的 `completedCount/failedCount`）只读 `run.status`，命令级 OOM 不进入（有单测锁定）；阻断交付仍走 `verificationBlocking`（命令级 OOM 的命令按验证失败处理，沿用既有 pre-existing 豁免判定）。
+  已知边界：命令级归因只覆盖验证链命令（`CommandResult`）；fixer 侧安装命令的 OOM 不产生 `FixAction.oomKilled`，仍可能表现为「completed + 运行级 OOM：是」。
 
 ### 5.11 构建版本回执（M47.2）
 

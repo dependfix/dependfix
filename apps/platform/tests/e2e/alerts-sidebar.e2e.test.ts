@@ -150,6 +150,53 @@ test.describe('alerts 去重视图受影响运行 Sidebar', () => {
         await expect(page.locator('.run-detail__run-url')).toHaveAttribute('href', String(run.runUrl))
     })
 
+    test('命令级 OOM 与运行级 OOM 分层展示', async ({ page }) => {
+        const commandOomRun = makeRun({
+            summary: {
+                alertsFound: 2,
+                alertsFixed: 1,
+                commandOomKills: 2,
+                commandOomCommands: ['pnpm test', 'pnpm build'],
+            },
+            // 执行窗口内 cgroup 计数亦增加：由命令级归因解释，不得渲染成运行级 OOM
+            oomKilled: true,
+        })
+        await installRoutes(page, [commandOomRun])
+
+        const openDetail = async () => {
+            await page.goto('/alerts')
+            await waitForHydration(page)
+            await page.locator('#view-mode').click()
+            await page.locator('.caomei-select__content .caomei-select__item').filter({ hasText: '原始列表' }).click()
+            const row = page.locator('.caomei-data-table__row').filter({ hasText: 'lodash' }).first()
+            await expect(row).toBeVisible()
+            await row.locator('button[aria-label="详情"]').click()
+            const sidebar = page.locator('.caomei-drawer__content')
+            await sidebar.locator('button[aria-label="详情"]').click()
+            const detail = page.locator('.caomei-dialog__content')
+            await expect(detail).toBeVisible()
+            return detail
+        }
+
+        const detail = await openDetail()
+        const commandOomMeta = detail.locator('.run-detail__meta-item').filter({ hasText: '命令级 OOM' })
+        await expect(commandOomMeta).toContainText('2 次')
+        // 命令名在正文内可见（不依赖悬停）
+        await expect(commandOomMeta).toContainText('pnpm test、pnpm build')
+        // 命令级已归因 → 不再单列运行级 OOM 行
+        await expect(detail.locator('.run-detail__meta-item').filter({ hasText: '运行级 OOM' })).toHaveCount(0)
+
+        const runLevelRun = makeRun({
+            status: 'failed',
+            oomKilled: true,
+            summary: { alertsFound: 2, alertsFixed: 0 },
+        })
+        await installRoutes(page, [runLevelRun])
+        const failedDetail = await openDetail()
+        const runLevelMeta = failedDetail.locator('.run-detail__meta-item').filter({ hasText: '运行级 OOM' })
+        await expect(runLevelMeta).toContainText('是')
+    })
+
     test('结果缺失时详情显示结果缺失而非告警 0', async ({ page }) => {
         const run = makeRun({
             status: 'failed',

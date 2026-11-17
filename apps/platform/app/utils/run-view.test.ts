@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest'
 import {
     alertsFound,
     baselineSkippedCommands,
+    commandOomCommands,
+    commandOomKills,
     deliverySkipDraftPrs,
     deliverySkipIssues,
     deliverySkipped,
@@ -238,6 +240,22 @@ describe('verificationsSkipped', () => {
         expect(verificationSkipSummary({ verificationSkippedByReason: { 'no-write': 2, budget: 1 } }, t))
             .toBe('t:runs.verificationSkipReason.budget: 1 · t:runs.verificationSkipReason.noWrite: 2')
         expect(verificationSkipSummary({}, t)).toBe('')
+    })
+})
+
+describe('commandOomKills / commandOomCommands', () => {
+    it('读取命令级 OOM 计数与命令名（缺失 / 脏数据降级）', () => {
+        expect(commandOomKills({ commandOomKills: 2 })).toBe(2)
+        expect(commandOomKills({ commandOomKills: '2' })).toBe(0)
+        expect(commandOomKills(null)).toBe(0)
+        expect(commandOomCommands({ commandOomCommands: ['pnpm test', '', 3] })).toEqual(['pnpm test'])
+        expect(commandOomCommands({ commandOomCommands: 'pnpm test' })).toEqual([])
+        expect(commandOomCommands({})).toEqual([])
+        // 重复项去重 + 上限 10（读取方不假设引擎已归一）
+        expect(commandOomCommands({ commandOomCommands: ['pnpm test', 'pnpm test', 'pnpm build'] }))
+            .toEqual(['pnpm test', 'pnpm build'])
+        expect(commandOomCommands({ commandOomCommands: Array.from({ length: 15 }, (_, i) => `cmd-${i}`) }))
+            .toHaveLength(10)
     })
 })
 

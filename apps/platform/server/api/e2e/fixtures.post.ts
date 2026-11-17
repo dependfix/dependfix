@@ -115,6 +115,9 @@ const scanRunSchema = z.object({
         }).optional(),
         /** 修复前基线未采样命令数（安装失败短路；按命令计，仅统计采样仓库） */
         baselineSkippedCommands: z.number().int().min(0).optional(),
+        /** 命令级 OOM 次数与命令名（与运行级 oomKilled 分层） */
+        commandOomKills: z.number().int().min(0).optional(),
+        commandOomCommands: z.array(z.string()).max(10).optional(),
         /** 跳过总数与按原因分组（结果披露） */
         alertsSkipped: z.number().int().min(0).optional(),
         alertsSkippedByReason: z.object({

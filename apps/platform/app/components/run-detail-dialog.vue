@@ -26,6 +26,7 @@ import {
     baselineSkippedCommands,
 } from '~/utils/run-view'
 import { scanSeverityLabel } from '~/utils/scan-options'
+import { useRunOom } from '~/composables/use-run-oom'
 import { downloadFile } from '~/utils/download'
 
 interface RunResultView {
@@ -148,6 +149,8 @@ const canRetry = computed(() => detail.value?.failureKind === 'transient')
  * 不进入错误态、不改变任何判定。口径见 docs/standards/platform.md §10.7。
  */
 const verificationSkipSummaryText = computed(() => verificationSkipSummary(detail.value?.summary ?? null, t))
+/** OOM 分层展示状态（命令级 / 运行级） */
+const { commandOomCount, commandOomText, commandOomVisible, runLevelOomVisible } = useRunOom(detail)
 const networkViolationText = computed(() => networkViolationSummary(detail.value?.summary ?? null, t))
 /** 自包含交付记录（branch + commit）；无记录时不渲染该项 */
 const deliveryInfo = computed(() => runDelivery(detail.value?.summary ?? null))
@@ -431,10 +434,22 @@ watch(() => props.runId, (runId) => {
                         {{ t('runs.resourceUnavailable') }}
                     </strong>
                 </div>
-                <div v-if="detail.oomKilled !== null || detail.resource?.degradedReason" class="run-detail__meta-item">
+                <div v-if="commandOomVisible" class="run-detail__meta-item">
+                    <span class="run-detail__meta-label">{{ t('runs.commandOom') }}</span>
+                    <CaomeiTag
+                        tone="warning"
+                        :title="t('runs.commandOomHint')"
+                    >
+                        {{ t('runs.commandOomCount', {count: commandOomCount}) }}
+                        <template v-if="commandOomText">
+                            · {{ commandOomText }}
+                        </template>
+                    </CaomeiTag>
+                </div>
+                <div v-if="runLevelOomVisible" class="run-detail__meta-item">
                     <span class="run-detail__meta-label">{{ t('runs.oomKilled') }}</span>
                     <CaomeiTag
-                        v-if="detail.oomKilled !== null"
+                        v-if="typeof detail.oomKilled === 'boolean'"
                         :tone="detail.oomKilled ? 'danger' : 'neutral'"
                         :title="t('runs.oomKilledHint')"
                     >

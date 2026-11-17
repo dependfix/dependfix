@@ -80,6 +80,24 @@ export const deliverySkipIssues = (summary: Record<string, unknown> | null) => s
 /** 本次运行创建的草稿 PR 数（`draft` 档）。 */
 export const deliverySkipDraftPrs = (summary: Record<string, unknown> | null) => summaryNumber(summary, 'deliverySkipDraftPrs')
 
+/**
+ * 命令级 OOM 次数（`summary.commandOomKills`；与运行级 `oomKilled` 分层）。
+ *
+ * >0 表示验证 / 安装命令被 OOM 杀死——运行终态仍可能是 `completed`，不得读成运行级 OOM；
+ * 命令级 OOM 不改变运行失败率（失败率看运行终态与 `verificationBlocking`）。
+ */
+export const commandOomKills = (summary: Record<string, unknown> | null) => summaryNumber(summary, 'commandOomKills')
+
+/** 命令级 OOM 的命令名（去重、最多 10 条；缺失 / 脏数据返回空数组）。 */
+export const commandOomCommands = (summary: Record<string, unknown> | null): string[] => {
+    const value = summary?.commandOomCommands
+    if (!Array.isArray(value)) {
+        return []
+    }
+    // 展示侧同样去重 + 截断（summary 由引擎写入，读取方不假设其已归一）
+    return [...new Set(value.filter((item): item is string => typeof item === 'string' && item.length > 0))].slice(0, 10)
+}
+
 /** 验证被跳过的仓库数（预算不足 / 0 写入；不交付、不回滚）。 */
 export const verificationsSkipped = (summary: Record<string, unknown> | null) => summaryNumber(summary, 'verificationsSkipped')
 

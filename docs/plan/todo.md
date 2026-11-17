@@ -93,7 +93,7 @@
   - **审计**：deep 两分区并发 R1 均 **Reject**（A：GitHub 逗号区间不可解析导致过滤整体空转 + 混合实例缺「最高已达标」前提 + override 过滤零覆盖 + pnpm-audit modern 字段名错；B：文档旧口径与新条冲突 + 5 处枚举未同步 + 平台映射无断言）→ 收口 → R2 **Reject**（规模读数 / 注释口径 / `dependencyType` 分支零覆盖 / 冗余守卫 / 文档谓词名）→ 收口 → R3 **Reject**（AC④ 用例数 12→14）→ 收口 → R4 **Pass**（允许提交）。
   - **残余**：① 区间缺失（数据源未提供）时保守视为受影响，混合实例不会被误判为收敛；② `dependencyPath` 存在时不做「无工作」前置跳过（路径级补丁会独立写盘）；③ `assessLockfileWork` 与链路各自读取 lockfile / manifest（未记忆化），告警多的仓库会放大读盘次数（性能项，非正确性）；④ `repo-fix.ts` 非空行 795/800——再改该文件需先拆分（`applyGroupUpgrades` 的收敛/归因判定可继续下沉 `cross-major.ts`）。
 
-### M62.4 自仓基线红与验证链只读化（P1 🛠️）
+### M62.4 自仓基线红与验证链只读化（P1 🛠️）—— ✅ 已闭环
 
 - **目标**：验证链不再以写模式跑 lint（避免基线采样修改工作区），并让自仓基线红有可判读结论而非长期 `pre-existing` 豁免。
 - **优先级**：P1（自仓连续 3 轮 lint + test 预失败；写模式 lint 会污染 pristine 前提）。
@@ -103,6 +103,16 @@
 - **依赖**：`resolveVerifyCommands` 默认链；根 `lint:check` 与平台 `lint:check` 脚本。
 - **交付物**：2-3 commits / 5-7 files / 250-400 行。
 - **风险与缓解**：目标仓库无 `lint:check` → 保留回退并测两态；只读链漏掉自动修复能力 → 仅基线采样用只读，修复后验证仍按原链；开工首步复跑自仓 baseline，若已转绿则本原子收窄为只读链并记录复验证据。
+- **执行记录（2026-11-17，2 commits：`12586099` engine 只读链 / 文档与本台账）**：
+  - **实现**：`resolveVerifyCommands` 新增 `readOnlyLint`（仅 `sampleVerificationBaseline` 传 true）：目标仓库存在 `lint:check` 脚本时把默认链的 `pnpm lint` 换成 `pnpm lint:check`；无该脚本回退 `pnpm lint`；自定义链不替换。修复后验证仍走原链（保留自动修复能力）。
+  - **AC①（基线采样前后工作区不变）**：夹具级真实执行——`lint` 写文件、`lint:check` 不写，基线采样后断言命令为 `pnpm lint:check` 且文件未生成（默认链口径；`--mirror-ci-scripts` 镜像脚本不受此承诺约束）；回退探针（禁用只读替换）→ 变红。
+  - **AC②（自仓 baseline 全绿）**：开工首步复跑自仓 baseline——`pnpm install --frozen-lockfile`（Already up to date）/ `lint:check`（0 error / 2 存量 warning）/ `pnpm -r build` / `typecheck`（7 项目）/ 根 `pnpm test`（425 文件 / 6267 passed / 11 skipped）全绿；本原子按预案收窄为「只读链」部分，不登记新的已知边界。
+  - **AC③（自仓交付验证不依赖 pre-existing 豁免）**：自仓链路已全绿（install / lint:check / build / typecheck / test），无需以既有失败豁免解释交付；只读链同时消除「写模式改动工作区 → 归因漂移」的伪既有失败来源。另补**命令名等价**用例：基线 `pnpm lint:check` 红 → 修复后 `pnpm lint` 红按既有失败豁免、quick-verify 不重跑（否则既有失败会被误归因并回滚合法修复）。
+  - **AC④（无 lint:check 回退单测）**：mock 用例断言无该脚本时命令为 `pnpm lint`、有脚本时为 `pnpm lint:check`，并覆盖「自定义链不替换」。
+  - **AC⑤**：`pnpm run gates:docs` 21 项通过；`typecheck` / `lint:check` / 根 `pnpm test` 均通过。
+  - **规模**：5 文件（3 改 + 2 新增含测试）/ 约 200 行，预估 5-7 文件 / 250-400 行（收窄后规模同步下降）。
+  - **审计**：standard 单分区 R1 **Reject**（基线只读链命令名与修复后写模式命令失配 → 既有失败豁免与 quick-verify 跳过同时失效；「修复后仍走写模式」无用例）→ 收口（`expandLintCommandAliases` 别名 + 两处消费点 + 3 例用例 + 文档口径）→ R2 **Pass**（允许提交）。
+  - **残余**：① 只读链依赖目标仓库声明 `lint:check`（未声明则仍为写模式，保持既有行为）；② 目标仓库的 `lint:check` 若自身写盘（脚本语义不实）无法机检，与既有「脚本语义不实」边界同类。
 
 ### M62.5 安装基线失败后的告警结论与有界重试（P2 🛠️📚）
 

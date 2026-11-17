@@ -126,6 +126,8 @@ const SKIP_REASON_LABELS: Record<SkipReason | 'other', string> = {
     'override-protected': 'Protected by policy',
     'repeated-failure': 'Repeated failure (attempt limit)',
     'peer-only': 'Peer-only dependency (manual review)',
+    'mixed-instance': 'Mixed instances (affected lower instance remains)',
+    'transitive-only': 'Transitive only (auto major upgrade not applicable)',
     other: 'Other / unclassified',
 }
 

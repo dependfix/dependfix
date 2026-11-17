@@ -27,6 +27,14 @@ export interface NormalizedSecurityAlert {
     fixable: boolean
     fixStrategy: FixStrategy | null
     recommendedVersion: string
+    /**
+     * advisory 受影响版本区间（如 `>= 4.0.0, < 4.17.21`；pnpm-audit 源 legacy `vulnerable_versions` /
+     * modern `via[].range`）。
+     *
+     * 用于「混合实例」判定：最高实例已达标时，低于目标的旧实例是否仍**实际受影响**。
+     * 缺失（数据源未提供 / 解析失败）时按「保守视为受影响」处理，不得据此放宽跳过。
+     */
+    vulnerableRange?: string
     /** 依赖类型：`'direct'`（直接依赖）或 `'transitive'`（间接依赖），缺少数据时为 `undefined` */
     dependencyType?: DependencyType
     /**

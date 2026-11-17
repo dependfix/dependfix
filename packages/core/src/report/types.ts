@@ -20,6 +20,10 @@ export const SKIP_REASONS = [
     'override-protected',
     'repeated-failure',
     'peer-only',
+    // 混合实例：最高实例已达标，但仍有低于目标且仍在 advisory 受影响区间内的实例（人工复核）
+    'mixed-instance',
+    // 仅传递依赖：allowMajorUpgrade 开启但告警不是根直接依赖（自动跨 major 不适用）
+    'transitive-only',
 ] as const
 
 export type SkipReason = (typeof SKIP_REASONS)[number]

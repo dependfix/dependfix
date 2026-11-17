@@ -5,6 +5,7 @@ import {
     addTruncatedBySeverity,
     countDiscoveredAlerts,
     countUnfixedAlerts,
+    formatSkipReason,
     skippedBreakdown,
     truncatedBreakdown,
 } from './summary-counters'
@@ -89,5 +90,12 @@ describe('summary-counters', () => {
 
     it('countDiscoveredAlerts 将截断计入总数', () => {
         expect(countDiscoveredAlerts({ alertsFound: 20, alertsTruncated: 6 })).toBe(26)
+    })
+})
+
+describe('formatSkipReason — 新增跳过原因', () => {
+    it('混合实例 / 仅传递依赖有独立文案（不得回落 other）', () => {
+        expect(formatSkipReason('mixed-instance')).toContain('Mixed instances')
+        expect(formatSkipReason('transitive-only')).toContain('Transitive only')
     })
 })

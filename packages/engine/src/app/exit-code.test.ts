@@ -270,6 +270,19 @@ describe('computeExitCode', () => {
         expect(exitCode).toBe(0)
     })
 
+    it('does not count INSTALL_BASELINE_RETRY as a failure (audit-only)', () => {
+        const exitCode = computeExitCode(makeCtx({
+            allErrors: [{
+                repository: 'foo/bar',
+                stage: 'fix',
+                category: 'INSTALL_BASELINE_RETRY',
+                message: 'install baseline failed; lockfile repaired — retried the chain once',
+            }],
+            repoResults: [{ alertsCount: 1, fixed: 1, verificationPassed: true } as never],
+        }))
+        expect(exitCode).toBe(0)
+    })
+
     it('does not count ROLLBACK_GRANULARITY_DEGRADED as a failure (audit-only)', () => {
         const exitCode = computeExitCode(makeCtx({
             allErrors: [{

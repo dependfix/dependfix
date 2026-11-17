@@ -335,6 +335,12 @@ describe('DependfixApp 版本化 overrides 合批', () => {
         expect(result.summary.alertsFixed).toBe(0)
         expect(result.errors.some((e) => e.category === 'PRE_EXISTING_FAILURE')).toBe(true)
         expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('skipping dependency install attempts'))
+        // 每条告警都有结论：链跳过后逐告警记 install-baseline-failed（不再落「无跳过结论」兜底）
+        expect(result.summary.alertsSkippedByReason?.['install-baseline-failed']).toBe(4)
+        const skipped = (result.alertOutcomes ?? []).filter(
+            (outcome) => outcome.status === 'skipped' && outcome.reason === 'install-baseline-failed',
+        )
+        expect(skipped).toHaveLength(4)
     })
 
     it('skips the per-package fallback when the batch install fails environmentally', async () => {

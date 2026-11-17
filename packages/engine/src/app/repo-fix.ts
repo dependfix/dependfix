@@ -45,7 +45,10 @@ import { alertsFetchTokenHint } from './token-hints'
 import { markEnvironmentalInstallFailure } from './environmental-failure'
 import { recordConvergedAlerts, recordSkippedAlerts } from './alert-outcomes'
 import { recordUpgradeFailure } from './upgrade-failure'
-import { ensureVerificationBaseline, finalizeRepoFix, recordInstallBaselineFailure } from './repo-fix-finalize'
+import {
+    collectInstallSkippedAlerts, ensureVerificationBaseline, finalizeRepoFix, installBaselineFinalizeOptions,
+    recordInstallBaselineFailure,
+} from './repo-fix-finalize'
 import { budgetAllows } from './budget'
 import { recordVerificationCheckpoint, type VerificationCheckpoint } from './verification-checkpoint'
 import { applyAutoMajorUpgrades } from './repo-fix-major'
@@ -77,6 +80,8 @@ export interface RepoFixProgress {
     verificationSkipped?: VerificationSkipReason
     /** 修复前基线被短路的命令（未采样 ≠ 通过；见 RepositoryResult.baselineSkippedCommands） */
     baselineSkippedCommands?: BaselineSkippedCommand[]
+    /** 安装基线失败时被整链跳过的告警（收尾逐告警落 `install-baseline-failed` 结论） */
+    installSkippedAlerts?: NormalizedSecurityAlert[]
     defaultBranch: string
 }
 
@@ -187,28 +192,28 @@ export async function processRepoFix(
         // pristine 安装失败 ⇒ overrides 安装必然同因失败；逐包重试只会耗尽预算，写盘前快速失败
         const installBaselineFailure = recordInstallBaselineFailure(ctx, repo, baseline)
         const sets = await prepareRepoFixSets(ctx, repo, planned, alertInputs, progress)
-        if (installBaselineFailure) {
-            ctx.logger.warn(`[multi-version] ${repo}: dependency upgrade chain skipped (pristine install baseline failed)`)
-        } else {
+        const runUpgradeChain = async (): Promise<void> => {
             const { singleVersionAlerts, stopReason } = await applyLockfileFixes(ctx, client, repo, sets, progress)
             if (stopReason) {
-                ctx.logger.warn(
-                    `[multi-version] ${repo}: dependency install chain stopped (${stopReason}) `
-                    + '— skipping member/group upgrades',
-                )
-            } else {
-                const memberEnvironmentalStop = await applyMemberUpgrades(ctx, repo, sets, progress)
-                if (memberEnvironmentalStop) {
-                    ctx.logger.warn(`[member-upgrade] ${repo}: dependency install chain stopped (environmental) — skipping group upgrades`)
-                } else {
-                    await applyGroupUpgrades(ctx, repo, sets, singleVersionAlerts, progress)
-                }
+                ctx.logger.warn(`[multi-version] ${repo}: dependency install chain stopped (${stopReason}) — skipping member/group upgrades`)
+                return
             }
+            if (await applyMemberUpgrades(ctx, repo, sets, progress)) {
+                ctx.logger.warn(`[member-upgrade] ${repo}: dependency install chain stopped (environmental) — skipping group upgrades`)
+                return
+            }
+            await applyGroupUpgrades(ctx, repo, sets, singleVersionAlerts, progress)
+        }
+        if (installBaselineFailure) {
+            ctx.logger.warn(`[multi-version] ${repo}: dependency upgrade chain skipped (pristine install baseline failed)`)
+            progress.installSkippedAlerts = collectInstallSkippedAlerts(planned)
+        } else {
+            await runUpgradeChain()
         }
         await finalizeRepoFix(ctx, repo, progress, {
             exemptAttribution,
             client,
-            ...(installBaselineFailure ? { installBaselineFailure } : {}),
+            ...(installBaselineFailure ? installBaselineFinalizeOptions(ctx, installBaselineFailure, runUpgradeChain) : {}),
         })
     } catch (error: unknown) {
         const message = toErrorMessage(error)
@@ -691,8 +696,7 @@ async function applyGroupUpgrades(
                     recordConvergedAlerts(ctx, convergedAlerts, 'all locked versions >= target')
                     continue
                 }
-                // 按 advisory 受影响区间过滤旧实例（同包多条 advisory 取并集）：
-                // 低于目标但已不在区间内的实例不构成待修工作
+                // 按 advisory 受影响区间过滤旧实例（同包多条 advisory 取并集）：已不在区间的实例不算待修工作
                 const packageAlerts = singleVersionAlerts.filter(
                     (a) => a.packageName === alert.packageName && a.fixable && a.recommendedVersion,
                 )

@@ -5,11 +5,12 @@
 // 两段职责的耦合点只有运行级基线持有器：采样时机决定是否需要付基线成本，收尾消费采样结果做归因豁免。
 // 验证链口径见 docs/design/modules/dependency-fixer-records.md §12.9。
 import type { Octokit } from '@octokit/rest'
-import type { BaselineSkippedCommand } from '@dependfix/core'
-import { formatVerificationError, type CommandResult } from '../runners/verification-runner'
+import { addSkipped, type BaselineSkippedCommand, type NormalizedSecurityAlert } from '@dependfix/core'
+import { formatVerificationError, runVerification, type CommandResult } from '../runners/verification-runner'
+import { recordSkippedAlerts } from './alert-outcomes'
 import { tryLockfileRepair } from './helpers'
 import type { RepoFixCtx, RepoFixProgress } from './repo-fix'
-import { budgetAllows, hasBudgetForNextStep } from './budget'
+import { budgetAllows, hasBudgetForNextStep, MIN_STEP_BUDGET_MS, remainingBudgetMs } from './budget'
 import { findInstallBaselineFailure, sampleVerificationBaseline, verifyProject } from './verify-project'
 import { attemptSelectiveUnitRollback } from './verification-checkpoint'
 
@@ -127,6 +128,50 @@ export function isLockfileBaselineFailure(failure?: CommandResult): boolean {
     return LOCKFILE_FAILURE_PATTERN.test(`${failure.stderr}\n${failure.stdout}`)
 }
 
+/** 安装基线失败时被整链跳过的告警（只含会被升级链尝试的可修告警）。 */
+export function collectInstallSkippedAlerts(planned: {
+    rootManifestAlerts: NormalizedSecurityAlert[]
+    memberManifestAlerts: { alert: NormalizedSecurityAlert }[]
+}): NormalizedSecurityAlert[] {
+    return [...planned.rootManifestAlerts, ...planned.memberManifestAlerts.map((item) => item.alert)]
+        .filter((alert) => alert.fixable && alert.recommendedVersion)
+}
+
+/**
+ * 安装基线失败时的收尾选项：重试闭包 + 安装复检（复检通了才重试）。
+ *
+ * 复检用**基线失败的那条命令**原样再跑一次：repair 成功不等于当前环境可安装
+ * （目标仓库仍缺网络 / 工具链时，重试只会把「跳过」变成一串失败动作）。
+ */
+export function installBaselineFinalizeOptions(
+    ctx: Pick<RepoFixCtx, 'workDir' | 'verifyCommandTimeoutMs' | 'deadlineAt'>,
+    failure: CommandResult,
+    retry: () => Promise<void>,
+): {
+    installBaselineFailure: CommandResult
+    retryUpgradeChain: () => Promise<void>
+    probeInstallOk: () => Promise<boolean>
+} {
+    return {
+        installBaselineFailure: failure,
+        retryUpgradeChain: retry,
+        probeInstallOk: async () => {
+            // 与基线采样同一预算夹取：单命令超时取「剩余预算 − 交付保留」，复检不得吃穿运行预算
+            const remaining = remainingBudgetMs(ctx.deadlineAt)
+            const budgetBound = remaining === undefined ? undefined : Math.max(1_000, remaining - MIN_STEP_BUDGET_MS)
+            const candidates = [budgetBound, ctx.verifyCommandTimeoutMs]
+                .filter((value): value is number => typeof value === 'number' && value > 0)
+            const commandTimeoutMs = candidates.length > 0 ? Math.min(...candidates) : undefined
+            const result = await runVerification({
+                workDir: ctx.workDir,
+                commands: [failure.command],
+                ...(commandTimeoutMs !== undefined ? { commandTimeoutMs } : {}),
+            })
+            return result.success
+        },
+    }
+}
+
 /**
  * 步骤 5：收尾——lockfile repair + 完整验证（dry-run 跳过验证）。零告警仓库跳过 lockfile repair
  * （无升级改动即无锁文件待修复）+ 跳过修复前基线采样（无改动即无「本次引入」可归因，
@@ -147,6 +192,18 @@ export async function finalizeRepoFix(
          * 结构兜底失败以 `PRECONDITION_FAILED` 上报（见 `tryLockfileRepair`）。
          */
         installBaselineFailure?: CommandResult
+        /**
+         * 锁文件修复**真正改写文件**后重试一次依赖升级链（预算门在此处再检一次）。
+         *
+         * 安装基线失败时升级链整体被跳过；若 repair 把 lockfile 修好，重试一次可能直接修复告警
+         * （否则整轮只能落「全部跳过」结论）。只重试一次，且重试留审计条目。
+         */
+        retryUpgradeChain?: () => Promise<void>
+        /**
+         * 重试前的安装复检：返回 true 才重试（repair 成功不等于当前环境可安装——
+         * 例如目标仓库仍缺网络 / 工具链时，重试只会把「跳过」变成一串失败动作）。
+         */
+        probeInstallOk?: () => Promise<boolean>
     } = {},
 ): Promise<void> {
     let lockfileRepairFailed = false
@@ -174,6 +231,28 @@ export async function finalizeRepoFix(
     }
     // 仅当首次 repair 真正改了文件时，选择性回滚后才需要重做；noOp 不额外跑安装
     const lockfileRepairChanged = progress.lockfileRepaired
+
+    // 安装基线失败的两条出口：repair 生效 → 按预算重试一次升级链；否则逐告警落跳过结论
+    const retryUpgradeChain = options.installBaselineFailure !== undefined && progress.lockfileRepaired
+        && (progress.installSkippedAlerts?.length ?? 0) > 0
+        && options.retryUpgradeChain !== undefined
+        && budgetAllows(ctx, { repository: repo, stage: 'fix', work: 'install-baseline retry' })
+        && (options.probeInstallOk ? await options.probeInstallOk() : true)
+    if (retryUpgradeChain) {
+        ctx.logger.info(`[install-baseline-retry] ${repo}: lockfile repaired — retrying dependency upgrade chain once`)
+        ctx.allErrors.push({
+            repository: repo,
+            stage: 'fix',
+            category: 'INSTALL_BASELINE_RETRY',
+            message: 'Install baseline failed before this run; lockfile repair succeeded — retried the dependency upgrade chain once',
+        })
+        await options.retryUpgradeChain?.()
+    } else if (options.installBaselineFailure && (progress.installSkippedAlerts?.length ?? 0) > 0) {
+        const skipped = progress.installSkippedAlerts ?? []
+        addSkipped(ctx.summary, 'install-baseline-failed', skipped.length)
+        recordSkippedAlerts(ctx, skipped, 'install-baseline-failed')
+        ctx.logger.info(`[install-baseline] ${repo}: ${skipped.length} alert(s) skipped — dependency chain not attempted`)
+    }
 
     if (!ctx.config.dryRun) {
         // 有告警但本次没有任何实际写入（全部跳过 / 仅跨 major 未授权 / lockfile repair 未改文件）

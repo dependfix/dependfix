@@ -8,7 +8,7 @@ import { parse as parseYaml } from 'yaml'
 import type { FixError, NormalizedSecurityAlert } from '@dependfix/core'
 import { compareSemver, readLockfileVersions, isCrossMajorFixRequired } from '../fixers/dependency'
 import { formatVerificationError, runVerification, type CommandResult } from '../runners/verification-runner'
-import { validateVerifyCommands } from '../verification/validate-commands'
+import { validateVerifyCommands, expandLintCommandAliases } from '../verification/validate-commands'
 import { hasBudgetForNextStep, recordBudgetExhausted } from '../app/budget'
 import type { AppContext } from '../app/helpers'
 
@@ -129,7 +129,8 @@ export async function quickVerifyProject(
     // 基线已红的命令不再重跑：失败的修复前工作区命令重复执行只会再红一次并可能回滚正确升级
     // （momei 在剩余预算内仍启动已知 OOM 的 lint 即为该形态）。跳过项由基线归因在报告中披露。
     const baseline = ctx.verificationBaseline?.repo === repo ? ctx.verificationBaseline.value ?? [] : []
-    const baselineFailed = new Set(
+    // 基线可能走只读链（`pnpm lint:check`）：按别名等价处理，避免已知红命令被重跑
+    const baselineFailed = expandLintCommandAliases(
         baseline.filter((command) => command.exitCode !== 0 || command.timedOut).map((command) => command.command),
     )
     const commandsToRun = valid.filter((command) => !baselineFailed.has(command))

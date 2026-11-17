@@ -27,7 +27,7 @@ import {
     type CommandResult,
     type VerificationResult,
 } from '../runners/verification-runner'
-import { validateVerifyCommands } from '../verification/validate-commands'
+import { expandLintCommandAliases, readPackageScripts, validateVerifyCommands } from '../verification/validate-commands'
 import { isInstallCommand } from './delivery'
 import { budgetAllows, MIN_STEP_BUDGET_MS, remainingBudgetMs } from './budget'
 import type { AppContext } from './helpers'
@@ -67,16 +67,27 @@ function clipLogText(text: string, maxLength = 200): string {
  * 因此自动获得同一超时、同一取消面与同一基线归因。
  *
  * @param recordSkips 是否把跳过的命令写入 `allErrors`（修复后验证记录一次即可；基线采样只记日志，避免报告重复）
+ * @param readOnlyLint 是否把默认链的 `pnpm lint` 换成只读 `pnpm lint:check`（**仅基线采样**使用：
+ *   写模式 `--fix` 会改动工作区，破坏 pristine 前提；目标仓库无 `lint:check` 时保留 `pnpm lint`）
  */
 function resolveVerifyCommands(
     ctx: Pick<AppContext, 'config' | 'customCommands' | 'logger' | 'workDir' | 'allErrors'>,
     repo: string,
-    options: { recordSkips: boolean },
+    options: { recordSkips: boolean, readOnlyLint?: boolean },
 ): ResolvedVerifyPlan {
     const { config, customCommands, logger, workDir, allErrors } = ctx
 
     // 确定要执行的命令：用户自定义 > 默认命令链
     let rawCommands = customCommands ?? DEFAULT_VERIFY_COMMANDS
+    // 基线采样用只读链：`pnpm lint` 的 `--fix` 会改工作区（pristine 前提被破坏，归因失真）
+    if (!customCommands && options.readOnlyLint === true) {
+        const scripts = readPackageScripts(workDir)
+        if (scripts === undefined) {
+            logger.warn('[baseline] package.json unreadable — falling back to write-mode lint (worktree may change)')
+        } else if (scripts['lint:check']) {
+            rawCommands = rawCommands.map((cmd) => (cmd === 'pnpm lint' ? 'pnpm lint:check' : cmd))
+        }
+    }
 
     // 默认命令链的 install 与策略命令同版本（显式 toolchainPnpmVersion 时）
     // 避免系统裸 pnpm 版本架空 PIN_TOOLCHAIN（旧版 pnpm 可能无法处理新版 lockfile）
@@ -207,7 +218,7 @@ export async function sampleVerificationBaseline(
     options: SampleBaselineOptions = {},
 ): Promise<CommandResult[] | undefined> {
     const { logger, workDir } = ctx
-    const plan = resolveVerifyCommands(ctx, repo, { recordSkips: false })
+    const plan = resolveVerifyCommands(ctx, repo, { recordSkips: false, readOnlyLint: true })
     if (plan.commands.length === 0) {
         return []
     }
@@ -463,7 +474,8 @@ export async function verifyProject(
     }
 
     // 修复前即失败的命令集合（命令级基线：只豁免「同命令在基线中也失败」的失败）
-    const baselineFailedCommands = new Set(
+    // 基线走只读链时命令名是 `pnpm lint:check`：按别名等价处理，否则既有失败豁免会失配
+    const baselineFailedCommands = expandLintCommandAliases(
         (options.baseline ?? []).filter((cr) => cr.exitCode !== 0).map((cr) => cr.command),
     )
 

@@ -71,3 +71,18 @@ export function validateVerifyCommands(commands: string[], workDir: string): { v
 
     return { valid, skipped }
 }
+
+/**
+ * 只读 lint 与写模式 lint 的命令别名（基线走只读链时的**既有失败等价**）。
+ *
+ * 基线采样把 `pnpm lint` 换成只读的 `pnpm lint:check`（写模式 `--fix` 会改工作区），
+ * 但「修复前即红」豁免与 quick-verify 的「已知红不重跑」都按**命令名全等**匹配——
+ * 不做别名会让只读链的既有失败失效，导致合法修复被回滚。
+ */
+export function expandLintCommandAliases(commands: Iterable<string>): Set<string> {
+    const set = new Set(commands)
+    if (set.has('pnpm lint:check')) {
+        set.add('pnpm lint')
+    }
+    return set
+}

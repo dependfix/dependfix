@@ -72,7 +72,7 @@
   - **审计**：deep 两分区并发 R1 均 **Reject**（A：wiring 零覆盖 + 成功命令可被标 OOM + 堆文本过宽 + types.ts 预算贴顶；B：AC④ 无实现面 / 口径自相矛盾、导出漏存量超时、`v-if` 组合导致两行同消失、计数与名单口径不一致）→ 收口 → R2 **Reject**（文档字段挂错接口、抑制条件与可见性未同源、探针先截头再取尾、i18n 对 failed 过度声称、死导入）→ 收口 → R3 **Reject**（§2.7 类型归属、规模计数、标题状态词）→ 收口 → R4 **Pass**（3 处改净，允许提交）。
   - **残余**：① AC② / AC④ 措辞待用户裁决；② fixer 侧安装命令 OOM 不产生 `FixAction.oomKilled`（仅验证链归因，已在 taxonomy §5.10 写为已知边界）；③ `/scans` 单 run 详情（`repo-history-dialog`）未展示资源 / OOM 项（本批范围外，后续可评估）；④ 报告 `## Command OOM` 段未区分 `preExisting`（红仓库已知 OOM 命令每轮都会列出）。
 
-### M62.3 跨 major / 混合实例判定前移与 advisory 区间（P1 🛠️）
+### M62.3 跨 major / 混合实例判定前移与 advisory 区间（P1 🛠️）—— ✅ 已闭环
 
 - **目标**：全部告警都需人工跨 major 或仅传递依赖时，不再先付完整基线；混合实例按 advisory 区间过滤，跳过原因可区分。
 - **优先级**：P1（实测零写入基线合计约 86 分钟；测量方 = 执行角色，来源 `runs-logs-20261116-043236.txt`，按各 run 首末日志求和）。
@@ -82,6 +82,16 @@
 - **依赖**：`repo-fix.ts` 现有 `crossMajorOnly` / `manualCrossMajorAlerts`；advisory 区间数据（Dependabot alert）。
 - **交付物**：2-3 commits / 4-6 files / 300-450 行。
 - **风险与缓解**：谓词前移与写盘判定漂移 → 复用同一谓词并加「有写入不得跳过」反例；区间过滤误删可修实例 → 以 alert 的 vulnerable range 与实例版本双向断言。
+- **执行记录（2026-11-17，4 commits：`7cfee076` core 契约 / `cac5a86e` 文档 / `69889a0d` engine 判定 / `3d0e9248` platform 展示）**：
+  - **实现**：新增 `app/cross-major.ts` 纯读谓词（`isManualCrossMajorAlert` / `isTransitiveOnlyCrossMajor` / `isNonWritableMixedInstance` / `assessLockfileWork` / `classifyBelowTargetInstances`），基线采样前置（`processRepoFix`）与修复链（`applyLockfileFixes` / `applyGroupUpgrades`）**共用同一套谓词**；`allowMajorUpgrade` 准入按「开关 + 根直接依赖 + 单实例」的实际 auto-eligible 子集计入（不放宽）；`NormalizedSecurityAlert.vulnerableRange` 由 dependabot（`vulnerable_version_range`）与 pnpm-audit（`vulnerable_versions`）映射，`buildVersionedOverrides` 只对「低于目标且仍受影响」的实例生成覆盖；`SKIP_REASONS` 新增 `mixed-instance` / `transitive-only`，平台原因表与 i18n 同步。
+  - **AC①（三类仓库跳过基线）**：`repo-fix-baseline` 新增 4 例——全人工跨 major / 开关开但仅传递依赖 / 混合实例低版本已不在区间 / group 路径低实例部分受影响，均断言基线采样 0 次或按 `mixed-instance` 归因；`cross-major` 保留给「全部低实例仍受影响」与「非 transitive-only 的人工跨 major」。
+  - **AC②（非跨 major 零回归）**：`stopOnFailureWhen` 与跨 major 谓词互不影响；engine 全量 1987 passed / 1 skipped、core 292 passed、platform 2669 passed / 10 skipped。
+  - **AC③（三类原因可区分）**：`cross-major` / `mixed-instance` / `transitive-only` 均在 `SKIP_REASONS`、`formatSkipReason` 文案、平台 `SKIP_REASON_ORDER` / `SKIP_REASON_I18N_KEYS`（单点映射 + 枚举漂移断言）/ i18n 双语、taxonomy / platform.md / e2e fixtures 枚举登记。
+  - **AC④（谓词前移与区间过滤单测）**：`cross-major.test.ts` 14 例（含真实逗号区间、最高实例未达标不得判无工作、同包覆盖低 major 时不得跳基线、`dependencyType` 优先两例）；`repo-fix-baseline` 4 例覆盖前置跳过与 group 归因；`versioned-overrides` 2 例锁定区间过滤（回退变异变红）；`dependabot-fetcher` 断言 `vulnerableRange` 映射。
+  - **AC⑤**：`pnpm -r build` / `typecheck` 7 项目 / `lint:check` 0 error（2 存量 warning）/ `gates:docs` 21 项。
+  - **规模**：26 文件（23 改 + 3 新增，含本台账；`git status --porcelain | wc -l`）/ 约 800 行（tracked diff +282 −39 + 新增非测试 227 + 新增测试 244 + 其余测试改动），预估 4-6 文件 / 300-450 行——新增原因族与区间字段跨 core / engine / platform 三包，按 4 个 commit 拆分，单 commit ≤10 文件。
+  - **审计**：deep 两分区并发 R1 均 **Reject**（A：GitHub 逗号区间不可解析导致过滤整体空转 + 混合实例缺「最高已达标」前提 + override 过滤零覆盖 + pnpm-audit modern 字段名错；B：文档旧口径与新条冲突 + 5 处枚举未同步 + 平台映射无断言）→ 收口 → R2 **Reject**（规模读数 / 注释口径 / `dependencyType` 分支零覆盖 / 冗余守卫 / 文档谓词名）→ 收口 → R3 **Reject**（AC④ 用例数 12→14）→ 收口 → R4 **Pass**（允许提交）。
+  - **残余**：① 区间缺失（数据源未提供）时保守视为受影响，混合实例不会被误判为收敛；② `dependencyPath` 存在时不做「无工作」前置跳过（路径级补丁会独立写盘）；③ `assessLockfileWork` 与链路各自读取 lockfile / manifest（未记忆化），告警多的仓库会放大读盘次数（性能项，非正确性）；④ `repo-fix.ts` 非空行 795/800——再改该文件需先拆分（`applyGroupUpgrades` 的收敛/归因判定可继续下沉 `cross-major.ts`）。
 
 ### M62.4 自仓基线红与验证链只读化（P1 🛠️）
 

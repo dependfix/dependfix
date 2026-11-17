@@ -281,6 +281,7 @@ lockfileRepaired
 verificationPassed
 verificationBlocking
 verificationSkipped
+baselineSkippedCommands
 durationMs
 ```
 

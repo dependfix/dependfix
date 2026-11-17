@@ -99,6 +99,8 @@ interface RunSummary {
     verificationsSkipped: number
     /** 按原因分组的验证跳过计数 */
     verificationSkippedByReason: Partial<Record<'budget' | 'no-write', number>>
+    /** 修复前基线链被短路的命令数（安装失败 → 后续命令未采样；按命令计） */
+    baselineSkippedCommands: number
 }
 ```
 
@@ -128,6 +130,8 @@ interface RepositoryResult {
     verificationBlocking?: boolean
     /** 验证被主动跳过（`budget` = 运行预算不足 / `no-write` = 本次无写入）：`undefined` + 该字段 = 未验证，不得渲染为通过 */
     verificationSkipped?: 'budget' | 'no-write'
+    /** 修复前基线链被短路的命令（安装命令已判红 → 后续命令未采样；未采样 ≠ 通过，也 ≠ 已确认既有失败） */
+    baselineSkippedCommands?: Array<{ command: string, reason: 'install-baseline-failed' }>
     /** 该仓库总处理耗时（毫秒） */
     durationMs: number
 }
@@ -195,7 +199,7 @@ interface FixError {
 
 ## 3. Markdown 报告模板
 
-### 3.1 报告结构（6 节 + 条件性 Skipped & Truncated / Repeated Failure Attempts / Delivery Skipped / Verification Skipped / Family Lockstep）
+### 3.1 报告结构（6 节 + 条件性 Skipped & Truncated / Repeated Failure Attempts / Delivery Skipped / Verification Skipped / Baseline Skipped / Family Lockstep）
 
 > 条件性第 7 节 `Skipped & Truncated`（有跳过 / 截断 / 失败残差时渲染）见 [run-failure-taxonomy.md §5.8](../governance/run-failure-taxonomy.md#_5-8-跳过与截断披露)。
 
@@ -265,6 +269,7 @@ interface FixError {
 - **Skipped & Truncated**：仅当存在跳过 / 截断 / 失败残差时渲染；旧 `summaryJson` 缺分组字段时按 `total - known` 补 `Other / unclassified`，不抛错
 - **Repeated Failure Attempts**：仅当 `RunResult.attemptTracking` 非空时渲染（旧 JSON 缺字段不渲染、不抛错）；逐条展示 `repository / package / attempt key / 尝试序号 / 状态`（`attempt` / `forced (manual retry)` / `skipped (attempt limit)`）；序号 = 同键已关闭 PR 数 + 1，口径见 [pr-delivery-closure.md §6](../governance/pr-delivery-closure.md#_6-m48-3-同告警尝试指纹去重)
 - **Verification Skipped**：仅当存在 `RepositoryResult.verificationSkipped !== undefined` 的仓库时渲染；逐条展示仓库 + 原因（`run budget exhausted` / `no writes (verification not needed)`），不渲染为验证通过；`budget` 表示改动未验证（阻断交付），`no-write` 表示本次无写入、无交付内容，口径见 [dependency-fixer-records.md §12.9](./dependency-fixer-records.md#_12-9-验证链与既有失败基线-默认链-既有失败归因-零告警按需采样)
+- **Baseline Skipped**：仅当存在 `RepositoryResult.baselineSkippedCommands` 非空的仓库时渲染；逐条展示仓库 + 未采样命令 + 原因（`not sampled (the install command already fails before this run)`）。**未采样 ≠ 通过**，也不等于「已确认既有失败」——终验照常执行，未采样命令的终验失败按保守口径归因本次改动；与 Verification Skipped 语义不同（后者是终验未执行）但**可同时出现**（install 基线红且本次无写入时两段并存）；终验若执行，其失败按保守口径归因本次改动，口径见 [dependency-fixer-records.md §12.9](./dependency-fixer-records.md#_12-9-验证链与既有失败基线-默认链-既有失败归因-零告警按需采样)
 - **Delivery Skipped**：仅当 `RunResult.deliverySkips` 非空（基线红：修复后安装仍既有失败）时渲染；逐条展示仓库集 / 失败命令 / 降级载体（`issue #N (created|already exists)` / `draft PR #N` / `draft PR (this PR)` / `report only (skip)`），口径见 [pr-delivery-closure.md §16](../governance/pr-delivery-closure-history.md#_16-m51-4-基线红-安装失败的交付降级-2026-10-30)
 - **版本列**：仅 `dependency-upgrade` 动作显示 from/to 版本；lockfile-repair 显示 strategy^；verification 显示 `—`，但**既有失败**（`FixAction.preExisting`，修复前即红、未归因本次改动）显示「既有失败（修复前即红，未归因本次改动）」
 - **环境性安装失败**：`lockfile-repair` 与升级链（`dependency-upgrade`：成员 / 分组 / 拆组逐包 / 跨线）的环境性失败（`FixAction.environmentalFailure === true`）在 **Fix Actions 表的失败原因**（渲染自 `FixAction.error`，见 `markdown-generator.ts` 的 `actionDetails`）展示证据，形态按链路分两种：lockfile-repair 为「进程信号（如 `signal SIGKILL` / `exit code 1`）+ `diagnostics: <stderr+stdout 尾部>`（无诊断时 `no stderr/stdout diagnostics`）」；升级链为 `pnpm install failed: <根因提示>: <诊断>`（无诊断时 `no error detail`）。`environmentalFailure` 字段本身不被渲染器消费，仅作非归因标记（见 [pnpm-lockfile-fixer.md §2.4](./pnpm-lockfile-fixer.md) 与 [dependency-fixer-records.md §12.16](./dependency-fixer-records.md)）

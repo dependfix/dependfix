@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import {
+    skipReasonI18nKey,
     skippedBreakdown,
     skippedTotal,
     totalDiscoveredAlerts,
@@ -41,18 +42,7 @@ const severityTone = (key: string) => {
     }
 }
 
-const reasonLabel = (key: string) => {
-    const keys: Record<string, string> = {
-        'subdirectory-manifest': 'runs.breakdown.reason.subdirectoryManifest',
-        'cross-major': 'runs.breakdown.reason.crossMajor',
-        'not-fixable': 'runs.breakdown.reason.notFixable',
-        'override-protected': 'runs.breakdown.reason.overrideProtected',
-        'repeated-failure': 'runs.breakdown.reason.repeatedFailure',
-        'peer-only': 'runs.breakdown.reason.peerOnly',
-        other: 'runs.breakdown.other',
-    }
-    return t(keys[key] ?? 'runs.breakdown.other')
-}
+const reasonLabel = (key: string) => t(skipReasonI18nKey(key) ?? 'runs.breakdown.other')
 </script>
 
 <template>

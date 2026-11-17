@@ -55,7 +55,28 @@ export const SKIP_REASON_ORDER = [
     'override-protected',
     'repeated-failure',
     'peer-only',
+    'mixed-instance',
+    'transitive-only',
 ] as const
+
+/**
+ * 跳过原因 → i18n 键（静态表；未知原因返回 `undefined`，由调用方回落「其他 / 未分类」）。
+ *
+ * 单一事实源：组件与单测共用，避免键名在两处漂移。
+ */
+export const SKIP_REASON_I18N_KEYS: Record<string, string> = {
+    'subdirectory-manifest': 'runs.breakdown.reason.subdirectoryManifest',
+    'cross-major': 'runs.breakdown.reason.crossMajor',
+    'mixed-instance': 'runs.breakdown.reason.mixedInstance',
+    'transitive-only': 'runs.breakdown.reason.transitiveOnly',
+    'not-fixable': 'runs.breakdown.reason.notFixable',
+    'override-protected': 'runs.breakdown.reason.overrideProtected',
+    'repeated-failure': 'runs.breakdown.reason.repeatedFailure',
+    'peer-only': 'runs.breakdown.reason.peerOnly',
+}
+
+/** 跳过原因的 i18n 键（未知原因 `undefined`）。 */
+export const skipReasonI18nKey = (reason: string): string | undefined => SKIP_REASON_I18N_KEYS[reason]
 
 /** 严重级别展示顺序；与 `packages/core/src/alerts/index.ts#ALERT_SEVERITIES` 同序。 */
 export const SEVERITY_DISPLAY_ORDER = ['critical', 'high', 'medium', 'low', 'unknown'] as const

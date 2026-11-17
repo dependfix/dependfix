@@ -15,6 +15,7 @@ import {
     isRunResultMissing,
     SEVERITY_DISPLAY_ORDER,
     SKIP_REASON_ORDER,
+    skipReasonI18nKey,
     VERIFICATION_SKIP_REASON_ORDER,
     skippedBreakdown,
     skippedTotal,
@@ -240,6 +241,21 @@ describe('verificationsSkipped', () => {
         expect(verificationSkipSummary({ verificationSkippedByReason: { 'no-write': 2, budget: 1 } }, t))
             .toBe('t:runs.verificationSkipReason.budget: 1 · t:runs.verificationSkipReason.noWrite: 2')
         expect(verificationSkipSummary({}, t)).toBe('')
+    })
+})
+
+describe('skipReasonI18nKey', () => {
+    it('新增原因有独立 i18n 键（不得回落 other）', () => {
+        expect(skipReasonI18nKey('mixed-instance')).toBe('runs.breakdown.reason.mixedInstance')
+        expect(skipReasonI18nKey('transitive-only')).toBe('runs.breakdown.reason.transitiveOnly')
+        expect(skipReasonI18nKey('cross-major')).toBe('runs.breakdown.reason.crossMajor')
+        expect(skipReasonI18nKey('other')).toBeUndefined()
+    })
+
+    it('每个 SKIP_REASON_ORDER 原因都有映射（防止枚举漂移）', () => {
+        for (const reason of SKIP_REASON_ORDER) {
+            expect(skipReasonI18nKey(reason), reason).toBeTruthy()
+        }
     })
 })
 

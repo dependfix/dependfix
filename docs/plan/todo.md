@@ -135,16 +135,20 @@
   - **审计**：standard 单分区 R1 **Reject**（文档旧口径与新实现冲突 + 枚举未同步；AC①/AC② 的 wiring 与白名单无覆盖、变异存活）→ 收口（文档四处 + 端到端逐告警断言 + 复检用例 + exit-code 锁定 + 复检预算夹取）→ R2 **Pass**（允许提交）。
   - **残余**：① 重试闭包会重跑整条升级链（含 lockfile 策略外的成员 / 分组），预算已由 `budgetAllows` 兜住；② `install-baseline-failed` 结论只覆盖依赖链告警，code-scanning / code-quality 走独立链；③ 重试路径不补记原因（链提前中断时回落兜底行）；④ `repo-fix.ts` 非空行 799/800——下一原子改动前必须先拆分（`applyGroupUpgrades` 收敛/归因可继续下沉）。
 
-### M62.6 收尾未 settle 导致的假超时与取消诊断（P2 🛠️🧪）
+### M62.6 收尾未 settle 导致的假超时与取消诊断（P2 🛠️🧪）—— 🚧 进行中（AC②③④⑤ 落地；AC① 待真实运行复现）
 
 - **目标**：收尾阶段完成后运行在 10s 内落定，不再被游离句柄拖到运行级 `execution_timeout`；诊断能区分在管子进程与未关闭句柄。
 - **优先级**：P2（momei 11-13 收尾完成后 5m20s 才 abort；来源 `runs-logs-20261113-045612.txt`）。
-- **范围**：`apps/platform/server/services/executor/container-executor.ts` 与 `engine-run.ts`：复现并抓 `ps -ef --forest` 与受管命令输出快照；超时命令的进程组清理与 stdio 关闭断言；`describeUnsettledRun` 增「游离句柄」维度；收尾完成即落定，不等运行级上限。
+- **范围**：`apps/platform/server/services/executor/container-executor.ts` 与 `engine-run.ts`：复现并抓 `ps -ef --forest` 与受管命令输出快照；超时命令的进程组清理与 stdio 关闭断言；`describeUnsettledRun` 增「游离句柄」维度；收尾完成即落定，不等运行级上限。**本轮仅交付诊断增强**：进程组清理 / stdio 断言 / 收尾即落定随 AC① 转 backlog。
 - **验收标准**：① 复现运行收尾后 10s 内落定，不再记 `execution_timeout`；② 取消诊断可区分「在管子进程 / 未 settle 句柄」；③ 其余超时路径零回归；④ 定向测试覆盖收尾落定与诊断文本；⑤ `gates:docs` 通过。
 - **不做什么**：不改 30 分钟上限；不采宿主级 OOM 证据；不改沙箱与容器降级顺序。
 - **依赖**：M59.3 取消落定与 `settleWithin` / `describeUnsettledRun`；`container-executor` 收尾路径。
 - **交付物**：3-4 commits / 7-9 files / 400-550 行。
 - **风险与缓解**：问题不可复现 → 先落取证脚本与诊断增强，复现条件写入 backlog；误杀父进程 → 只清理运行创建的进程组并断言父子关系。
+- **执行记录（2026-11-18，按「不可复现 → 先落取证与诊断增强」收窄）**：
+  - **落地**：`engine-run.ts` 新增句柄快照 / 净差 / 分类三个函数，`describeUnsettledRun` 追加「诊断分类」与「运行期句柄」两句；`container-executor` 在**引擎启动前**取句柄基线，宽限期结束只并入净增量。四类结果：在管子进程 / 未 settle 句柄 / 无法归类（采集不可用）/ 无法归类（无新增）；句柄读数是**进程级净差**（平台与引擎同进程，可能含平台自身连接与并发运行），采集不可用不得读作零增量（口径见 [执行进程隔离 §8.6](../design/governance/executor-process-isolation.md#_8-6-残余与观察项)）。
+  - **AC②③④⑤**：分类句与判读同源；3 个定向文件 81 passed（`pnpm --filter @dependfix/platform exec vitest run server/services/executor/{engine-run,container-executor,container-executor-unsettled}.test.ts`），含「基线在引擎启动前采集」「基线 = 当前 → 无法归类」两例；`settleWithin` / `withTimeout` 未改；回退探针 3 组均变红（删增量透传 / 基线置空 / 基线缺失返回 `{}`）；`gates:docs` 21 项。
+  - **AC① — 阻塞（待真实运行复现）**：2026-11-18 实测本机库 136 条 run（`select count(*) from dependfix_scan_run`，读 `apps/platform/data/dependfix.sqlite`）无可用未落定样本（47 条 run 无 `logs_json`：container 44 / sandbox 3），生产库不可达 → 未取证；复现条件见 [backlog](backlog.md#收尾未-settle-假超时真实运行复现-2026-11-18-m62-6-登记)。
 
 ### 追加临时待办（不占阶段条目编号）
 

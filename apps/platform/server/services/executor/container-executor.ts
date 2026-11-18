@@ -23,7 +23,15 @@ import {
     PlatformDeliveryError,
     createPlatformOctokit,
 } from './platform-delivery'
-import { ABORT_GRACE_MS, describeUnsettledRun, ExecutionTimeoutError, settleWithin, withTimeout } from './engine-run'
+import {
+    ABORT_GRACE_MS,
+    describeUnsettledRun,
+    diffActiveResources,
+    ExecutionTimeoutError,
+    settleWithin,
+    snapshotActiveResources,
+    withTimeout,
+} from './engine-run'
 import { MemoryLogger } from '#server/utils/memory-logger'
 import { logger as platformLogger } from '#server/utils/logger'
 import { detectSigkill, startResourceMonitor } from '#server/utils/resource-usage'
@@ -372,6 +380,9 @@ export class ContainerExecutor implements ScanExecutor {
 
     private async executeRun(ctx: ScanExecutorContext): Promise<ScanExecutorResult> {
         const startedAt = new Date().toISOString()
+        // 活动句柄基线（运行起点，引擎启动前）：未落定时以「运行期净增」判读「未 settle 句柄」，
+        // 常驻句柄不计入；采集不可用由诊断侧写明，不当作零基线
+        const resourceBaseline = snapshotActiveResources()
         const { owner, name, defaultBranch } = ctx.repository
         const workDir = join(this.workRoot, ctx.runId)
         // 延迟清理 / PR 失败保留的诊断根目录（finally 与失败分支共用）
@@ -572,6 +583,8 @@ export class ContainerExecutor implements ScanExecutor {
                         childProcessCount: snapshot?.trackedCount ?? 0,
                         lastCommand: snapshot?.lastCommand,
                         abortReason: getAbortReason(),
+                        // 运行期句柄净增：与在管子进程数一起区分「子进程仍在跑」与「句柄未关闭」
+                        activeResourceDelta: diffActiveResources(resourceBaseline, snapshotActiveResources()),
                     })
                     memLogger.warn(
                         `[executor] ${owner}/${name}: 超时后已请求运行级取消；${unsettledDiagnosis}`

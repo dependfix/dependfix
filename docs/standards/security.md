@@ -90,7 +90,7 @@
 1. patched 版本**尚未发布**（registry 上不存在可安装版本）；
 2. patched 版本已发布，但**只有跨大版本修复**且消费者上游仍依赖旧 API（升级会破坏运行 / 构建）——此时「复核条件」必须写明消费者就绪判据（如「eslint 链改用 minimatch ≥11 后移除」）。
 
-> 两类豁免均只适用于 **moderate / low**。**high 不得**据此豁免：high 必须先尝试修复，确无可用修复版本时按 §5.9 台账以 `no-fix` / `hard-fix` 登记。
+> 两类豁免均只适用于 **moderate / low**（无需台账）。**high 不得仅凭本节豁免**：必须先尝试修复；确无可用修复版本时按 §5.9 台账以 `no-fix` / `hard-fix` 登记并获维护者批准，**方可**同时写入 `audit.ignore`（缺台账 / 批准痕迹的 high 条目视为非法豁免）。critical 一律不得豁免（含 dismiss）。
 
 - **配置位置**：`pnpm-workspace.yaml` 顶层 `audit.ignore`（GHSA 列表）；脚本命令见 [§5.6](#_5-6-依赖审计阻断语义-信号级-→-阻断的转正条件-2026-09-30-用户决策方案-c)（2026-10-27 起随 prod 阻断转正）。
 - **禁止用 `--ignore` / `--ignore-unfixable` 进脚本**：pnpm 的 `--ignore` 是「一次性配置写入器」——只把编号写回配置并直接 exit 0（不执行审计），写进 CI 或 npm script 会使审计步骤恒为 exit 0、门禁彻底失效；`--ignore-unfixable` 还依赖 advisory 的 patched 元数据，对「声明了 patched 版本但未发布」的条目判为可修复、实际不写入任何编号。

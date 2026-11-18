@@ -384,6 +384,14 @@
 - **复核记录（2026-10-31，Test run 41160837415 修复）**：node-forge 1.4.2 发布（2026-10-27）→ 升 `node-forge: ^1.4.2` 并移除 `GHSA-86w9-cpqp-85rv`（§5.7 行与 §5.9 台账同步清空）；`nuxt` 4.6.2 → 4.6.3 修复 `@nuxt/vite-builder` / `@nuxt/nitro-server` / `nuxt` 三条 moderate；glob 通过 `overrides.glob: ^14.0.3`（build / e2e / 视觉验证通过）移除 `GHSA-3g3m-2fjr-6pw4`，未挂豁免；仅保留 `GHSA-g3hv-75wg-m249`（minimatch，消费者仍用 v3/v5/v10 API）。另观察 `deepmerge` 4.3.1 low（advisory patched 4.3.2 尚未发布，不阻断、不入台账）。
 - **可选增强**：以调度任务自动比对 `npm view <pkg> version` 探测上游修复发布，避免豁免长期挂账（暂未实现）。
 
+### 依赖审计豁免复核（picomatch，持续观察）
+
+- **背景（2026-11-18）**：`master` push 的 Test job（run `44148812786`）在 prod 阻断审计失败——新发布的 `GHSA-fc5q-39xc-vjpf`（picomatch ≤ 4.0.7，**high**，单分支重复 extglob 的 ReDoS）声明 patched `>=4.0.8`，但 registry 最新仍为 4.0.7（4.0.8 未发布），overrides / `pnpm update` / `pnpm audit --fix` 均无法落地。依赖路径：`apps/platform > @nuxtjs/i18n > @intlify/unplugin-vue-i18n > @rollup/pluginutils / tinyglobby > picomatch`（构建期工具链，不进请求处理路径）。
+- **处置**：按 [security.md §5.9](../standards/security.md#_5-9-发布前安全告警门禁-dependabot-alerts-code-scanning-2026-10-29-用户决策) 以 `no-fix` 登记 [`.github/release-security-exemptions.json`](../../.github/release-security-exemptions.json)（维护者 2026-11-18 确认 high 可豁免），并同步 [pnpm-workspace.yaml](../../pnpm-workspace.yaml) `audit.ignore`（§5.7：high 须先尝试修复，确无可用修复版本时按 §5.9 台账登记后方可入 `audit.ignore`）。本地复跑 prod 审计：`1 moderate (1 ignored) | 1 high (1 ignored)`，exit 0。
+- **复核条件**：picomatch `>=4.0.8` 发布后加 `overrides.picomatch` 升到该线 → 复跑 `pnpm audit --prod --audit-level=moderate --registry=https://registry.npmjs.org` 通过 → 移除 `audit.ignore` 条目与 §5.9 台账条目并回填本节复核记录。
+- **现状说明（2026-11-18）**：`check:release-security` 实跑 PASS（critical 0 / high 0），台账条目暂为 **stale warning**——仓库 Dependabot 尚未生成该 advisory 的告警行（advisory 已发布、告警未同步）；待告警生成后自动匹配，stale 警告消失。
+- **触发条件**：每周回归 / 依赖升级 / `npm view picomatch version` 变化时复查。
+
 ### 依赖安全补丁的 overrides 钉定（vue-i18n 家族 / seroval，持续观察）
 
 - **背景（2026-10-29）**：prod 阻断审计因 `vue-i18n` 家族（`GHSA-83rm-6c8r-g728`，high）与 `seroval`（`GHSA-f86p-h4j2-7qgj` / `GHSA-9wx9-5pv9-3349`，moderate）失败；advisory 声明的最小修复版本为 `vue-i18n` 家族 11.4.14、`seroval` 1.6.11（`GHSA-f86p-h4j2-7qgj` 的 patched 是 1.6.11，`GHSA-9wx9-5pv9-3349` 为 1.6.10）。

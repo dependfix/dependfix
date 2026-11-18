@@ -1,4 +1,17 @@
 {
   "description": "发布前安全告警门禁的 high 豁免台账（权威口径见 docs/standards/security.md §5.9）。critical 一律不得登记；high 仅在「无可用修复版本」或「修复难度大」时登记，并须同步 docs/plan/backlog.md 追踪。新增条目须维护者批准（AI 不得自行豁免）。",
-  "exemptions": []
+  "exemptions": [
+    {
+      "source": "dependabot",
+      "id": "GHSA-fc5q-39xc-vjpf",
+      "severity": "high",
+      "category": "no-fix",
+      "target": "picomatch (<=4.0.7)",
+      "path": "apps/platform > @nuxtjs/i18n > @intlify/unplugin-vue-i18n > @rollup/pluginutils / tinyglobby > picomatch（构建期工具链）",
+      "reason": "advisory 声明 patched >=4.0.8，但 registry 最新版本仍为 4.0.7（4.0.8 尚未发布），overrides / pnpm update / pnpm audit --fix 均无法落地；属 §5.9「上游无可用修复版本」（no-fix）。批准：CaoMeiYouRen（维护者，2026-11-18 指示 high 可豁免）",
+      "review": "picomatch >=4.0.8 发布后：加 pnpm-workspace.yaml overrides.picomatch 升到该线，复跑 pnpm audit --prod 通过后移除本条目与 audit.ignore 对应行",
+      "tracking": "docs/plan/backlog.md「依赖审计豁免复核（picomatch，持续观察）」",
+      "approvedBy": "CaoMeiYouRen (2026-11-18)"
+    }
+  ]
 }

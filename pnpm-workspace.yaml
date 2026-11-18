@@ -72,3 +72,9 @@ audit:
     # 跨大版本覆盖会破坏 v3/v5/v10 API；仅构建期工具链，不进入请求处理路径。
     # 复核：消费者上游改用 minimatch >=11（或 eslint / archiver 放弃旧 API）后移除。
     - GHSA-g3hv-75wg-m249
+    # picomatch <=4.0.7（单分支重复 extglob 的 ReDoS，GHSA-fc5q-39xc-vjpf，high）：
+    # advisory 声明 patched >=4.0.8，但 registry 最新仍为 4.0.7（4.0.8 未发布），overrides / update 无法修复。
+    # 路径：apps/platform > @nuxtjs/i18n > @intlify/unplugin-vue-i18n > @rollup/pluginutils / tinyglobby > picomatch（构建期）。
+    # 按 §5.9 以 no-fix 登记 .github/release-security-exemptions.json（维护者 2026-11-18 确认 high 可豁免）；
+    # 复核：picomatch >=4.0.8 发布后加 overrides.picomatch 并移除本条与台账条目。
+    - GHSA-fc5q-39xc-vjpf

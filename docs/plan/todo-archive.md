@@ -9,6 +9,7 @@
 
 | 阶段 | 主题 | 归档文件 | 归档日期 |
 |:--|:--|:--|:--|
+| M62 | 运行日志复盘与执行成本收口 | [M62](archive/todo-archive-phases-m62.md) | 2026-11-19 |
 | M61 | 文档与 AI 治理（第四期） | [M61](archive/todo-archive-phases-m61.md) | 2026-11-16 |
 | M60 | 平台减法与沙箱可用性 | [M60](archive/todo-archive-phases-m60.md) | 2026-11-15 |
 | M59 | 沙箱 fix 与执行可靠性 | [M59](archive/todo-archive-phases-m59.md) | 2026-11-14 |

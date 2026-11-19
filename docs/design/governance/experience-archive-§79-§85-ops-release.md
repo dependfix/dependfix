@@ -1,6 +1,6 @@
-# 经验归档分片（§七十九 - §八十九）：运维实测与发布链沉淀
+# 经验归档分片（§七十九 - §九十）：运维实测与发布链沉淀
 
-> 本分片为 [§70-§85 索引](./experience-archive-§70-§99-delivery-platform.md) 的第二片（原分片按 `^##` H2 边界拆分，章节编号与锚点不变；自 §八十六 起只更新范围标签与 H1，**文件名沿用建立时规划上界** `-§79-§85-`；实测内容范围 §七十九-§八十九）；正文只写结论与落点。
+> 本分片为 [§70-§85 索引](./experience-archive-§70-§99-delivery-platform.md) 的第二片（原分片按 `^##` H2 边界拆分，章节编号与锚点不变；自 §八十六 起只更新范围标签与 H1，**文件名沿用建立时规划上界** `-§79-§85-`；实测内容范围 §七十九-§九十）；正文只写结论与落点。
 
 ## 七十九、M53.2 运维实测批次经验沉淀（惰性单例启动点 / WAL 备份 / 早退守卫）
 
@@ -309,3 +309,43 @@
 - **现象**：只 `git add` 7 个设计文件，提交后 `--stat` 多出已修改的 `backlog.md` / `todo.md`（lint-md --fix 与 lint-staged 的「Staging changes from tasks」阶段）。未重做历史，改为在记录中声明连带。
 - **手法**：提交前确保工作区无其它已修改 md，或按逻辑批次分批提交；`git show --stat` 与 message 必须对账，发现连带按 [git.md §3.7.1](../../standards/git.md) 重做或显式声明。
 - **落点**：[git.md §3.7.1](../../standards/git.md)。
+
+## 九十、M62 归档批次经验沉淀（成本短路 / OOM 分层 / 谓词前移 / 只读链 / 收尾挂起 / max-lines 职责迁移）
+
+> **批次**：M62 运行日志复盘与执行成本收口（2026-11-19 归档）。**准入依据**：② 决策需溯源（短路语义、层级归属、别名代价）+ ④ 工具 / 环境陷阱（CONNECT 隧道追踪集、命令名分叉）。落点见各条目末行。
+
+### 1. 安装失败短路只短路「安装命令之后」，且与终验三态分属不同词汇表
+
+- **现象**：红仓库每轮先付完整基线，其中安装失败后 lint / build / typecheck / test 必然同因失败；但把「未采样」塞进 `verificationSkippedByReason`（budget / no-write）会让同一字段承载两种互斥事实——后者是「终验未执行」，前者终验照常执行。
+- **手法**：`stopOnFailureWhen: isInstallCommand` 只短路后续命令，非安装失败仍保留独立读数；未采样命令用独立词汇表 + 命令级字段（按命令计数），报告逐条披露「未采样」，平台只显示运行级总数；未采样既不算通过、也不算已确认既有失败，终验失败按本次归因（宁可少交付）。
+- **落点**：[dependency-fixer-records.md §12.9](../modules/dependency-fixer-records.md#_12-9-验证链与既有失败基线-默认链-既有失败归因-零告警按需采样) + [run-failure-taxonomy.md §5.9](run-failure-taxonomy.md)。
+
+### 2. 同一 OOM 信号只落一个字段层级，展示按「运行级 / 命令级 / 超时」分层
+
+- **现象**：`completed` 运行同时出现「OOM 终止：是」会误导交付结论；运行级 cgroup OOM 与命令级堆 OOM 成因不同，混用一个字段无法分辨。
+- **手法**：命令级判定取 `SIGKILL` / 退出码 137 / 堆文本三者之一，并排除超时、取消与成功命令；`completed` 时抑制运行级展示、`failed` 时两类并列；「失败率」在本仓不存在时按状态分布解释，并用单测锁定 `completed + commandOomKills > 0` 不增加 `failed`。
+- **落点**：[run-failure-taxonomy.md §5.10](run-failure-taxonomy.md) + [report-generator.md](../modules/report-generator.md)。
+
+### 3. 跨 major 前置跳过必须复用同一谓词，并保留「最高实例已达标」前提
+
+- **现象**：只读判定放在基线采样之后，等于先付费再决定不修；只按「有低版本实例」判无工作，会把「高版本已达标、低版本仍在 advisory 区间外」误判为可收敛。
+- **手法**：抽纯读谓词模块，基线采样前置与修复链共用；混合实例按 advisory 受影响区间过滤，区间缺失保守视为受影响；GitHub 逗号区间按真实形态解析并有反向用例。
+- **落点**：[dependency-fixer-records.md §12.9](../modules/dependency-fixer-records.md#_12-9-验证链与既有失败基线-默认链-既有失败归因-零告警按需采样) + [§12.12](../modules/dependency-fixer-records.md#_12-12-交付正确性-零修复、安装既有失败、override-生效与收敛判定-2026-10-18)（跨 major 前移与混合实例）+ `packages/engine/src/app/cross-major.ts`。
+
+### 4. 基线只读链必须做命令名别名等价，别名单侧放宽的代价要显式登记
+
+- **现象**：基线用 `pnpm lint:check`、修复后用 `pnpm lint`，命令名分叉会让既有失败豁免与 quick-verify「已知红不重跑」同时失效，合法修复被回滚。
+- **手法**：`expandLintCommandAliases` 让 `lint:check` 失败同时视为 `lint` 失败，两处消费点共用；当 `lint ⊂ lint:check` 时，平台 lint 红会被当作既有失败而豁免本次 lint 回归——属「宁可少交付」之外唯一能保住合法修复的折中，必须在设计记录写明代价。
+- **落点**：[dependency-fixer-records.md §12.9](../modules/dependency-fixer-records.md#_12-9-验证链与既有失败基线-默认链-既有失败归因-零告警按需采样)。
+
+### 5. 收尾挂起先用「最后一条受管命令」给空窗定点，再判隧道 / 句柄
+
+- **现象**：运行日志数分钟无输出后被运行级上限砍断，直接猜挂点成本高；生产样本的空窗起点恰在最后一条受管命令之后。
+- **手法**：受管命令的登记顺序即主流程里程碑，空窗必然落在「最后一条受管命令之后、下一条业务日志之前」的 await 上；定点后用最小探针（本地服务 + 隧道 + 计时）在秒级判定开关。CONNECT 隧道 upgrade 后脱离 `closeAllConnections()` 追踪集、却仍计入 `server.close()` 等待集，是该形态的典型根因。
+- **落点**：[executor-process-isolation.md §8.6](executor-process-isolation.md#_8-6-残余与观察项) + `packages/engine/src/runners/network-audit.ts`。
+
+### 6. ESLint max-lines 触顶时迁移职责，不靠压缩注释或删空行
+
+- **现象**：本仓 `max-lines` 只开 `skipBlankLines`（空行不计、注释计入）；M62.1 拆分前的 `packages/core/src/report/types.ts` 为 857 物理行 / 798 非空行，已贴 800 上限，继续加字段必然触顶。
+- **手法**：把职责迁出（词汇表 → 独立模块、段渲染 → 独立函数、工厂 → 独立文件），按职责边界拆分而不是按行数切；拆分后保持原导入面与行为不变，跑定向测试。**边界**：测试文件超限按 [§四十一](experience-archive-§41-§48-archive-batch.md) 处理，本条指源文件。
+- **落点**：`eslint.config.js` 的 `max-lines` 配置行（`skipBlankLines: true`，阈值 800）+ 本条 L3 索引。

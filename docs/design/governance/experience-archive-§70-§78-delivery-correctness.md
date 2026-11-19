@@ -154,7 +154,7 @@
 
 ### 4. 顶格文件上的增强以「替换既有语句」落地
 
-- **现象**：`repo-fix.ts` 受 `max-lines: 800` 约束（注释与空行计入），改动前已 799/800；新增语句必然越线。
+- **现象**：`repo-fix.ts` 受 `max-lines: 800` 约束（注释计入、空行不计），改动前非空行已 799/800；新增语句必然越线。
 - **手法**：把三处 `progress.failed++` 改写为 `recordUpgradeFailure(...)`（计数 + 日志成对），净增仅 import 一行即完成行为增强；代价是零余量，已在触发条件命中时先拆文件（`repo-fix-finalize.ts`）。
 - **落点**：[todo-archive.md §M45.2](../../plan/todo-archive.md)（该候选的处置记录）+ `repo-fix-finalize.ts`（拆分落点）+ 本条环境注记。
 

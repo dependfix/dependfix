@@ -4,6 +4,7 @@ import {
     checkNodeVersion,
     isAtLeast,
     main,
+    parseMinLine,
     parseVersion,
     resolveVersionArg,
 } from './check-node-version.mjs'
@@ -53,6 +54,18 @@ describe('check-node-version', () => {
         expect(resolveVersionArg(['--verbose'], '24.22.3')).toBe('24.22.3')
     })
 
+    it('--min-line 要求最低发布线，且只接受正整数', () => {
+        expect(parseMinLine([])).toBeNull()
+        expect(parseMinLine(['--min-line=26'])).toBe(26)
+        expect(() => parseMinLine(['--min-line=26.x'])).toThrow('--min-line 需为正整数')
+        expect(() => parseMinLine(['--min-line=0'])).toThrow('--min-line 需为正整数')
+    })
+
+    it('低于 --min-line 的同发布线版本被拒，达标版本通过', () => {
+        expect(checkNodeVersion('24.22.3', 26)).toMatchObject({ ok: false, reason: 'Node 24.22.3 低于要求的最低发布线 26.x' })
+        expect(checkNodeVersion('26.13.1', 26)).toMatchObject({ ok: true })
+    })
+
     it('main 达标返回 0 并打印基线，未达标返回 1 并提示公告链接', () => {
         const log = { log: vi.fn(), error: vi.fn() }
         expect(main('24.22.3', log)).toBe(0)
@@ -64,5 +77,9 @@ describe('check-node-version', () => {
         expect(failLog.error).toHaveBeenCalledWith('[node-baseline] Node 24.18.1 低于 24.x 安全基线 24.22.3')
         expect(failLog.error).toHaveBeenCalledWith(expect.stringContaining('https://nodejs.org/en/blog/vulnerability/november-2026-security-releases'))
         expect(failLog.log).not.toHaveBeenCalled()
+
+        const lineLog = { log: vi.fn(), error: vi.fn() }
+        expect(main('24.22.3', lineLog, 26)).toBe(1)
+        expect(lineLog.error).toHaveBeenCalledWith('[node-baseline] Node 24.22.3 低于要求的最低发布线 26.x')
     })
 })

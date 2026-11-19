@@ -12,11 +12,12 @@
  * 未修复的 25.x / 26.0 混过检查。
  *
  * 与发布包 engines 的关系：engines 声明支持面 22 / 24 / 26（26 线自 26.13.1 起）；CI 以
- * `lts/*` 动态跟随（当前 26.x），本脚本的三条线基线与之保持一致，基底切到 26.13.1+ 时不会被误拦。
+ * `lts/*` 动态跟随（当前 26.x）。当前镜像基底为 26.13.1，门禁直接按 26 线基线断言。
  *
  * 用法：
- *   node check-node-version.mjs                  # 校验当前进程的 Node 版本
- *   node check-node-version.mjs --version=24.18.1  # 校验指定版本（排查 / 负例复现用）
+ *   node check-node-version.mjs                    # 校验当前进程的 Node 版本
+ *   node check-node-version.mjs --version=26.12.1  # 校验指定版本（排查 / 负例复现用）
+ *   node check-node-version.mjs --min-line=26       # 同时要求不低于指定发布线（镜像基底锁定）
  *
  * 不读取环境变量：避免镜像层注入同名 ENV 后断言恒真。
  */
@@ -64,9 +65,10 @@ export function isAtLeast(actual, minimum) {
 /**
  * 判定一个 Node 版本是否达到安全基线。
  * @param {string} version
+ * @param {number | null} [minLine] 最低发布线（如 26）；null 表示只按该线基线判定
  * @returns {{ok: boolean, minimum: string | null, reason: string}}
  */
-export function checkNodeVersion(version) {
+export function checkNodeVersion(version, minLine = null) {
     const { major } = parseVersion(version)
     const minimum = NODE_SECURITY_BASELINE[major]
     if (!minimum) {
@@ -75,6 +77,9 @@ export function checkNodeVersion(version) {
             minimum: null,
             reason: `Node ${version} 不在仍接收安全补丁的发布线（22 / 24 / 26）内`,
         }
+    }
+    if (minLine !== null && major < minLine) {
+        return { ok: false, minimum, reason: `Node ${version} 低于要求的最低发布线 ${minLine}.x` }
     }
     if (!isAtLeast(version, minimum)) {
         return { ok: false, minimum, reason: `Node ${version} 低于 ${major}.x 安全基线 ${minimum}` }
@@ -94,13 +99,32 @@ export function resolveVersionArg(argv, fallback = process.versions.node) {
 }
 
 /**
+ * 从命令行参数解析最低发布线（`--min-line=26`）。
+ * @param {string[]} argv `process.argv.slice(2)`
+ * @returns {number | null}
+ */
+export function parseMinLine(argv) {
+    const arg = argv.find((item) => item.startsWith('--min-line='))
+    if (!arg) {
+        return null
+    }
+    const raw = arg.slice('--min-line='.length)
+    const value = Number(raw)
+    if (!Number.isInteger(value) || value <= 0) {
+        throw new Error(`--min-line 需为正整数：${raw}`)
+    }
+    return value
+}
+
+/**
  * 命令行入口。
  * @param {string} [version] 待校验版本，缺省取当前进程
  * @param {Pick<Console, 'log' | 'error'>} [log]
+ * @param {number | null} [minLine] 最低发布线
  * @returns {number} 退出码
  */
-export function main(version = process.versions.node, log = console) {
-    const result = checkNodeVersion(version)
+export function main(version = process.versions.node, log = console, minLine = null) {
+    const result = checkNodeVersion(version, minLine)
     if (!result.ok) {
         log.error(`[node-baseline] ${result.reason}`)
         log.error('[node-baseline] 修复版本见 https://nodejs.org/en/blog/vulnerability/november-2026-security-releases')
@@ -111,5 +135,11 @@ export function main(version = process.versions.node, log = console) {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-    process.exitCode = main(resolveVersionArg(process.argv.slice(2)))
+    const argv = process.argv.slice(2)
+    try {
+        process.exitCode = main(resolveVersionArg(argv), console, parseMinLine(argv))
+    } catch (error) {
+        console.error(`[node-baseline] ${error.message}`)
+        process.exitCode = 1
+    }
 }

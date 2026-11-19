@@ -1,6 +1,6 @@
 # dependfix 平台容器镜像（控制面 + 容器内执行工具链）
 # 参考 momei / caomei-auth Dockerfile 结构：nodejs → deps → builder → docker-minifier → runtime。
-# 基础镜像：官方 node:24.22.3-alpine（含 node）；pnpm 在 nodejs 阶段全局安装，runtime 继承。
+# 基础镜像：官方 node:26.13.1-alpine（含 node）；pnpm 在 nodejs 阶段全局安装，runtime 继承。
 # 原自建 caomeiyouren/alpine-nodejs 系列依赖 Alpine 仓库的 `apk add nodejs`，安全补丁滞后，
 # 2026-10-22 起临时改用官方镜像止血，收敛计划见下方注释与 docs/plan/archive/todo-archive-phases-m47.md。
 #
@@ -16,20 +16,19 @@
 # 走 Docker Hub（docker.io）而非 ECR Public：同一 digest 在 ECR Public 上间歇 429（10 月 23 日起 4 次，
 # 均落在推送前构建步骤），而 docker.yml 在构建前已登录 Docker Hub，认证拉取按账号配额计（未认证
 # 100 次/6h 按出口 IP，认证 Personal 200 次/6h）；2026-10-24 对当时 tag（24.22.1）实测两仓 digest 一致；
-# 本轮只改 docker.io 侧 tag 与 digest，ECR Public 侧未复核。发布镜像只在 CI 构建，故不留可切换服务端的构建参数；本地构建路径
+# 本轮仅改 docker.io 侧 tag 与 digest，ECR Public 侧未复核。发布镜像只在 CI 构建，故不留可切换服务端的构建参数；本地构建路径
 # （`docker-compose.build.yml` / `SMOKE_BUILD=1`）需可达 docker.io 或先配 registry mirror。
 # FROM 保持字面 image:tag@digest，便于工具解析（Dependabot docker 生态当前未接入，见 backlog 的
 # 运行面漏洞检测候选）；抬升基线时同时改 tag 与 digest。
-# 安全基线（2026-11-11 Node.js 安全公告）：运行时必须 >= 24.22.3（24.x 线）。
-# 暂用官方 node:24.22.3-alpine：自建 caomeiyouren/alpine-nodejs 走 `apk add nodejs`，而 Alpine
-# v3.24 与 edge 当时仍停在 24.18.1（-r0 / -r5），重建自建镜像拿不到补丁。等 docker-builder
-# 改为官方 tarball 并发布 alpine3.24-node24.22 后再评估收敛（用户 2026-10-22 决定暂不迁移）；
-# 记录见 docs/plan/archive/todo-archive-phases-m47.md「Node 运行时安全基线升级」。
-FROM docker.io/library/node:24.22.3-alpine@sha256:116b800c3754b440ee0aa3ed2f20f5bf3d99a554bfd9adeea09ea8017f6e85f5 AS nodejs
+# 安全基线（2026-11-11 Node.js 安全公告）：运行时必须 >= 26.13.1（26.x 线）。
+# 使用官方 node:26.13.1-alpine：自建 caomeiyouren/alpine-nodejs 走 `apk add nodejs`，安全补丁
+# 滞后于官方 tarball；等 docker-builder 改为官方 tarball 并发布对应线后再评估收敛
+# （用户 2026-10-22 决定暂不迁移）；记录见 docs/plan/archive/todo-archive-phases-m47.md。
+# 2026-11-19 起镜像基座随声明支持面切到 26 线；24.x 修复版仍保留在门禁表。
+FROM docker.io/library/node:26.13.1-alpine@sha256:6bd9ab43c0ec0190ca7b2d193906cb8b7edf6e7f4afa43ddeccd6452710bffb5 AS nodejs
 
-# pnpm 工具链：钉住当前运行时镜像实际携带的版本（11.18.0），切基底不改变目标仓库的安装语义。
-# 先移除官方镜像默认启用的 corepack shim：否则 `pnpm` 会按 packageManager 回源下载 11.17.0，
-# 与镜像内钉定的版本不一致，且构建期多一次网络依赖（切换前的基础镜像不含 corepack）。
+# pnpm 工具链：统一钉住 11.18.0，切基底不改变目标仓库的安装语义。官方 Node 26 镜像不再内置
+# corepack（pnpm shim 随之消失），仍先清理潜在残留，再全局安装，避免回源下载 packageManager 版本造成不一致。
 # --ignore-scripts：全局安装不执行包生命周期脚本，缩小构建期执行面。
 # 受限网络可用 `--build-arg NPM_REGISTRY=https://registry.npmmirror.com` 覆盖构建期 registry（默认官方）。
 ARG NPM_REGISTRY=
@@ -51,9 +50,9 @@ fi \
 # 避免原生模块回退编译时回源 nodejs.org 下载 headers（受限网络下 ETIMEDOUT，构建与目标仓库安装都会中招）。
 ENV npm_config_nodedir=/usr/local
 
-# 运行时安全基线断言：低于已修复版本直接 fail build，防止基础镜像 digest 静默回退。
+# 运行时安全基线断言：低于已修复版本或低于 26 线直接 fail build，防止基础镜像 digest 静默回退。
 COPY apps/platform/docker/check-node-version.mjs /usr/local/bin/dependfix-check-node-version.mjs
-RUN node /usr/local/bin/dependfix-check-node-version.mjs
+RUN node /usr/local/bin/dependfix-check-node-version.mjs --min-line=26
 
 # 运行时基底：同一 Node 版本，去掉 npm / corepack / yarn 缩小体积与攻击面（pnpm 由上一阶段继承）。
 FROM nodejs AS runtime
@@ -62,7 +61,7 @@ RUN rm -rf /usr/local/lib/node_modules/npm \
         /opt/yarn-v* \
     && rm -f /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack \
         /usr/local/bin/yarn /usr/local/bin/yarnpkg \
-    && node /usr/local/bin/dependfix-check-node-version.mjs
+    && node /usr/local/bin/dependfix-check-node-version.mjs --min-line=26
 
 # 执行工具链基底：容器执行器与沙箱镜像共用（git clone + 原生模块回退编译）。
 # 单源定义避免两镜像工具链漂移；unzip / su-exec 仅平台镜像需要，留在平台阶段。

@@ -97,8 +97,8 @@ fi
 docker image inspect "$IMAGE" >/dev/null 2>&1 || fail "镜像不存在：$IMAGE（可设 SMOKE_BUILD=1 本地构建）"
 
 # ── 场景 0：Node 运行时安全基线（2026-11-11 公告 7 个 HIGH，如 CVE-2026-123863 / 123864 / 123872）
-# 基础镜像回退或误用旧 digest 时，冒烟必须先于推送拦下；版本口径见 check-node-version.mjs。
-docker run --rm --entrypoint node "$IMAGE" /usr/local/bin/dependfix-check-node-version.mjs \
+# 基础镜像回退、跨线回退或误用旧 digest 时，冒烟必须先于推送拦下；版本口径见 check-node-version.mjs。
+docker run --rm --entrypoint node "$IMAGE" /usr/local/bin/dependfix-check-node-version.mjs --min-line=26 \
     || fail "镜像 Node 运行时低于安全基线（修复版本见 Node.js 2026-11-11 安全公告）"
 
 # ── 场景 0b：目标仓库原生模块回退编译所需的最小工具链 ─────────────────────────────

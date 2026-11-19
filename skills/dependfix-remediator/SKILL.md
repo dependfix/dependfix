@@ -38,7 +38,7 @@ MCP Server 已发布（npm `@dependfix/mcp`，≥1.0.0）。探测到 MCP 工具
 
 ## 前置条件
 
-1. Node.js ^22.23.4 || ^24.22.1（2026-10-21 Node 安全公告基线；检查：`node --version`）。
+1. Node.js ^22.23.5 || ^24.22.3（2026-11-11 Node 安全公告基线；检查：`node --version`）。
 2. 工作目录为 git 仓库（检查：`git rev-parse --is-inside-work-tree`）。
 3. 凭据（按场景）：
    - GitHub 仓库：设置 `GITHUB_TOKEN` 或 `DEPENDFIX_GITHUB_TOKEN` 环境变量。注意 Dependabot alerts 需要 PAT 且具备 `Dependabot alerts: read` / `security_events` 权限，普通 `GITHUB_TOKEN` 无法读取 Dependabot alerts（Code Scanning 可用）。

@@ -295,12 +295,11 @@
 - **opt-in 构建取证**：`WITH_DOCKER_CLI=true` 真实构建平台镜像，核对容器内 `docker --version`、默认构建 `docker_cli_missing` 与 opt-in 后自检可用；Dockerfile 分支尚未实跑。
 - 前置：部署形态矩阵与命令见 [quick-start.md](../guide/quick-start.md)「部署形态与可行执行器」。
 
-### 收尾未 settle 假超时真实运行复现（2026-11-18 M62.6 登记）
+### 收尾未 settle 复发观察（2026-11-19 登记）
 
-- 需一次真实运行复现「收尾完成后迟迟不落定」形态（momei 11-13：收尾完成后 5m20s 才 abort），取证起点为容器执行器路径执行日志的「诊断分类」行与「运行期句柄」行（在管子进程 / 未 settle 句柄 / 两类「无法归类」，见 [执行进程隔离 §8.6](../design/governance/executor-process-isolation.md#_8-6-残余与观察项)）。
-- 按分类结果分流：`未 settle 句柄` → 定位未关闭的 `stdout` / `stderr` 管道与未 `unref` 的句柄（句柄读数是进程级净差，可能含平台自身连接）；`在管子进程` → 定位未被进程树终止覆盖的孙进程；`无法归类（句柄采集不可用）` → 先修探针或换证据，不得读作零增量；`无法归类（无净增）` → 抓 `ps -ef --forest` 与未返回的异步等待。
-- 当前缺口：2026-11-18 实测本机库 136 条 run（`select count(*) from dependfix_scan_run`，读 `apps/platform/data/dependfix.sqlite`）无可用未落定样本——`logs_json` 为 null 的有 47 条（container 44 / sandbox 3）；momei 该 run 不在库内，生产库不可达。实现侧取证与诊断增强已交付，未取得证据即不得声称 M62.6 AC① 闭环。
-- 日志可得性（与实现一致，避免下次复现落空）：容器执行器超时路径必有执行日志；沙箱路径仅 `124` 且容器有输出时回传 `logs_json`，`125`（镜像不可用）与「未回传显式结果」分支不回传 → 若复现落在沙箱仓库，日志可能为空（已登记 [已知边界](./backlog.md#沙箱路径超时日志回传不全-2026-11-18-登记-持续观察)）。
+- **已于 2026-11-19 定位并修复**（M62.6）：根因是外联审计代理的 `stop()`——CONNECT 隧道 upgrade 后被移出 `closeAllConnections()` 的追踪集但仍计入 server 连接数，`server.close()` 因此永不回调，整轮运行被拖到 30 分钟上限。修复见 [执行进程隔离 §8.6](../design/governance/executor-process-isolation.md#_8-6-残余与观察项)；本地确定性复现与修复后落定读数见 todo M62.6 执行记录。
+- **本条目只保留观察判据**：之后含外联（registry / GitHub）的 fix 运行若仍出现 `execution_timeout` 且宽限期未落定，先读执行日志的「诊断分类」行——`未 settle 句柄` 说明有新的未关闭句柄（按「运行期句柄」清单定位）；`在管子进程` 说明有未纳入进程树终止的孙进程；两类「无法归类」按 backlog 旧分流（`采集不可用` 先修探针、`无净增` 抓 `ps -ef --forest` 查未返回的异步等待）。
+- 历史样本（保留判读价值）：`6875bb2e09401dec`（momei，2026-11-13）空窗 5m20s、在管受管子进程 0 个、最后受管命令 `git rev-parse --abbrev-ref HEAD`。
 
 ### 发布管线收尾（P3）
 

@@ -2,7 +2,7 @@
 
 ## 前置要求
 
-- Node.js ^22.23.4 || ^24.22.1（2026-10-21 Node 安全公告基线，低于该版本存在未修复的 High 级漏洞；20.x 已 EOL）
+- Node.js ^22.23.5 || ^24.22.3（2026-11-11 Node 安全公告基线，低于该版本存在未修复的 High 级漏洞；20.x 已 EOL；26.x 尚未纳入声明支持面，CI 以 `lts/*` 跟随）
 - pnpm（推荐最新稳定版）
 - GitHub Token（用于告警拉取和 PR 创建；**本地无 token 也可用 `--alerts-source pnpm-audit` 回退**，见 [本地无 token 场景](#本地无-token-场景-pnpm-audit-回退)）
   - `report-only` / `fix` 模式：需 `security-events: read` 权限

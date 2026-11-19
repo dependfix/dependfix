@@ -71,7 +71,7 @@ DEPENDFIX_IMAGE=caomeiyouren/dependfix:v0.3.0 docker compose up -d
 docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
 ```
 
-> A local source build pulls the base image from Docker Hub (`docker.io/library/node:24.22.1-alpine`, digest-pinned); on restricted networks configure a registry mirror or proxy first, otherwise it fails with `failed to resolve source metadata`.
+> A local source build pulls the base image from Docker Hub (`docker.io/library/node:24.22.3-alpine`, digest-pinned); on restricted networks configure a registry mirror or proxy first, otherwise it fails with `failed to resolve source metadata`.
 
 > You can smoke-test any image for first-startup usability (auto table creation + HTTP 200 + 13 business tables) with the in-repo script:
 >

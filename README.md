@@ -14,7 +14,7 @@
   <a href="https://app.codecov.io/gh/dependfix/dependfix" target="_blank">
     <img alt="Codecov" src="https://img.shields.io/codecov/c/github/dependfix/dependfix?branch=master">
   </a>
-  <img src="https://img.shields.io/badge/node-%5E22.23.4%20%7C%7C%20%5E24.22.1-blue.svg" />
+  <img src="https://img.shields.io/badge/node-%5E22.23.5%20%7C%7C%20%5E24.22.3-blue.svg" />
   <a href="https://github.com/dependfix/dependfix#readme" target="_blank">
     <img alt="Documentation" src="https://img.shields.io/badge/documentation-yes-brightgreen.svg" />
   </a>

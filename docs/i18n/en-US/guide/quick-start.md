@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- Node.js ^22.23.4 || ^24.22.1 (baseline of the 2026-10-21 Node.js security advisory; older versions carry unfixed High-severity vulnerabilities, and 20.x is EOL)
+- Node.js ^22.23.5 || ^24.22.3 (baseline of the 2026-11-11 Node.js security advisory; older versions carry unfixed High-severity vulnerabilities, and 20.x is EOL; 26.x is not yet in the declared support surface, while CI follows `lts/*`)
 - pnpm (latest stable recommended)
 - GitHub Token (for alert fetching and PR creation; **a local run without a token can fall back to `--alerts-source pnpm-audit`**, see [Local without a token](#local-without-a-token-pnpm-audit-fallback))
   - `report-only` / `fix` modes: require `security-events: read`

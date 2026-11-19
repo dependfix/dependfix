@@ -49,7 +49,7 @@
 | [时长输入与环境变量单位设计](./duration-input-and-env-units.md) | 专项设计（可读时长输入 + env 单位兼容 + 表单字段级错误定位） | ✅ 已落地（2026-11-09，用户授权追加） |
 | [运行结论语义与锁文件前置不变式](./run-conclusion-semantics.md) | 专项治理（无写入语义 / 按包聚合 / 基线已知损坏的锁文件修复 / 收尾异常不翻转成功结论 / 外联审计与违规判失败） | ✅ 已落地（2026-11-13） |
 | [平台页面体量治理与组件 / 组合式分层设计](./platform-page-decomposition.md) | 专项设计（M60：三列表页 max-lines 治理 + 展示块 / 组合式 / 纯函数分层口径） | 🔶 进行中（2026-11-15，M60.1 落地） |
-| [平台对外 API 与远程 MCP 设计](./platform-public-api.md) | 专项设计（只读观测接口 `/api/v1` + `@dependfix/mcp` remote 后端；写能力分两期后置） | 🔶 设计先行稿（backlog 候选，2026-11-19；首批范围已决策） |
+| [平台对外 API 与远程 MCP 设计](./platform-public-api.md) | 专项设计（日志可消费化 + 只读观测接口 `/api/v1` + `@dependfix/mcp` remote 后端；写能力分两期后置） | 🔶 设计先行稿（backlog 候选，2026-11-19；首批含日志查询） |
 
 ## 使用约定
 

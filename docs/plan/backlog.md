@@ -196,16 +196,17 @@
   - **触发条件**：用户要求该交互；或再次出现宿主机重启后的批量恢复诉求。
   - **按 [规划规范 §3.1](../standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
 
-- **平台对外只读观测 API + MCP remote 后端（2026-11-19 用户决策首批范围）**（P1 🚀）—— 背景：平台能力（托管凭据 / 沙箱执行 / 队列 / 批量 / 调度 / PR 跟踪 / 通知 / 审计）只能在 Web UI 后使用，外部看板、CI 巡检与 AI 助手读不到平台侧持久化状态。完整设计（现状盘点 / 契约 / 安全模型 / 分期）见 [platform-public-api.md](../design/governance/platform-public-api.md)。**用户决策**：首批只开只读观测面；MCP 复用现有 `@dependfix/mcp` 加 remote 后端，不新建包。
-  - **范围（期 1）**：9 个 `GET /api/v1/*` 端点 + 抽共享视图层 + repos 按 `owner` / `name` 精确查询 + `ApiKey` 实体与守卫 + `read` scope + 按 key 限流 + 独立 `ApiRequestLog` 表（不复用 `audit-events`）+ 字段白名单（剔 `logs` / `logsText` / `verifyCommands` / `credential*`）+ 集合端点统一分页对象 + 契约形状守卫 + `docs/guide/api-v1.md`。
-  - **范围（期 2）**：MCP 后端选择（`local|remote|auto`）+ 3 个工具走 remote + `discover_repos` 降级为 list + 按 `data.code` 的错误映射（不静默降级）。
-  - **交付物（预估，上收时校准）**：期 1 约 10-14 commits / 22-30 files / 1,400-2,000 行；期 2 约 4-6 commits / 8-12 files / 500-800 行。
-  - **验收要点**：除 `/health` 外「无 key 且无会话」401、有会话按会话授权；缺 `read` scope 403 且留痕；跨组织 403（不承诺 404）；限流 429 + `Retry-After`（日志端点独立计数器）；key 管理创建一次性明文 / 列表仅前缀 / 吊销即失效 / 上限与 TTL；字段白名单各一条负向断言；字段清单不一致即失败 + 发布物快照跨 tag 比对；集合端点统一分页对象；无 ACAO；无配置时 MCP 行为零变化；浏览器路径零回归；A 阶段安全面深度审计 Pass。
-  - **风险与缓解**：key 泄露 → 高熵 + 哈希存储 + `dfk_` 脱敏 + 90 天 TTL + 每组织 10 把 + 可吊销；情报外泄 → 字段白名单 + 体积上限 + 访问日志；契约漂移 → 字段常量 + 发布物快照；插件不兼容 → 自建回退。
-  - **前置**：`@better-auth/api-key` 与 `better-auth 1.7.22` 兼容性实测（npm latest 1.7.26）；`api.md §3` 的信封漂移在期 1 一并订正或标注为历史声明。
-  - **明确不做**：全量 CRUD 镜像；触发 / 重试 / 批量 / 调度触发（期 3，前置是平台与 CLI 执行语义收口）；交付写（期 4）；平台内嵌 `/mcp`；`fix_dependency` / `pnpm_audit` 远端化。
-  - **触发条件**：出现「不装 CLI + 不传 token 却要读平台扫描结果」的实际需求；或 AI 助手需要读取平台侧持久化状态。
-  - **按 [规划规范 §3.1](../standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement) 不带 `M\d+` 阶段编号**：等待用户决定排期上收。
+- **平台对外只读观测 API + 日志查询 + MCP remote（2026-11-19 用户决策首批范围）**（P1 🚀）—— 背景：平台能力只能在 UI 后使用；且日志交给 AI 要靠手工导出，实测单次 178 KB / 1000 条中 989 条是同一条重复 warn。设计见 [platform-public-api.md](../design/governance/platform-public-api.md)。**用户决策**：首批必须含日志查询；只开只读面；MCP 复用 `@dependfix/mcp` 加 remote 后端。
+  - **范围（期 1a，不依赖 API key）**：`shared/log-digest`（清洗 + 归一化分组 + error 不折叠）+ `MemoryLogger` 与沙箱执行器丢弃计数 + `ScanRun.logsDropped` 迁移 + 两处弹窗复制 / 下载增「聚合」档 + 脱敏 fixture。**边界**：1a 只交付「可粘贴」，不交付「免手动」。
+  - **范围（期 1b）**：9 个 `GET /api/v1/*` 端点（含 logs 双视图）+ 共享视图层 + `ApiKey` / scope / 限流 / `ApiRequestLog` / 字段白名单 / 分页对象 / 契约守卫 + `docs/guide/api-v1.md`（详见设计稿 §6、§8）。
+  - **范围（期 2）**：MCP `local|remote|auto` + 4 个工具走 remote（含 `get_run_logs`）+ `discover_repos` 降级 + 按 `data.code` 的错误映射。
+  - **交付物（预估）**：1a 约 6-8 commits / 14-16 files / 700-900 行；1b 约 10-14 commits / 22-30 files / 1,400-2,000 行；期 2 约 4-6 commits / 8-12 files / 500-800 行。
+  - **验收（1a）**：fixture grouped < 10 KB 且 2 条 error 均保留；warn `total=991` / `groupCount=3` / 最大组 `989`；`droppedBefore` 三态（NULL / 0 / >0）且 UI 提示；聚合文本可直接喂 AI；两处弹窗一致 + 原始档零回归；存量迁移列为 NULL。
+  - **验收（1b）**：除 `/health` 外「无 key 且无会话」401、有会话按会话授权；缺 `read` 403 留痕；跨组织 403；限流 429；字段白名单负向断言；字段清单 + 发布物快照双守卫；集合端点分页；无 ACAO；`dfk_` 脱敏；key 管理六项；grouped 与 shared 同源；零回归 + 安全深度审计 Pass。
+  - **风险与缓解**：key 泄露 → 高熵 + 哈希 + `dfk_` 脱敏 + 90 天 TTL + 每组织 10 把；情报外泄 → 字段白名单 + 体积上限 + 访问日志；契约漂移 → 字段常量 + 发布物快照；插件不兼容 → 自建回退；聚合误折叠 → error 不归一化 + `sample` 保留原文。
+  - **前置**：`@better-auth/api-key` 与 `better-auth 1.7.22` 兼容性实测；`api.md §3` 信封漂移在 1b 订正或标注为历史声明。
+  - **明确不做**：全量 CRUD 镜像；触发 / 批量 / 调度（期 3）；交付写（期 4）；内嵌 `/mcp`；`fix_dependency` / `pnpm_audit` 远端化；采集侧抑制重复 warn（改变原始语义）。
+  - **触发条件**：需要不装 CLI / 不传 token 读平台结果；或 AI 需读平台日志与运行状态。
 
 ### 延期 / 暂缓项
 

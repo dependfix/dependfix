@@ -257,6 +257,7 @@
 #### 工作流
 
 - **T905** git worktree 并行开发预案（触发条件：多 agent 并行开发成为常态；当前单 agent 工作流无需启用）
+- **engines 与 CI 运行时一致性门禁（P3 🛠️，2026-11-19 登记）** —— 单测断言 `semver.satisfies(process.versions.node, rootEngines)`，防止 `lts/*` 漂移；22/24 线仍无 CI 覆盖，可选 matrix。触发：下一次 LTS 切换或 engines 下限调整。
 
 #### M62 归档残余（2026-11-19 登记）
 

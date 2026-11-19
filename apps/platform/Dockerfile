@@ -1,8 +1,8 @@
 # dependfix 平台容器镜像（控制面 + 容器内执行工具链）
 # 参考 momei / caomei-auth Dockerfile 结构：nodejs → deps → builder → docker-minifier → runtime。
-# 基础镜像：官方 node:24.22.1-alpine（含 node）；pnpm 在 nodejs 阶段全局安装，runtime 继承。
+# 基础镜像：官方 node:24.22.3-alpine（含 node）；pnpm 在 nodejs 阶段全局安装，runtime 继承。
 # 原自建 caomeiyouren/alpine-nodejs 系列依赖 Alpine 仓库的 `apk add nodejs`，安全补丁滞后，
-# 2026-10-22 起临时改用官方镜像止血，收敛计划见下方注释与 docs/plan/todo.md「Node 运行时安全基线升级」。
+# 2026-10-22 起临时改用官方镜像止血，收敛计划见下方注释与 docs/plan/archive/todo-archive-phases-m47.md。
 #
 # 体积关键结论（2026-10-02 实证）：Nuxt/Nitro `.output` 自带完整运行时依赖
 # （`.output/server/node_modules` 由 Nitro trace 产出，含 better-sqlite3 等原生模块的 musl prebuild），
@@ -15,17 +15,17 @@
 # 基础镜像固定 digest（可复现构建，避免 :latest 上游漂移）；digest 为 manifest list，覆盖 amd64 / arm64。
 # 走 Docker Hub（docker.io）而非 ECR Public：同一 digest 在 ECR Public 上间歇 429（10 月 23 日起 4 次，
 # 均落在推送前构建步骤），而 docker.yml 在构建前已登录 Docker Hub，认证拉取按账号配额计（未认证
-# 100 次/6h 按出口 IP，认证 Personal 200 次/6h）；两仓当前指向同一 manifest list（digest 一致，
-# 2026-10-24 实测）。发布镜像只在 CI 构建，故不留可切换服务端的构建参数；本地构建路径
+# 100 次/6h 按出口 IP，认证 Personal 200 次/6h）；2026-10-24 对当时 tag（24.22.1）实测两仓 digest 一致；
+# 本轮只改 docker.io 侧 tag 与 digest，ECR Public 侧未复核。发布镜像只在 CI 构建，故不留可切换服务端的构建参数；本地构建路径
 # （`docker-compose.build.yml` / `SMOKE_BUILD=1`）需可达 docker.io 或先配 registry mirror。
 # FROM 保持字面 image:tag@digest，便于工具解析（Dependabot docker 生态当前未接入，见 backlog 的
 # 运行面漏洞检测候选）；抬升基线时同时改 tag 与 digest。
-# 安全基线（2026-10-21 Node.js 安全公告）：运行时必须 >= 24.22.1（24.x 线）。
-# 暂用官方 node:24.22.1-alpine：自建 caomeiyouren/alpine-nodejs 走 `apk add nodejs`，而 Alpine
-# v3.24 与 edge 此刻仍停在 24.18.1（-r0 / -r5），重建自建镜像拿不到补丁。等 docker-builder
+# 安全基线（2026-11-11 Node.js 安全公告）：运行时必须 >= 24.22.3（24.x 线）。
+# 暂用官方 node:24.22.3-alpine：自建 caomeiyouren/alpine-nodejs 走 `apk add nodejs`，而 Alpine
+# v3.24 与 edge 当时仍停在 24.18.1（-r0 / -r5），重建自建镜像拿不到补丁。等 docker-builder
 # 改为官方 tarball 并发布 alpine3.24-node24.22 后再评估收敛（用户 2026-10-22 决定暂不迁移）；
-# 记录见 docs/plan/todo.md「追加临时待办（不占阶段条目编号）：Node 运行时安全基线升级」。
-FROM docker.io/library/node:24.22.1-alpine@sha256:06d7adf3e0ef61a13f1d28682726366f97a15aa1888c934d3ecec86c33918b53 AS nodejs
+# 记录见 docs/plan/archive/todo-archive-phases-m47.md「Node 运行时安全基线升级」。
+FROM docker.io/library/node:24.22.3-alpine@sha256:116b800c3754b440ee0aa3ed2f20f5bf3d99a554bfd9adeea09ea8017f6e85f5 AS nodejs
 
 # pnpm 工具链：钉住当前运行时镜像实际携带的版本（11.18.0），切基底不改变目标仓库的安装语义。
 # 先移除官方镜像默认启用的 corepack shim：否则 `pnpm` 会按 packageManager 回源下载 11.17.0，

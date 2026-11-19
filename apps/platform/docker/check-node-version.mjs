@@ -2,17 +2,17 @@
 /**
  * Node 运行时安全基线断言（Docker 构建期与镜像冒烟共用）。
  *
- * 背景：2026-10-21 Node.js 安全公告（CVE-2026-111497 Brotli 越界写提权、CVE-2026-105483 /
- * CVE-2026-106069 TLS 主机名校验绕过、CVE-2026-105482 DNS NUL 截断等）只在修复版本生效。
- * 镜像长期钉住基础镜像 digest，上游未跟进时运行时会静默停留在受影响版本；构建期 fail-closed
- * 比发布后再审计更可靠。
+ * 背景：2026-11-11 Node.js 安全公告（7 个 HIGH：HTTP/2 会话拆除断言 CVE-2026-123863、
+ * HTTPS 零长 TLS 写堆拷贝 CVE-2026-123864、TLS 1.2 重协商改 servername 绕过客户端证书认证 CVE-2026-123872 等）
+ * 只在修复版本生效。镜像长期钉住基础镜像 digest，上游未跟进时运行时会静默停留在受影响版本；
+ * 构建期 fail-closed 比发布后再审计更可靠。
  *
  * 判定口径：按发布线取各线的最低已修复版本。不属于 22 / 24 / 26 发布线的版本（含 EOL 的
  * 20 / 23 / 25）一律判失败——它们不再接收安全补丁，`>= 某条线的最低版本` 的简单下界会让
  * 未修复的 25.x / 26.0 混过检查。
  *
- * 与发布包 engines 的关系：engines 只声明支持面 22 / 24（CI 当前覆盖 24 线）；本脚本的断言面更宽
- * （含 26），用于将来基底切到 26.12.1+ 时不被误拦。二者口径不同是有意的，不是遗漏。
+ * 与发布包 engines 的关系：engines 只声明支持面 22 / 24；CI 以 `lts/*` 动态跟随（当前 26.x），
+ * 本脚本的断言面更宽（含 26），用于将来基底切到 26.13.1+ 时不被误拦。二者口径不同是有意的，不是遗漏。
  *
  * 用法：
  *   node check-node-version.mjs                  # 校验当前进程的 Node 版本
@@ -23,16 +23,16 @@
 
 import { pathToFileURL } from 'node:url'
 
-/** 各发布线的最低已修复版本（2026-10-21 安全公告） */
+/** 各发布线的最低已修复版本（2026-11-11 安全公告） */
 export const NODE_SECURITY_BASELINE = {
-    '22': '22.23.4',
-    '24': '24.22.1',
-    '26': '26.12.1',
+    '22': '22.23.5',
+    '24': '24.22.3',
+    '26': '26.13.1',
 }
 
 /**
  * 解析版本号为数字三元组。
- * @param {string} version 形如 `24.22.1` / `v24.22.1` / `24.22.1-rc.1`
+ * @param {string} version 形如 `24.22.3` / `v24.22.3` / `24.22.3-rc.1`
  * @returns {{major: number, minor: number, patch: number}}
  */
 export function parseVersion(version) {
@@ -103,7 +103,7 @@ export function main(version = process.versions.node, log = console) {
     const result = checkNodeVersion(version)
     if (!result.ok) {
         log.error(`[node-baseline] ${result.reason}`)
-        log.error('[node-baseline] 修复版本见 https://nodejs.org/en/blog/vulnerability/october-2026-security-releases')
+        log.error('[node-baseline] 修复版本见 https://nodejs.org/en/blog/vulnerability/november-2026-security-releases')
         return 1
     }
     log.log(`[node-baseline] ${result.reason}`)

@@ -1,5 +1,6 @@
 import { createServer, request as httpRequest, type Server } from 'node:http'
 import { connect, type Socket } from 'node:net'
+import type { Duplex } from 'node:stream'
 
 /**
  * 执行期网络外联审计 + 出站白名单拦截（安全治理：恶意脚本外联回传/下载 payload 的事故溯源与阻断）。
@@ -40,6 +41,49 @@ export interface NetworkAudit {
 }
 
 const CONNECT_TIMEOUT_MS = 10_000
+
+/**
+ * 停止审计时的兜底等待上限。
+ *
+ * `server.close()` 要等全部连接结束才回调；CONNECT 隧道在 upgrade 后被移出 `closeAllConnections()`
+ * 的追踪集（但仍计入 net server 连接数），因此调用方必须先销毁自有隧道。本上限只兜底未知句柄：
+ * 超时即放弃等待，避免把一个已经收尾的运行永远吊在 `stop()` 上（生产实证：整轮运行被拖到
+ * 30 分钟上限后才 abort）。
+ */
+const STOP_TIMEOUT_MS = 2_000
+
+/**
+ * 关闭 HTTP server，最多等待 `timeoutMs`。
+ *
+ * 不区分「正常关闭」与「超时放弃」——调用方的语义是「停止审计」，记录在调用前已可读；
+ * 超时分支通过 `onTimeout` 留痕（是否采集现场由调用方决定）。
+ */
+export function closeServerBounded(
+    server: Server,
+    timeoutMs: number,
+    onTimeout?: () => void,
+): Promise<void> {
+    return new Promise<void>((resolve) => {
+        let settled = false
+        // 先建定时器再调 close：close 回调若是同步的，也必须能清掉它
+        const timer = setTimeout(() => {
+            if (settled) {
+                return
+            }
+            settled = true
+            onTimeout?.()
+            resolve()
+        }, timeoutMs)
+        server.close(() => {
+            if (settled) {
+                return
+            }
+            settled = true
+            clearTimeout(timer)
+            resolve()
+        })
+    })
+}
 
 /**
  * 默认出站白名单（网络白名单治理决策：registry + 常见镜像站 + GitHub API/资产域 + 受信任构建工具文档站）。
@@ -164,9 +208,22 @@ export async function startNetworkAudit(options?: StartNetworkAuditOptions): Pro
     const entries: NetworkAuditEntry[] = []
     const violations: NetworkAuditEntry[] = []
     const server: Server = createServer()
+    /**
+     * 已 upgrade 的 CONNECT 隧道两端 socket。
+     *
+     * upgrade 之后 socket 被移出 `server.closeAllConnections()` 的追踪集，但仍计入 net server
+     * 的连接数：`server.close()` 要等它结束，而 `closeAllConnections()` 又关不到它
+     * → 不显式销毁会永久挂住（运行时收尾被拖死）。
+     */
+    const tunnelSockets = new Set<Duplex>()
+    const trackTunnelSocket = (socket: Duplex): void => {
+        tunnelSockets.add(socket)
+        socket.once('close', () => tunnelSockets.delete(socket))
+    }
 
     server.on('connect', (req, clientSocket, head) => {
         const target = req.url ?? ''
+        trackTunnelSocket(clientSocket)
         const baseEntry: NetworkAuditEntry = {
             time: new Date().toISOString(),
             source: 'proxy',
@@ -192,6 +249,7 @@ export async function startNetworkAudit(options?: StartNetworkAuditOptions): Pro
         const port = Number.parseInt(target.slice(idx + 1), 10) || 443
 
         const upstream: Socket = connect(port, upstreamHost)
+        trackTunnelSocket(upstream)
         const timer = setTimeout(() => {
             upstream.destroy()
             clientSocket.destroy()
@@ -284,11 +342,24 @@ export async function startNetworkAudit(options?: StartNetworkAuditOptions): Pro
             entries.push(violation)
             violations.push(violation)
         },
-        // closeAllConnections 强制关闭活跃隧道（防 server.close 等待长连接挂起）
-        stop: () => new Promise<void>((resolve) => {
+        // CONNECT 隧道在 upgrade 后不再被 closeAllConnections 追踪（仍计入连接数）：先显式销毁，再走有界关闭。
+        // 生产实证（2026-11-13 momei）：只调 closeAllConnections 时 server.close 永不回调，
+        // 收尾被拖到运行级上限才 abort（execution_timeout + 工作目录移入 _pending）。
+        stop: () => {
+            for (const socket of tunnelSockets) {
+                socket.destroy()
+            }
+            tunnelSockets.clear()
             server.closeAllConnections?.()
-            server.close(() => resolve())
-        }),
+            return closeServerBounded(server, STOP_TIMEOUT_MS, () => {
+                // 超时分支仍可能有未登记的连接：再关一次并留痕（不阻断关闭）
+                server.closeAllConnections?.()
+                console.warn(
+                    `[network-audit] 代理关闭超出 ${STOP_TIMEOUT_MS}ms 等待上限，放弃等待`
+                    + '（隧道已销毁；若仍有连接未关闭，按执行日志的诊断分类排查新增句柄）',
+                )
+            })
+        },
     }
 }
 

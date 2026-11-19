@@ -1,7 +1,9 @@
-import { createServer } from 'node:http'
+import { createServer, type Server } from 'node:http'
+import { connect as connectTcp, createServer as createTcpServer } from 'node:net'
 import { spawn, spawnSync } from 'node:child_process'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
+    closeServerBounded,
     DEFAULT_ALLOWED_DOMAINS,
     extractHostname,
     extractUrlsFromOutput,
@@ -484,5 +486,92 @@ describe.skipIf(!hasCurl)('startNetworkAudit blocks real curl to non-allowlisted
         expect(exitCode).not.toBe(0)
         expect(stderr).toContain('502')
         expect(audit.violations.some((v) => v.method === 'CONNECT' && v.target === 'evil.example.com:443')).toBe(true)
+    })
+})
+
+// ---------------------------------------------------------------------------
+// 停止语义：CONNECT 隧道不得把 stop() 拖成永久等待
+// （2026-11-13 momei 运行收尾 5m20s 空窗的根因：upgrade 后的隧道被移出 closeAllConnections 追踪集）
+// ---------------------------------------------------------------------------
+
+describe('stop 与 CONNECT 隧道的生命周期', () => {
+    it('destroys a live tunnel and settles stop() instead of waiting for the client', async () => {
+        const echo = createTcpServer((socket) => socket.pipe(socket))
+        await new Promise<void>((resolve) => echo.listen(0, '127.0.0.1', resolve))
+        const echoPort = (echo.address() as { port: number }).port
+
+        const audit = await startNetworkAudit({ allowedDomains: ['127.0.0.1'] })
+        const tunnel = connectTcp(Number(new URL(audit.proxyUrl!).port), '127.0.0.1')
+        const tunnelClosed = new Promise<boolean>((resolve) => tunnel.once('close', () => resolve(true)))
+
+        try {
+            await new Promise<void>((resolve, reject) => {
+                // 响应头可能被分片：累积到 \r\n\r\n 再判定
+                let head = ''
+                const onData = (chunk: Buffer): void => {
+                    head += chunk.toString('latin1')
+                    if (!head.includes('\r\n\r\n')) {
+                        return
+                    }
+                    tunnel.off('data', onData)
+                    if (head.startsWith('HTTP/1.1 200')) {
+                        resolve()
+                        return
+                    }
+                    reject(new Error(`unexpected CONNECT response: ${head.slice(0, 40)}`))
+                }
+                tunnel.on('data', onData)
+                tunnel.once('error', reject)
+                tunnel.write(`CONNECT 127.0.0.1:${echoPort} HTTP/1.1\r\nHost: 127.0.0.1:${echoPort}\r\n\r\n`)
+            })
+
+            // 隧道保持打开（模拟 keep-alive 外联）；修复前这里会等客户端断开，超时判定失败
+            const startedAt = Date.now()
+            await audit.stop()
+            expect(Date.now() - startedAt).toBeLessThan(1_000)
+
+            // 服务端主动断开隧道：stop 之后不再服务后续流量
+            await expect(Promise.race([
+                tunnelClosed,
+                new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 1_000)),
+            ])).resolves.toBe(true)
+        } finally {
+            // 兜底：destroy 可能再触发一次 error，避免冒成未捕获异常
+            tunnel.on('error', () => { /* 关闭期错误已由上方断言覆盖 */ })
+            tunnel.destroy()
+            await audit.stop().catch(() => { /* 幂等 */ })
+            await new Promise((resolve) => echo.close(resolve))
+        }
+    })
+})
+
+describe('closeServerBounded', () => {
+    it('clears its fallback timer when close completes', async () => {
+        vi.useFakeTimers()
+        try {
+            const onTimeout = vi.fn()
+            const server = { close: (callback: () => void) => callback() } as unknown as Server
+
+            await closeServerBounded(server, 30, onTimeout)
+
+            // 定时器必须被清掉：否则每次 stop 都让事件循环多存活一个上限周期（与本次修复的挂起同族）
+            expect(vi.getTimerCount()).toBe(0)
+            vi.advanceTimersByTime(100)
+            expect(onTimeout).not.toHaveBeenCalled()
+        } finally {
+            vi.useRealTimers()
+        }
+    })
+
+    it('gives up after the bound when close never completes', async () => {
+        const onTimeout = vi.fn()
+        // 模拟「仍有未知句柄」：close 回调永不触发
+        const server = { close: () => { /* never calls back */ } } as unknown as Server
+
+        const startedAt = Date.now()
+        await closeServerBounded(server, 30, onTimeout)
+
+        expect(onTimeout).toHaveBeenCalledTimes(1)
+        expect(Date.now() - startedAt).toBeLessThan(1_000)
     })
 })

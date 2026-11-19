@@ -191,18 +191,6 @@
   - **触发条件**：用户要求该交互；或再次出现宿主机重启后的批量恢复诉求。
   - **按 [规划规范 §3.1](../standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
 
-- **平台对外只读观测 API + 日志查询 + MCP remote（2026-11-19 用户决策首批范围）**（P1 🚀）—— 背景：平台能力只能在 UI 后使用；且日志交给 AI 要靠手工导出，实测单次 178 KB / 1000 条中 989 条是同一条重复 warn。设计见 [platform-public-api.md](../design/governance/platform-public-api.md)。**用户决策**：首批必须含日志查询；只开只读面；MCP 复用 `@dependfix/mcp` 加 remote 后端。
-  - **范围（期 1a，不依赖 API key）**：`shared/log-digest`（清洗 + 归一化分组 + error 不折叠）+ `MemoryLogger` 与沙箱执行器丢弃计数 + `ScanRun.logsDropped` 迁移 + 两处弹窗复制 / 下载增「聚合」档 + 脱敏 fixture。**边界**：1a 只交付「可粘贴」，不交付「免手动」。
-  - **范围（期 1b）**：9 个 `GET /api/v1/*` 端点（含 logs 双视图）+ 共享视图层 + `ApiKey` / scope / 限流 / `ApiRequestLog` / 字段白名单 / 分页对象 / 契约守卫 + `docs/guide/api-v1.md`（详见设计稿 §6、§8）。
-  - **范围（期 2）**：MCP `local|remote|auto` + 4 个工具走 remote（含 `get_run_logs`）+ `discover_repos` 降级 + 按 `data.code` 的错误映射。
-  - **交付物（预估）**：1a 约 6-8 commits / 14-16 files / 700-900 行；1b 约 10-14 commits / 22-30 files / 1,400-2,000 行；期 2 约 4-6 commits / 8-12 files / 500-800 行。
-  - **验收（1a）**：fixture grouped < 10 KB 且 2 条 error 均保留；warn `total=991` / `groupCount=3` / 最大组 `989`；`droppedBefore` 三态（NULL / 0 / >0）且 UI 提示；聚合文本可直接喂 AI；两处弹窗一致 + 原始档零回归；存量迁移列为 NULL。
-  - **验收（1b）**：除 `/health` 外「无 key 且无会话」401、有会话按会话授权；缺 `read` 403 留痕；跨组织 403；限流 429；字段白名单负向断言；字段清单 + 发布物快照双守卫；集合端点分页；无 ACAO；`dfk_` 脱敏；key 管理六项；grouped 与 shared 同源；零回归 + 安全深度审计 Pass。
-  - **风险与缓解**：key 泄露 → 高熵 + 哈希 + `dfk_` 脱敏 + 90 天 TTL + 每组织 10 把；情报外泄 → 字段白名单 + 体积上限 + 访问日志；契约漂移 → 字段常量 + 发布物快照；插件不兼容 → 自建回退；聚合误折叠 → error 不归一化 + `sample` 保留原文。
-  - **前置**：`@better-auth/api-key` 与 `better-auth 1.7.22` 兼容性实测；`api.md §3` 信封漂移在 1b 订正或标注为历史声明。
-  - **明确不做**：全量 CRUD 镜像；触发 / 批量 / 调度（期 3）；交付写（期 4）；内嵌 `/mcp`；`fix_dependency` / `pnpm_audit` 远端化；采集侧抑制重复 warn（改变原始语义）。
-  - **触发条件**：需要不装 CLI / 不传 token 读平台结果；或 AI 需读平台日志与运行状态。
-
 ### 延期 / 暂缓项
 
 - **管理端代他人重发验证邮件（admin-only + 操作者审计）**（P2 🛠️，**2026-11-13 用户决定延后**）—— 背景：better-auth `/send-verification-email` 在有会话时要求 `session.user.email === body.email`（否则 400 `EMAIL_MISMATCH`），管理端代发无法复用原生端点；当前用户列表只展示未验证标签，用户到登录页自助重发。**延后原因**：用户判断「代他人触发邮件」的逻辑仍需重新推敲（权限、滥用面、与自助恢复的边界）。恢复条件：用户完成方案思考并明确授权；届时按「admin-only 端点 + 操作者审计 + 双维度限流」评估。手动置位 `email_verified` 已另行决定**不提供**（2026-11-13）。
@@ -449,9 +437,9 @@
 
 | 内容类型 | 位置 |
 |:--|:--|
-| 当前阶段活跃任务 | **无活跃阶段**（M62 已于 2026-11-19 归档，下一阶段待用户决策）；插队容量治理见 [planning.md §3.1.1](../standards/planning.md#_3-1-1-插队后的阶段容量再平衡-hard-requirement-2026-10-19) |
-| 下一阶段（未规划） | 按本文件候选池重新评估（35 条）；M59 / M60 残余留在本文件；**1.1.0 已于 2026-11-15 发布**，定时发布启用仍在「待上收候选」段等待观察窗口 |
+| 当前阶段活跃任务 | **M63 平台对外只读观测面**（2026-11-20 规划，5 原子，见 [todo.md](todo.md)）；插队容量治理见 [planning.md §3.1.1](../standards/planning.md#_3-1-1-插队后的阶段容量再平衡-hard-requirement-2026-10-19) |
+| 下一阶段（未规划） | M63 闭环后按本文件候选池重新评估（35 条）；M59 / M60 残余留在本文件；**1.1.0 已于 2026-11-15 发布**，定时发布启用仍在「待上收候选」段等待观察窗口 |
 | 已完成阶段归档 | [todo-archive.md](todo-archive.md)（阶段索引 + [archive/](archive/) 分片） |
-| 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M0-M62 已归档） |
+| 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M0-M62 已归档；M63 进行中） |
 | 长期主线 / 候选 / 待人工验收 / 已知边界 | 本文档（按四象限结构） |
 | 历史归档索引 | [archive/index.md](archive/index.md) |

@@ -1,6 +1,6 @@
 # 平台对外 API 与远程 MCP 设计（apps/platform）
 
-> **状态**：🔶 设计先行稿（backlog 候选，2026-11-19 立项；首批范围已决策，等待排期上收）
+> **状态**：🔶 M63 实施中（2026-11-19 立项 / 2026-11-20 规划）
 > **范围**：`apps/platform` 只读观测接口 + `@dependfix/mcp` remote 后端
 > **关联**：[API 规范](../../standards/api.md)、[安全规范](../../standards/security.md)、[MCP Server 设计](./mcp-server.md)、[平台架构](./architecture-platform.md)、[平台认证与用户体系](./platform-auth-users.md)
 
@@ -303,7 +303,7 @@ key 绑定 `organizationId`，所有查询强制注入（复用 `resolveOrganiza
 
 **交付物**：`@dependfix/mcp` 后端选择 + `fetch_alerts` / `history` / `get_last_report` / `get_run_logs` 四个工具 remote 实现 + `discover_repos` 降级 + 错误映射 + README（zh / en）与 skill 说明。
 
-**验收标准**：① 无配置时行为与当前完全一致（9 tool，除 `get_run_logs` 外全 local）；② 配置齐备时 4 个工具走 remote 且结果形状与 local 一致；③ 401 / 429 / 5xx 文案明确且不静默降级；④ 两个后端各有单测，remote 用 mock HTTP；⑤ `discover_repos` 降级结果显式标注 `source`。
+**验收标准**：① 无配置时除新增 `get_run_logs`（local 返回明确提示）外，既有 8 个 tool 行为与当前完全一致；注册总数 8 → 9；② 配置齐备时 4 个工具走 remote 且结果形状与 local 一致；③ 401 / 429 / 5xx 文案明确且不静默降级；④ 两个后端各有单测，remote 用 mock HTTP；⑤ `discover_repos` 降级结果显式标注 `source`。
 
 ### 期 3（后置）：触发面
 
@@ -335,6 +335,8 @@ key 绑定 `organizationId`，所有查询强制注入（复用 `resolveOrganiza
 | `github-action` 执行器 | 不写 `logsJson` | `droppedBefore` 恒为 `NULL`（不可知），文档与 UI 均按「无采集」呈现 |
 
 ## 10. 上收触发条件
+
+> **已满足（2026-11-20）**：用户选方案 A，已上收 M63（1a + 1b + 期 2）；本节保留为后续写能力的触发判据。
 
 满足任一即建议进入 `todo.md` 当前阶段（不带阶段编号，按规划规范 §3.1 由用户决策）：
 

@@ -71,24 +71,31 @@
 | M60: 平台减法与沙箱可用性 | 大页面体量拆分 + 死代码清理 + 筛选与标签单点化 + 沙箱执行器可用性收口 + 沙箱启用与排障文档（用户 2026-11-14 选混合方案 C） | P1-P3 | 已归档（2026-11-14 规划 / 2026-11-15 归档；5 原子闭环，见 [M60 详情分片](archive/roadmap-phases-m60.md) + [M60 归档分片](archive/todo-archive-phases-m60.md)） |
 | M61: 文档与 AI 治理（第四期） | 归档链接前缀治本 + 大文档保序拆分 + 文档体量健康带回归 + AI 资产机检门禁 + skill 分发面准确性 + 文档口径一致性收口（用户 2026-11-15 选方案 A：一期 6 原子） | P2-P3 | 已归档（2026-11-15 规划 / 2026-11-16 归档；6 原子 + 2 追加临时待办闭环，见 [M61 详情分片](archive/roadmap-phases-m61.md) + [M61 归档分片](archive/todo-archive-phases-m61.md)） |
 | M62: 运行日志复盘与执行成本收口 | 红仓库 baseline 短路 + 命令级 OOM 与终态分离 + 跨 major / 混合实例判定前移 + 自仓基线红与只读验证 + 安装失败逐告警结论 + 收尾未 settle 假超时（用户 2026-11-16 选方向 A） | P1-P2 | 已归档（2026-11-16 规划 / 2026-11-19 归档；6 原子 + 1 条追加临时待办闭环，见 [M62 详情分片](archive/roadmap-phases-m62.md) + [M62 归档分片](archive/todo-archive-phases-m62.md)） |
+| M63: 平台对外只读观测面 | 日志可消费化（聚合 + 丢弃披露）+ 共享视图层与 v1 契约骨架 + API key / scope / 限流 / 访问日志 + 其余 v1 端点与契约守卫 + MCP remote 后端（用户 2026-11-19 首批范围 / 2026-11-20 选方案 A） | P1 | 进行中（2026-11-20 规划；5 原子，见 [todo.md](todo.md)） |
 
 > **本路线图定位**：按 [规划规范 §2.1](../standards/planning.md) 仅维护阶段概览（目标 / 优先级 / 状态）。详细实施记录 / commit 引用 / 关键决策 / 经验教训见对应归档段（详见下方"## 详细任务"索引）。
 
 > **M0 - M38 阶段详情已迁出**：见 [archive/roadmap-phases-m0-m38.md](archive/roadmap-phases-m0-m38.md)（2026-10-15 M44.4 批次③ 迁出；主文档保留概述表与最近阶段）。
 
-> **M39-M62 阶段详情已迁出**：M39-M48 见 [archive/roadmap-phases-m39-m48.md](archive/roadmap-phases-m39-m48.md)（2026-10-26 文档治理批次迁出）；M49 见 [archive/roadmap-phases-m49.md](archive/roadmap-phases-m49.md)（2026-10-29 归档批次迁出）；M50 见 [archive/roadmap-phases-m50.md](archive/roadmap-phases-m50.md)（2026-10-30 归档批次迁出）；M51 见 [archive/roadmap-phases-m51.md](archive/roadmap-phases-m51.md)（2026-10-30 归档批次迁出）；M52 见 [archive/roadmap-phases-m52.md](archive/roadmap-phases-m52.md)（2026-10-31 归档批次迁出）；M53 见 [archive/roadmap-phases-m53.md](archive/roadmap-phases-m53.md)（2026-11-01 归档批次迁出）；M54 见 [archive/roadmap-phases-m54.md](archive/roadmap-phases-m54.md)（2026-11-07 归档批次迁出）；M55 见 [archive/roadmap-phases-m55.md](archive/roadmap-phases-m55.md)（2026-11-08 归档批次迁出）；M56 见 [archive/roadmap-phases-m56.md](archive/roadmap-phases-m56.md)（2026-11-09 归档批次迁出）；M57 见 [archive/roadmap-phases-m57.md](archive/roadmap-phases-m57.md)（2026-11-10 归档批次迁出）；M58 见 [archive/roadmap-phases-m58.md](archive/roadmap-phases-m58.md)（2026-11-12 归档批次迁出）；M59 见 [archive/roadmap-phases-m59.md](archive/roadmap-phases-m59.md)（2026-11-14 归档批次迁出）；M60 见 [archive/roadmap-phases-m60.md](archive/roadmap-phases-m60.md)（2026-11-15 归档批次迁出）；M61 见 [roadmap-phases-m61.md](archive/roadmap-phases-m61.md)（2026-11-16 归档批次迁出）；M62 见 [roadmap-phases-m62.md](archive/roadmap-phases-m62.md)（2026-11-19 归档批次迁出）。主文档保留里程碑概述表；当前无活跃阶段。
+> **M39-M62 阶段详情已迁出**：M39-M48 见 [archive/roadmap-phases-m39-m48.md](archive/roadmap-phases-m39-m48.md)（2026-10-26 文档治理批次迁出）；M49 见 [archive/roadmap-phases-m49.md](archive/roadmap-phases-m49.md)（2026-10-29 归档批次迁出）；M50 见 [archive/roadmap-phases-m50.md](archive/roadmap-phases-m50.md)（2026-10-30 归档批次迁出）；M51 见 [archive/roadmap-phases-m51.md](archive/roadmap-phases-m51.md)（2026-10-30 归档批次迁出）；M52 见 [archive/roadmap-phases-m52.md](archive/roadmap-phases-m52.md)（2026-10-31 归档批次迁出）；M53 见 [archive/roadmap-phases-m53.md](archive/roadmap-phases-m53.md)（2026-11-01 归档批次迁出）；M54 见 [archive/roadmap-phases-m54.md](archive/roadmap-phases-m54.md)（2026-11-07 归档批次迁出）；M55 见 [archive/roadmap-phases-m55.md](archive/roadmap-phases-m55.md)（2026-11-08 归档批次迁出）；M56 见 [archive/roadmap-phases-m56.md](archive/roadmap-phases-m56.md)（2026-11-09 归档批次迁出）；M57 见 [archive/roadmap-phases-m57.md](archive/roadmap-phases-m57.md)（2026-11-10 归档批次迁出）；M58 见 [archive/roadmap-phases-m58.md](archive/roadmap-phases-m58.md)（2026-11-12 归档批次迁出）；M59 见 [archive/roadmap-phases-m59.md](archive/roadmap-phases-m59.md)（2026-11-14 归档批次迁出）；M60 见 [archive/roadmap-phases-m60.md](archive/roadmap-phases-m60.md)（2026-11-15 归档批次迁出）；M61 见 [roadmap-phases-m61.md](archive/roadmap-phases-m61.md)（2026-11-16 归档批次迁出）；M62 见 [roadmap-phases-m62.md](archive/roadmap-phases-m62.md)（2026-11-19 归档批次迁出）。主文档保留里程碑概述表；当前 M63 进行中。
 
 ## 当前阶段
 
-**无活跃阶段**：M62 已于 2026-11-19 归档（[详情分片](archive/roadmap-phases-m62.md)）。下一阶段按 [backlog.md](backlog.md) 候选池评估后由用户决策。
+**M63 平台对外只读观测面**：2026-11-20 规划，进行中。
+
+- **目标**：日志先聚合为可直接喂 AI 的视图；再以 API key 提供只读 `/api/v1`；最后让 `@dependfix/mcp` 通过 remote 后端消费。
+- **原子（5 项，均含 8 要素与设计稿 AC 标签，见 [todo.md](todo.md)）**：M63.1 日志可消费化与丢弃披露 / M63.2 共享视图层与 v1 契约骨架 / M63.3 API key 认证与安全面 / M63.4 其余 v1 端点与契约守卫 / M63.5 MCP remote 后端。
+- **来源**：用户 2026-11-19 决策首批范围；2026-11-20 用户选方案 A（1a + 1b + 期 2 全量首批）；设计见 [platform-public-api.md](../design/governance/platform-public-api.md)。
+- **容量基线**：20-30 commits / 48-61 files / 2,650-3,750 行（逐原子交付物求和，规划轮估算）。
+- **执行顺序**：M63.1 → M63.2 → M63.3 → M63.4 → M63.5。
 
 ---
 
 ## 详细任务
 
-- 当前阶段任务：无（M62 已归档；下一阶段待规划）
+- 当前阶段任务：[todo.md](todo.md)（**M63 平台对外只读观测面**，5 原子；2026-11-20 规划）
 - 已归档阶段：[todo-archive.md](todo-archive.md)（阶段索引 + 分片；M0-M62 已归档；分片治理见 [archive/index.md](archive/index.md)）
-- 下一阶段（未规划）：按候选池重新评估（35 条，见 [backlog.md](backlog.md)）
+- 下一阶段（未规划）：M63 闭环后按候选池重新评估（35 条，见 [backlog.md](backlog.md)）
 - 后续阶段任务（延期项 + 未排期增强候选）：[backlog.md](backlog.md)
 
 ## 交付原则

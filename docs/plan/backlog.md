@@ -54,7 +54,7 @@
 
 ### 候选评估中（待评估 / 本阶段延后项）
 
-> **候选池概览（2026-11-16 M62 规划后复算）**：本区 **35 项**（`### 候选评估中` 段内 `^- \*\*` 逐行计数）；每次上收 / 新增 / 移出后按段内实测更新本句与首行，不保留历史链路。P 标签覆盖不全（未标注者评估时补，不默认升级）；1.0 分档见 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)。
+> **候选池概览（2026-11-19 M62 归档后复算）**：本区 **35 项**（`### 候选评估中` 段内 `^- \*\*` 逐行计数）；每次上收 / 新增 / 移出后按段内实测更新本句与首行，不保留历史链路。P 标签覆盖不全（未标注者评估时补，不默认升级）；1.0 分档见 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)。
 > **1.0 门槛与分档**：分档、门槛判定与批次计划单点声明于 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)（2026-10-30 冻结口径，不随候选上收收缩；本文件不重复维护数字）。
 
 - **备份 `.tmp` 清扫缺年龄门槛（P3 🛠️，2026-10-31 M53.2 收口登记）** —— `cleanupOldBackups` 对 `*.bak.tmp` 无条件回收；单实例串行路径不可达冲突，但并发 `db:restore` 或多实例共卷启动时可能删掉对端正在写的临时文件（rename ENOENT → 该轮快照丢失，fail-open 后仅剩日志）。待评估：加入 `mtime < now - 10min` 年龄门槛或按 PID 命名临时文件。触发：启用多实例 / 多容器共享数据卷，或出现并发恢复需求时。
@@ -75,12 +75,7 @@
     2. **SBOM + 容器扫描**：`syft` 生成镜像 SBOM，`trivy` / `grype` 按 CVE 分级；产物可归档、可审计（对 OS 包与语言依赖有覆盖；对 tarball Node 与内嵌依赖不可见，不能替代机制 1）
     3. **Dependabot docker 生态**：`FROM image:tag@digest` 形态下自动提 digest PR（只覆盖基底发布，不覆盖运行时 CVE）
     4. **产品化 runtime alerts**：目标仓 Dockerfile / engines / `.nvmrc` 解析 + 漏洞库比对，作为 Dependabot / Code Scanning 之外的第三类告警源
-  - **数据源实测（2026-10-22，时点快照）**：
-    - **Node 运行时（官方 tarball / 镜像）**：主线映射用 `nodejs/node` 的 `CHANGELOG_Vxx.md`（`24.22.1` 段含 `CVE-2026-111497`）与 nodejs.org 安全公告；`dist/index.json` 无 CVE 编号，但有 `security` 布尔与内嵌版本字段（openssl / uv / zlib / v8），可用于判「是否安全补丁版」。**反例（不能只按发行版生态映射判官方 tarball 版本）**：OSV 的发行版生态（如 Debian）在公告当日即可有 CVE → `nodejs` 映射，但对应的是发行版打包的 node，不等于官方 tarball 版本。
-    - **apk 包**：Alpine secdb（`secdb.alpinelinux.org/v3.24/{main,community}.json`）的 `pkg.secfixes`（修复版本 → CVE 列表）；OSV 的 `Alpine:v3.24` 生态提供等价查询（条目形如 `ALPINE-CVE-*`）。两者都不覆盖官方 tarball 的 Node（镜像内 `apk info -e nodejs` 不存在）。
-    - **滞后 / 不可用源（时点事实）**：NVD 在 111497 发布当日 `vulnStatus=Received` 且 `configurations` 为空；MITRE 记录把受影响产品标为 Google Brotli（分支区间 1.0.3–<1.0.10 / 1.1.0–<1.1.1 / 1.2.0–<1.2.1），不是 Node.js；GitHub Advisory 无 node 运行时条目（该 CVE 的 `GHSA-9v8h-qqgm-4m35` 当日已收录且为 critical，但 `vulnerabilities` 为空、无包映射，故不产生 Dependabot 告警）；endoflife.date 只有版本 / EOL。
-    - **内嵌依赖**（OpenSSL / undici / SQLite / c-ares）：编进 Node 二进制，OS 包扫描不可见。`process.versions` 只用于采集清单，**不能单独作为判定依据**——内嵌库可能因 cherry-pick 修复而版本号不变（实测 brotli 1.2.0 仍在受影响区间，但 `24.22.1` 已修）；判定以 Node 发布版本 + CHANGELOG 已修 CVE 为准。
-    - **分层覆盖（按层，不是优先级）**：① 运行时层（`process.versions` 采集 + Node CHANGELOG 判定）→ ② apk 层（`apk info -v` + secdb / OSV）→ ③ SBOM + trivy / grype（OS 包批量；对 tarball Node 与内嵌依赖不可见，不能替代 ①）。
+  - **数据源实测结论（2026-10-22 快照）**：Node 以官方 CHANGELOG + `dist` 的 security 字段判定（OSV 发行版映射不等于官方 tarball）；apk 走 Alpine secdb / OSV；NVD / MITRE 当日滞后；GitHub Advisory 对该 CVE 已收录但 `vulnerabilities` 为空、无包映射，故不产生 Dependabot 告警；内嵌依赖须按 Node 发布版本判定；分层覆盖 = 运行时 → apk → SBOM，SBOM 不能替代运行时层。
   - **其余前置评估点**：扫描工具的引入成本（镜像体积 / CI 时长 / 许可证）与结果噪声；误报与豁免口径（与 `pnpm-workspace.yaml` 的 `audit.ignore` 如何统一）；与 `check-node-version.mjs` 静态基线的关系（动态发现 → 提 PR 抬升基线，而非替代基线）。
   - **触发条件**：下一次 Node / Alpine 安全公告；或需要为被管理仓库新增运行时告警源时。
   - **按 [规划规范 §3.1](../standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
@@ -263,6 +258,11 @@
 
 - **T905** git worktree 并行开发预案（触发条件：多 agent 并行开发成为常态；当前单 agent 工作流无需启用）
 
+#### M62 归档残余（2026-11-19 登记）
+
+- **展示与性能残余（P3 🎨🛠️）** —— `/scans` 单 run 详情（`repo-history-dialog`）未展示资源 / OOM 项；报告 `## Command OOM` 段未区分 `preExisting`；`assessLockfileWork` 与链路重复读 lockfile / manifest（性能项）。触发：下一阶段评估平台可观测面或告警多的仓库成本。
+- **设计治理索引经验计数陈旧（P3 📚）** —— `docs/design/governance/index.md` 写「§1-§85 共 85 条」，实测已 90 条；触发：任一次治理索引更新时顺手对齐（范围外修正需用户授权）。
+
 ## 待人工验收（真实环境，随可用性推进）
 
 > 以下条目为需真实环境（外部凭据 / 真实 Redis / staging 等）的验证任务，保留随可用性推进。
@@ -307,9 +307,17 @@
 - **opt-in 构建取证**：`WITH_DOCKER_CLI=true` 真实构建平台镜像，核对容器内 `docker --version`、默认构建 `docker_cli_missing` 与 opt-in 后自检可用；Dockerfile 分支尚未实跑。
 - 前置：部署形态矩阵与命令见 [quick-start.md](../guide/quick-start.md)「部署形态与可行执行器」。
 
+### M62 真实仓库 baseline 对比（2026-11-19 归档登记）
+
+- 需 `github.com` 出站可达环境，按 M62.1 同命令集对 momei / rss-impact-server 复跑基线与短路链，核对 AC①（≥50%）真实读数；现有读数为本地夹具 81.9%。
+
+### M62 验收措辞裁决（2026-11-19 归档登记）
+
+- M62.1 AC②（独立词汇表 `BASELINE_SKIP_REASONS` vs 原文 `verificationSkippedByReason` 家族）与 M62.2 AC②④（标签「运行级 OOM」、失败率按状态分布解释）在执行期已按更优口径落地并经审计认可，需用户确认后回写条目原文；未确认前不在后续阶段复用旧措辞。
+
 ### 收尾未 settle 复发观察（2026-11-19 登记）
 
-- **已于 2026-11-19 定位并修复**（M62.6）：根因是外联审计代理的 `stop()`——CONNECT 隧道 upgrade 后被移出 `closeAllConnections()` 的追踪集但仍计入 server 连接数，`server.close()` 因此永不回调，整轮运行被拖到 30 分钟上限。修复见 [执行进程隔离 §8.6](../design/governance/executor-process-isolation.md#_8-6-残余与观察项)；本地确定性复现与修复后落定读数见 todo M62.6 执行记录。
+- **已于 2026-11-19 定位并修复**（M62.6）：根因为外联审计代理 `stop()` 在 CONNECT 隧道 upgrade 后等不到 `server.close()` 回调；修复与复现读数见 [M62 归档分片](archive/todo-archive-phases-m62.md) 与 [执行进程隔离 §8.6](../design/governance/executor-process-isolation.md#_8-6-残余与观察项)。
 - **本条目只保留观察判据**：之后含外联（registry / GitHub）的 fix 运行若仍出现 `execution_timeout` 且宽限期未落定，先读执行日志的「诊断分类」行——`未 settle 句柄` 说明有新的未关闭句柄（按「运行期句柄」清单定位）；`在管子进程` 说明有未纳入进程树终止的孙进程；两类「无法归类」按 backlog 旧分流（`采集不可用` 先修探针、`无净增` 抓 `ps -ef --forest` 查未返回的异步等待）。
 - 历史样本（保留判读价值）：`6875bb2e09401dec`（momei，2026-11-13）空窗 5m20s、在管受管子进程 0 个、最后受管命令 `git rev-parse --abbrev-ref HEAD`。
 
@@ -319,6 +327,11 @@
 - main 副作用路径测试观察项
 
 ## 已知边界与 known-issue
+
+### 出站审计代理的明文代理路径未纳入隧道登记集（2026-11-19 登记，持续观察）
+
+- M62.6 只登记并销毁 CONNECT 隧道的两端 socket；明文 HTTP 代理路径的上游 `proxyReq` 不在该集合内，停止时依赖 `CONNECT_TIMEOUT_MS` 收尾（单运行生命周期内低风险）。
+- 触发条件：再次出现收尾未落定且诊断分类为「未 settle 句柄」时，先核对明文代理路径；回填方式 = 为 `proxyReq` 补登记 + 关闭上限用例。
 
 ### SQLite 单文件脆弱性 + TypeORM synchronize 风险（持续观察）
 
@@ -435,9 +448,9 @@
 
 | 内容类型 | 位置 |
 |:--|:--|
-| 当前阶段活跃任务 | **M62 运行日志复盘与执行成本收口**（2026-11-16 规划，6 原子，见 [todo.md](todo.md)）；插队容量治理见 [planning.md §3.1.1](../standards/planning.md#_3-1-1-插队后的阶段容量再平衡-hard-requirement-2026-10-19) |
+| 当前阶段活跃任务 | **无活跃阶段**（M62 已于 2026-11-19 归档，下一阶段待用户决策）；插队容量治理见 [planning.md §3.1.1](../standards/planning.md#_3-1-1-插队后的阶段容量再平衡-hard-requirement-2026-10-19) |
 | 下一阶段（未规划） | 按本文件候选池重新评估（35 条）；M59 / M60 残余留在本文件；**1.1.0 已于 2026-11-15 发布**，定时发布启用仍在「待上收候选」段等待观察窗口 |
 | 已完成阶段归档 | [todo-archive.md](todo-archive.md)（阶段索引 + [archive/](archive/) 分片） |
-| 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M0-M61 已归档；M62 进行中） |
+| 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M0-M62 已归档） |
 | 长期主线 / 候选 / 待人工验收 / 已知边界 | 本文档（按四象限结构） |
 | 历史归档索引 | [archive/index.md](archive/index.md) |

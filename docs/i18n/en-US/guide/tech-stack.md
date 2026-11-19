@@ -33,15 +33,15 @@ dependfix is built on the Node.js runtime + TypeScript stack, with the following
 
 | Layer | Language | Runtime | Build tool |
 |:------|:---------|:--------|:-----------|
-| `packages/core` | TypeScript (strict) | Node.js ^22.23.5 \|\| ^24.22.3 | tsdown |
-| `packages/engine` | TypeScript (strict) | Node.js ^22.23.5 \|\| ^24.22.3 | tsdown |
-| `packages/cli` | TypeScript (strict) | Node.js ^22.23.5 \|\| ^24.22.3 | tsdown (ESM only since 0.2.0) |
-| `packages/mcp` | TypeScript (strict) | Node.js ^22.23.5 \|\| ^24.22.3 | tsdown |
+| `packages/core` | TypeScript (strict) | Node.js ^22.23.5 \|\| ^24.22.3 \|\| ^26.13.1 | tsdown |
+| `packages/engine` | TypeScript (strict) | Node.js ^22.23.5 \|\| ^24.22.3 \|\| ^26.13.1 | tsdown |
+| `packages/cli` | TypeScript (strict) | Node.js ^22.23.5 \|\| ^24.22.3 \|\| ^26.13.1 | tsdown (ESM only since 0.2.0) |
+| `packages/mcp` | TypeScript (strict) | Node.js ^22.23.5 \|\| ^24.22.3 \|\| ^26.13.1 | tsdown |
 | `packages/skills` | Markdown + YAML frontmatter | N/A (Claude / Copilot / Cursor consumption) | N/A |
-| `apps/platform` | Vue 3 + TypeScript | Node.js ^22.23.5 \|\| ^24.22.3 | Nuxt 4 + Vite |
+| `apps/platform` | Vue 3 + TypeScript | Node.js ^22.23.5 \|\| ^24.22.3 \|\| ^26.13.1 | Nuxt 4 + Vite |
 | `action.yml` (composite, not a package) | YAML | per consumer `actions/setup-node` | N/A |
 
-> Node advisory baseline: the [2026-11-11 security releases](https://nodejs.org/en/blog/vulnerability/november-2026-security-releases) (patched 22.23.5 / 24.22.3 / 26.13.1); 20.x is EOL. The declared support surface remains 22.x / 24.x; 26.x is not yet in `engines` and is covered by CI `lts/*`.
+> Node advisory baseline: the [2026-11-11 security releases](https://nodejs.org/en/blog/vulnerability/november-2026-security-releases) (patched 22.23.5 / 24.22.3 / 26.13.1); 20.x is EOL. The declared support surface is 22.x / 24.x / 26.x (from 26.13.1), and CI follows `lts/*`.
 
 > **Breaking change (since 0.2.0)**: `dependfix` / `@dependfix/core` are now **pure ESM** (CJS dual-format outputs removed). CLI commands and GitHub Action consumption are unaffected; programmatic consumers should use `import`; `require()` needs Node 22.12+ (native `require(ESM)`). Node 20.x CJS programmatic consumers need dynamic `import()`.
 

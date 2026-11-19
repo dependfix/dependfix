@@ -136,7 +136,7 @@
 **1）版本与差异口径**
 
 - `apps/platform/package.json`：`caomei-ui` `0.7.0` → `1.0.0-rc.1`（精确锁定）；`pnpm-lock.yaml` 仅版本条目与一处传递依赖去重（`std-env` 4.2.0 → 4.3.0），未改动任何显式钉定。`pnpm i --frozen-lockfile` 通过，`pnpm why caomei-ui` 单版本。
-- 包清单：`peerDependencies` / `dependencies` / `exports`（13 键）/ `peerDependenciesMeta` / `sideEffects` 与 0.7.0 **键值一致**（仅 `peerDependencies` 键序不同）；`engines.node` 由 `>=20` 提到 `>=22`（本仓 `^22.23.4 || ^24.22.1` 满足）。
+- 包清单：`peerDependencies` / `dependencies` / `exports`（13 键）/ `peerDependenciesMeta` / `sideEffects` 与 0.7.0 **键值一致**（仅 `peerDependencies` 键序不同）；`engines.node` 由 `>=20` 提到 `>=22`（当时本仓 `^22.23.4 || ^24.22.1` 满足；2026-11-19 起 `^22.23.5 || ^24.22.3` 仍满足）。
 - 公开 API：`index.d.ts` 的 `as Caomei*` 导出 **95 → 95**（集合相同）、`dist/components/` 子目录 **57 → 57**；`index.d.ts` 差异仅新增 `import "./components/*/index.js"` 副作用导入（**additive，无删除**）。
 - 语义级比对（沿用 §15.14 口径）：`npm pack` 两版 → 剥 `[data-v-*]`、`_scoped_<hash>` 文件名哈希、`_lang` 后缀、空白与声明分隔后逐文件比较 → **CSS 87 个规范文件 / 35 个语义变化**；**JS 仅 `data-table/data-table.js` 与 10 个 locale 文件**（共 11 个 JS 文件）有语义变化，其余（button / select / switch / dialog / tags-input 等）仅 scope 哈希重命名。
 - 行为变化（`data-table` + locale）：① 表头全选改用 `getIsAllPageRowsSelected` / `toggleAllPageRowsSelected`（**作用域从「全部行」收窄到「当前页」**）；② `lazy` 且未传 `rowKey` 时告警，且翻页数据变化会重置非受控选择 / 展开；③ 根容器常驻 `tabindex="0"`，有 `caption` 时补 `role="group"` + `aria-label`（键盘可进入横向滚动区，WCAG 2.1.1）；④ `selectAll` 文案 `全选` → `全选当前页`（zh-CN / en-US 同步）。

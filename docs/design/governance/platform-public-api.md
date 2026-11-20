@@ -71,14 +71,14 @@
 
 ### 5.1 Key 方案
 
-优先使用官方插件 `@better-auth/api-key`（独立包，`apiKey()` + `auth.api.createApiKey` / `verifyApiKey`，支持 `permissions` 与 `rateLimit`）。**该包当前未安装**；npm 侧最新为 1.7.26，项目 `better-auth` 为 1.7.22——D 阶段首个动作是**小版本对齐验证**（同 major.minor 预期兼容，但必须实测），不兼容时回退自建：
+**2026-11-20 实测结论（D3）**：`@better-auth/api-key@1.7.22` 与项目 `better-auth 1.7.22` 版本对齐，但 `references: 'organization'` 在运行时强制要求 better-auth organization 插件（`ORGANIZATION_PLUGIN_REQUIRED`），与平台自有 `Organization` 实体冲突；按预置回退改为**自建 key 存储**，不引入该插件依赖：
 
-- 实体 `ApiKey`：`id` / `name` / `prefix` / `hashedKey` / `userId` / `organizationId` / `scopes` / `expiresAt` / `lastUsedAt` / `revokedAt`
-- 生成：高熵随机（≥32 字节），明文仅创建时返回一次；库中存 **SHA-256 哈希** + 可检索前缀（如 `dfk_` + 8 字符）
-- 比较：常量时间比较，不做前缀匹配查询 + 全量比对
-- **脱敏联动**：`apps/platform/server/utils/sanitize.ts` 已覆盖 URL 内嵌凭据、`Authorization` 各 scheme（basic / token / bearer）、`gh[pousr]_` / `github_pat_`、PEM 私钥与敏感键名；**`dfk_` 明文前缀不在现有规则内**，必须同批加入 `sanitizeString` 与日志过滤测试，否则运行日志会漏 key
-官方插件默认读取 `x-api-key` 头；本期对外统一用 `Authorization: Bearer`，需在守卫内自写一层桥接（取 Bearer 后转交插件校验）。桥接后插件内置限流与 `lastUsedAt` 是否仍生效，与兼容性验证同批实测。
-- 守卫顺序：`Authorization: Bearer <key>` → 校验 → 注入 `{ user, organizationId, scopes }`；无 key 时降级到现有会话（浏览器路径不受影响）
+- 实体 `ApiKey`（表 `apikey`）：`name` / `prefix` / `start` / `key`（SHA-256）/ `referenceId`（组织 id）/ `metadata`（`scopes`）/ `enabled` / `expiresAt` / `requestCount` / `lastRequest`
+- 生成：`dfk_` + 36 字节随机 base64url（≥288 bit 熵），明文仅创建时返回一次；库中存 SHA-256 摘要（唯一索引）
+- 比较：按哈希查库后 `timingSafeEqual` 常量时间比较；过期 / 禁用 / 已吊销统一 401
+- **脱敏联动**：`sanitizeString` 增 `dfk_` 规则并覆盖 base64url 的 `-` / `_` 字符；`Authorization` 头由前置规则整体替换
+- 守卫顺序：`Authorization: Bearer <key>` → 哈希校验 → 注入 `{ organizationId, scopes }`；无 key 时降级到现有会话（浏览器路径不受影响），会话不注入 scopes
+- 吊销语义：`DELETE /api/v1/keys/{id}` 为硬删除（吊销即删除，访问日志保留 30 天）
 
 ### 5.2 Scope
 
@@ -96,10 +96,11 @@ key 绑定 `organizationId`，所有查询强制注入（复用 `resolveOrganiza
 
 ### 5.4 限流与访问日志
 
-- 限流：按 key 计数。主档位走插件 `rateLimit`（配置项，非默认值）——**600 次 / 5 分钟**；插件无 per-path 能力，**日志端点 60 次 / 5 分钟的单独档位由 v1 薄封装层的独立计数器实现**（进程内 `lru-cache`，多实例部署时换 Redis）。超限 429 + `Retry-After`
-- 访问日志：**新建独立表 `ApiRequestLog`**（`apiKeyId` / `endpoint` / `statusCode` / `durationMs` / `createdAt`，保留 30 天）。**不复用 `audit-events`**——该表的 `AuditEventType` 是固定业务事件枚举，语义明确排除「单次请求」，按 600 次/5 分钟写入会污染环境健康信号
+- 限流：按 key 计数，两档均由 `api-key-guard` 的进程内 `lru-cache` 实现——常规 **600 次 / 5 分钟**、日志端点 **60 次 / 5 分钟**；多实例部署时换 Redis。超限 429 + `Retry-After`（可用 `API_KEY_RATE_LIMIT_*` 环境变量覆盖，便于测试与运维）
+- 访问日志：**新建独立表 `ApiRequestLog`**（`apiKeyId` / `method` / `path`（不含 query） / `statusCode` / `ipAddress` / `userAgent` / `createdAt`，保留 30 天，每小时最多清理一次）。**不复用 `audit-events`**——该表的 `AuditEventType` 是固定业务事件枚举，语义明确排除「单次请求」，按 600 次/5 分钟写入会污染环境健康信号
 - 日志内容：**不记录** key 明文、请求体、响应正文
-- fail-closed：key 校验异常、数据库不可用一律 401 / 503，不降级为「无认证放行」
+- 保留：`api_request_log` 保留 30 天，写入时每小时最多触发一次过期清理
+- fail-closed：key 校验异常、数据库不可用一律 401 或 5xx，不降级为「无认证放行」；访问日志 / 使用计数失败不阻断鉴权
 
 ### 5.5 残余风险
 
@@ -324,7 +325,7 @@ key 绑定 `organizationId`，所有查询强制注入（复用 `resolveOrganiza
 | 项 | 状态 | 处置 |
 |:--|:--|:--|
 | `api.md §3` 的 `ApiResponse` 信封与实现不一致 | 待订正 | 本期不修规范；期 1 交付物含「订正或标注为历史声明」，不留无痕承诺 |
-| `@better-auth/api-key` 与 `better-auth 1.7.22` 兼容性 | **未实测**（npm latest 1.7.26，同 major.minor） | 期 1 D 阶段首个验证点；不兼容走自建方案 |
+| `@better-auth/api-key` 与 `better-auth 1.7.22` 兼容性 | **已实测（2026-11-20）** | 1.7.22 版本对齐，但 organization 归属要求 better-auth organization 插件（与平台自有组织冲突）→ 按回退走自建 key 存储，插件依赖已移除 |
 | 多组织 / 多租户（backlog D1 / D3） | 未实施 | 当前 key 绑「当前组织」；多租户落地时需同批改 scope 推导 |
 | 通知渠道 `slack` / `webhook` | 占位不可用 | 本设计不依赖；对外 webhook 属另一能力面 |
 | 内部视图映射内联在 handler | 现状 | 期 1 抽共享视图层，否则 v1 只能复制逻辑 |

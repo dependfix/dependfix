@@ -34,6 +34,7 @@ import { AddRepositoryAllowMajorUpgrade3000000000001 } from './migrations/300000
 import { AddPrCheckLifecycleState3100000000000 } from './migrations/3100000000000-AddPrCheckLifecycleState'
 import { AddRepositorySandboxImage3100000000001 } from './migrations/3100000000001-AddRepositorySandboxImage'
 import { AddScanRunLogsDropped3200000000000 } from './migrations/3200000000000-AddScanRunLogsDropped'
+import { CreateApiKeyTables3300000000000 } from './migrations/3300000000000-CreateApiKeyTables'
 import { runStartupBackup } from './backup'
 import { isQueueWorkerProcess } from '#server/utils/process-role'
 import { Account } from '#server/entities/account'
@@ -51,6 +52,8 @@ import { AuditEvent } from '#server/entities/audit-event'
 import { PRCheck } from '#server/entities/pr-check'
 import { NotificationPreference } from '#server/entities/notification-preference'
 import { NotificationLog } from '#server/entities/notification-log'
+import { ApiKey } from '#server/entities/api-key'
+import { ApiRequestLog } from '#server/entities/api-request-log'
 
 /**
  * TypeORM DataSource 单例（多后端：SQLite 默认 / MySQL / PostgreSQL）。
@@ -98,6 +101,8 @@ export const createDataSourceOptions = (): DataSourceOptions => {
             PRCheck,
             NotificationPreference,
             NotificationLog,
+            ApiKey,
+            ApiRequestLog,
         ],
         migrations: [
             CreateInitialSchema1600000000000,
@@ -124,6 +129,7 @@ export const createDataSourceOptions = (): DataSourceOptions => {
             AddPrCheckLifecycleState3100000000000,
             AddRepositorySandboxImage3100000000001,
             AddScanRunLogsDropped3200000000000,
+            CreateApiKeyTables3300000000000,
         ],
         migrationsRun,
         synchronize,

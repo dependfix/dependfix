@@ -293,6 +293,8 @@ durationMs
 
 ```text
 account: id, created_at, updated_at, account_id, provider_id, issuer, user_id, access_token, refresh_token, id_token, access_token_expires_at, refresh_token_expires_at, scope, password
+apikey: id, created_at, updated_at, name, start, reference_id, prefix, key, enabled, request_count, last_request, expires_at, metadata
+api_request_log: id, created_at, updated_at, api_key_id, organization_id, method, path, status_code, ip_address, user_agent
 audit_event: id, created_at, updated_at, type, severity, repository_id, scan_run_id, payload_json, notified, notified_via
 batch_run: id, created_at, updated_at, source, schedule_id, triggered_by_user_id, mode, severity_threshold, repository_count, finished_count, completed_count, failed_count, pending_count, summary_json, status, finished_at, organization_id
 credential: id, created_at, updated_at, organization_id, name, type, encrypted_token, app_id, encrypted_private_key, installation_id, bot_login, owner_login, note, last_used_at

@@ -144,7 +144,7 @@
   - **残余**：① 限流为进程内 LRU，多实例部署需切 Redis；② 过期 / 禁用 / 无效 key 的 401 不写访问日志（无组织可归属）；③ 跨组织 403 未单独入审计（拒绝结果仍由端点返回）；④ 吊销为硬删除（访问日志保留，设计稿已写明）；⑤ MySQL / PostgreSQL 未起真库，时间列与唯一索引为静态核对；⑥ 过期 key 行不做后台清理（列表仍可见，可手工吊销）。
 
 
-### M63.4 其余 v1 端点与契约守卫（1b-3）（P1 🛠️📚）
+### M63.4 其余 v1 端点与契约守卫（1b-3）（P1 🛠️📚）—— ✅ 已闭环
 
 - **目标**：补齐 alerts / pr-checks / dashboard / logs 双视图共 4 个端点，并以字段清单 + 发布物快照双层守卫锁定 v1 契约。
 - **优先级**：P1（首批 9 端点完整性与「未公告不得删除」的可验证性）。
@@ -165,6 +165,15 @@
 - **依赖**：M63.1（digest）、M63.2（视图层 / 骨架）、M63.3（key / 限流）；设计稿 §6 / §8 期 1b。
 - **交付物**：3-5 commits / 8-10 files / 450-650 行。
 - **风险与缓解**：契约快照跨 tag 取不到 → 落 `docs/guide/api-v1.md`；`api.md` 漂移 → 同批订正；日志端点体积 / 性能 → 2 KB 单条上限 + 64 KB error 上限 + 分页。
+
+- **执行记录（2026-11-20，6 commits：`b00bd3f0` 日志查询/原始视图 / `6071f13f` 告警与 PR Check 共享筛选 + 仪表板组织隔离 / `a109e779` 四个 v1 端点 / `be161cd3` 契约与 e2e / `c1dcd2e6` 文档与快照门禁 / 本提交 todo 收口）**：
+  - **实现**：alerts / pr-checks 筛选与排序抽到视图层（内部与 v1 共用），dashboard 统计四个子查询全部按组织隔离。新增 `/api/v1/alerts`、`/api/v1/pr-checks`、`/api/v1/dashboard/stats`、`/api/v1/runs/{id}/logs`：集合均上限分页（默认 100 / 最大 500），日志 `view=grouped`（默认）/ `raw`、`level` 多选、`q` 子串、`pageSize` 默认 50 / 最大 200，`level` 非法 400；`pages` 可翻到全部组（`groupCount` 全量、单页上限 200）。日志与 Web UI 共用 `shared/log-digest`，`droppedBefore` / `errorTruncated` 同源，响应 `no-store`。自由文本（summary / errorMessage / signals / failureSources / detailsUrl / note / logs）统一脱敏 + 绝对路径归一。字段白名单补齐 6 组。
+  - **AC1 / AC5 / AC7 / AC8 / AC11 / AC12**：10 个数据端点全部可用且无 ACAO；health 免认证、其余 key / 会话、跨组织 403；白名单递归断言（含 groups / entries / results）且 5 个禁用字段 0 命中；alerts / repos / pr-checks 500、runs 200、logs 50/200 上限与 total 正确；logs grouped 与 Web UI 同源；内部 alerts / pr-checks 改共享筛选后字段与 take(500) 等价（定向 92 passed）。
+  - **AC6**：`docs/guide/api-v1.md` 快照与 `API_V1_FIELDS` 由单测强制一致；`check:api-v1-contract` 与上一 tag 比对字段 / 字段组删除与分页下调（Test job 检出改完整历史；无 tag 显式 skipped）；`api.md §3` 标注历史声明。
+  - **审计**：deep R1 **Reject**（B01 dashboard 未做组织隔离，跨组织仓库 / 告警 / latestRun 外泄；W01 level 非法静默放行 / W02 组分页不可达 / W03 signals 未清洗 / W04 分页键删除漏检 / W05 CI 门禁恒 skip）→ 全部收口 → R2 quick **Pass**（新增 W06 detailsUrl 未清洗与 S09-S13，已修 / 收敛）。
+  - **证据**：platform 全量 219 文件 / 2758 passed / 10 skipped；定向 92 passed；脚本用例 25 passed；e2e api-v1 + api-keys 8 passed（重建产物）；`gates:docs` 22 项（含 check:api-v1-contract）；`lint:check` 0 error、`typecheck` 7 项目、platform build 通过。
+  - **残余**：① 契约 tag 比对在无历史 tag 时显式 skipped（发布前应保证完整 tag）；② 快照只比对字段集合与分页上限，类型由 TS / 契约测试约束；③ dashboard 每次全量聚合（读面放大后评估缓存）；④ MySQL / PostgreSQL 未起真库验证新 join；⑤ `acknowledgedByUserId` / `upstreamId` 是否收敛到 v1 字段清单留待后续评估。
+
 
 ### M63.5 MCP remote 后端（期 2）（P1 🚀）
 

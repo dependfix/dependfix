@@ -18,7 +18,7 @@
 | [Skill 分发治理](./skill-distribution.md) | 专项治理（M5.5 Skill 编排） | ✅ 已落地（2026-08-07） |
 | [执行器设计与沙箱评估](./executor-sandbox.md) | 专项设计（T607 设计先行） | ✅ 设计已落地（M10 隔离基础设施 + M38 执行进程隔离；沙箱内真实引擎执行为占位；平台入口已临时关闭 2026-10-27） |
 | [沙箱与恶意依赖防护治理](./sandbox-security-governance.md) | 专项治理（2026-08-14 安全评估） | ✅ 已落盘（2026-08-14） |
-| [MCP Server 设计](./mcp-server.md) | 专项设计（M6） | ✅ 已落地（`@dependfix/mcp` 0.2.0 已发布，8 个 tool） |
+| [MCP Server 设计](./mcp-server.md) | 专项设计（M6） | ✅ 已落地（`@dependfix/mcp` 已发布（≥1.0.0），9 个 tool） |
 | [平台认证与用户体系设计](./platform-auth-users.md) | 专项设计（M7.1 T701/T707 设计先行） | ✅ 已落地（2026-08-09，Review Gate Pass） |
 | [定时扫描与批量处理设计](./platform-scheduled-batch.md) | 专项设计（M7.2 T704 设计先行） | ✅ 已落地（T704 实现 + M21.5 async/e2e；真实环境验收见 backlog T704） |
 | [平台 AI 研判集成设计](./platform-ai-integration.md) | 专项设计（apps/platform AI 研判端到端联通） | ✅ 已落地（M25.2a 基础层 + M26.1 应用层，见 [M26](../../plan/archive/todo-archive-phases-m26.md)） |
@@ -49,7 +49,7 @@
 | [时长输入与环境变量单位设计](./duration-input-and-env-units.md) | 专项设计（可读时长输入 + env 单位兼容 + 表单字段级错误定位） | ✅ 已落地（2026-11-09，用户授权追加） |
 | [运行结论语义与锁文件前置不变式](./run-conclusion-semantics.md) | 专项治理（无写入语义 / 按包聚合 / 基线已知损坏的锁文件修复 / 收尾异常不翻转成功结论 / 外联审计与违规判失败） | ✅ 已落地（2026-11-13） |
 | [平台页面体量治理与组件 / 组合式分层设计](./platform-page-decomposition.md) | 专项设计（M60：三列表页 max-lines 治理 + 展示块 / 组合式 / 纯函数分层口径） | 🔶 进行中（2026-11-15，M60.1 落地） |
-| [平台对外 API 与远程 MCP 设计](./platform-public-api.md) | 专项设计（日志可消费化 + 只读观测接口 `/api/v1` + `@dependfix/mcp` remote 后端；写能力分两期后置） | 🔶 M63 实施中（2026-11-20 规划；首批含日志查询） |
+| [平台对外 API 与远程 MCP 设计](./platform-public-api.md) | 专项设计（日志可消费化 + 只读观测接口 `/api/v1` + `@dependfix/mcp` remote 后端；写能力分两期后置） | ✅ 只读面已实施（2026-11-20；期 3 / 4 后置） |
 
 ## 使用约定
 

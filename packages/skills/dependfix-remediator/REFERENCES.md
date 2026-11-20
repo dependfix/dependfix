@@ -111,7 +111,7 @@
 |------|---------|
 | Claude Code | `claude mcp list`；或项目根 `.mcp.json` 的 `mcpServers` 字段含 dependfix server |
 | OpenCode | `opencode.json` / `~/.config/opencode/opencode.json` 的 `mcp` 配置含 dependfix server |
-| 通用 | 当前会话工具列表中存在以下 8 个 tool 即视为 MCP 后端可用 |
+| 通用 | 当前会话工具列表中存在以下 9 个 tool 即视为 MCP 后端可用 |
 
 ### MCP tool 映射明细
 
@@ -122,6 +122,7 @@
 | 修复指定依赖 | `fix_dependency` | `workDir`（本地已 clone）、`fix_type`（override/direct/lockfile，默认 override）、`packageName`?、`targetVersion`? | `dependfix fix --groups <name>:<pkg>` |
 | 查询最近报告 | `get_last_report` | 无参数（读取最近一次 JSON 报告） | 读取 `dependfix-reports/` 最近报告 |
 | 发现仓库 | `discover_repos` | `owner[]`、`topics[]`?、`include[]`?、`exclude[]`?、`probe_dependabot`?（默认 true）、`max_repos`?（默认 100） | `--owner` + `--repo-topics` / `--repo-include` / `--repo-exclude` / `--max-repos` |
+| 读取运行日志 | `get_run_logs` | `run_id`、`view`（grouped/raw）、`level`?、`q`?、`page`?、`page_size`?（仅 remote 后端） | 平台 `/api/v1/runs/{id}/logs` |
 | 清理分支 | `cleanup_branches` | `repo`、`dry_run`? | `dependfix cleanup-branches` |
 | 历史摘要 | `history` | `repo` | `dependfix --history <owner/repo>` |
 | 本地审计 | `pnpm_audit` | `workDir`（本地已 clone）、`repository`（owner/repo 或 local） | `--alerts-source pnpm-audit` |

@@ -23,6 +23,7 @@ pnpm add @dependfix/mcp
 | `history` | Query history run summary for specified repo (read-only) | `repo` |
 | `get_last_report` | Read most recent JSON report (read-only) | — |
 | `pnpm_audit` | Local pnpm audit fallback data source (reuses the `GITHUB_TOKEN` check; audit failures return a hard error) | `workDir`, `repository` |
+| `get_run_logs` | Read platform run logs (grouped / raw; remote backend only) | `run_id`, `view?`, `level?`, `q?`, `page?`, `page_size?` |
 
 Parameter semantics align with CLI (severity is threshold semantics: `high` keeps critical + high; `dry_run` defaults inferred from mode; AI params only pass through switch and model, apiKey read from env var).
 
@@ -51,10 +52,20 @@ Environment variables:
 | `GITHUB_TOKEN` | GitHub access credential (required for fetching alerts / running scans / branch cleanup / `pnpm_audit`) |
 | `DEPENDFIX_MCP_REPORT_DIR` | JSON report output dir (default `./dependfix-reports`) |
 | `DEPENDFIX_AI_API_KEY` | AI assessment API Key (required when `run_scan` `ai_enabled` enabled; only via env var, never via tool params) |
+| `DEPENDFIX_MCP_BACKEND` | `local` / `remote` / `auto` (default `auto`: remote when platform URL and key are both set) |
+| `DEPENDFIX_PLATFORM_URL` | Platform base URL (remote backend) |
+| `DEPENDFIX_PLATFORM_API_KEY` | Platform read-only API key (`dfk_`, remote backend) |
+| `DEPENDFIX_MCP_PLATFORM_TIMEOUT_MS` | Remote request timeout (default 10000ms) |
+
+### Remote backend
+
+With `DEPENDFIX_PLATFORM_URL` + `DEPENDFIX_PLATFORM_API_KEY`, `fetch_alerts` / `history` / `get_last_report` / `get_run_logs` use platform `/api/v1`;
+`discover_repos` degrades to the platform-managed repo list and marks `source: platform`; `run_scan` / `fix_dependency` / `cleanup_branches` / `pnpm_audit` remain local.
+Remote failures (401 / 403 / 404 / 429 / 5xx) return explicit errors and **never silently fall back to local**. The tool description carries `[remote]` when active.
 
 ## Security boundaries
 
-- Credentials only read from environment variables (`GITHUB_TOKEN` / `DEPENDFIX_AI_API_KEY`), tool params do not pass sensitive information
+- Credentials only read from environment variables (`GITHUB_TOKEN` / `DEPENDFIX_AI_API_KEY` / `DEPENDFIX_PLATFORM_API_KEY`), tool params do not pass sensitive information
 - `cleanup_branches` is pure GitHub API ops (list/status/delete remote branch), no local repo needed; only deletes `dependfix/` prefixed merged/closed branches, never touches open PR branches
 - `fix_dependency` requires locally cloned repo dir (`workDir`, operates on package.json / pnpm-workspace.yaml / pnpm-lock.yaml)
 

@@ -23,6 +23,7 @@ pnpm add @dependfix/mcp
 | `history` | 查询指定仓库的历史运行摘要（只读） | `repo` |
 | `get_last_report` | 读取最近一次 JSON 报告（只读） | — |
 | `pnpm_audit` | 本地 pnpm audit 回退数据源（复用 `GITHUB_TOKEN` 检查；audit 失败硬返回错误） | `workDir`, `repository` |
+| `get_run_logs` | 读取平台侧单次运行日志（grouped / raw；仅 remote 后端） | `run_id`, `view?`, `level?`, `q?`, `page?`, `page_size?` |
 
 参数语义与 CLI 对齐（severity 为阈值语义：`high` 保留 critical + high；`dry_run` 缺省按 mode 推断；AI 参数仅透传开关与模型，apiKey 从环境变量读取）。
 
@@ -51,10 +52,20 @@ pnpm add @dependfix/mcp
 | `GITHUB_TOKEN` | GitHub 访问凭据（拉取告警 / 执行扫描 / 分支清理 / `pnpm_audit` 必需） |
 | `DEPENDFIX_MCP_REPORT_DIR` | JSON 报告输出目录（默认 `./dependfix-reports`） |
 | `DEPENDFIX_AI_API_KEY` | AI 研判 API Key（启用 `run_scan` 的 `ai_enabled` 时必需；仅经 env 读取，禁止经 tool 参数传入） |
+| `DEPENDFIX_MCP_BACKEND` | `local` / `remote` / `auto`（默认 `auto`：平台 URL 与 key 齐备即 remote） |
+| `DEPENDFIX_PLATFORM_URL` | 平台地址（remote 后端） |
+| `DEPENDFIX_PLATFORM_API_KEY` | 平台只读 API key（`dfk_`，remote 后端） |
+| `DEPENDFIX_MCP_PLATFORM_TIMEOUT_MS` | remote 请求超时（默认 10000ms） |
+
+### Remote 后端
+
+配置 `DEPENDFIX_PLATFORM_URL` + `DEPENDFIX_PLATFORM_API_KEY` 后，`fetch_alerts` / `history` / `get_last_report` / `get_run_logs` 走平台 `/api/v1`；
+`discover_repos` 降级为平台已纳管仓库列表并标注 `source: platform`；`run_scan` / `fix_dependency` / `cleanup_branches` / `pnpm_audit` 仍为本地能力。
+remote 失败（401 / 403 / 404 / 429 / 5xx）返回明确错误，**不静默降级到 local**。
 
 ## 安全边界
 
-- 凭据仅从环境变量读取（`GITHUB_TOKEN` / `DEPENDFIX_AI_API_KEY`），tool 参数不透传敏感信息
+- 凭据仅从环境变量读取（`GITHUB_TOKEN` / `DEPENDFIX_AI_API_KEY` / `DEPENDFIX_PLATFORM_API_KEY`），tool 参数不透传敏感信息
 - `cleanup_branches` 为纯 GitHub API 操作（列表/状态/删除远程分支），无需本地仓库；只删除 `dependfix/` 前缀且已合并/已关闭的分支，绝不触碰 open PR 分支
 - `fix_dependency` 需要本地已 clone 仓库目录（`workDir`，操作 package.json / pnpm-workspace.yaml / pnpm-lock.yaml）
 

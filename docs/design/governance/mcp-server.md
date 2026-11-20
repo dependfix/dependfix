@@ -1,6 +1,6 @@
 # MCP Server 设计（`@dependfix/mcp`）
 
-> 状态：✅ 已落地（`@dependfix/mcp` 0.2.0 已发布；当前 8 个 tool）。
+> 状态：✅ 已落地（`@dependfix/mcp` 0.2.0 已发布；当前 9 个 tool）。
 
 > 通过 [Model Context Protocol](https://modelcontextprotocol.io/) 将 dependfix 的能力暴露给 AI 编程助手（Claude、Copilot、Cursor 等），实现 CLI + Skills 自动化闭环。
 
@@ -8,7 +8,7 @@
 
 ## 1. 定位
 
-`@dependfix/mcp` 是一个 MCP Server，运行后向 AI 助手注册 8 个 tool。AI 助手可通过工具调用直接拉取告警、执行修复、获取报告，无需用户手动输入 CLI 命令。
+`@dependfix/mcp` 是一个 MCP Server，运行后向 AI 助手注册 9 个 tool。AI 助手可通过工具调用直接拉取告警、执行修复、获取报告，无需用户手动输入 CLI 命令。
 
 ```
 用户："检查这个仓库的安全告警"
@@ -33,6 +33,25 @@
 | `history` | 查询仓库历史运行摘要（只读） | `repo` | 历史摘要 |
 | `get_last_report` | 读取最近一次 JSON 报告（只读） | — | `RunResult \| null` |
 | `pnpm_audit` | 本地 pnpm audit 回退数据源（只读；复用 `GITHUB_TOKEN` 检查） | `workDir`, `repository` | 告警列表 |
+| `get_run_logs` | 读取平台侧单次运行日志（grouped / raw；仅 remote） | `run_id`, `repo?`, `view?`, `level?`, `q?`, `page?`, `page_size?` | 日志 digest |
+
+### 2.1 Remote 后端（M63.5）
+
+`DEPENDFIX_MCP_BACKEND=local|remote|auto`（默认 `auto`）；`auto` 在
+`DEPENDFIX_PLATFORM_URL` + `DEPENDFIX_PLATFORM_API_KEY` 齐备时启用 remote：
+
+| 工具 | remote 行为 |
+|:--|:--|
+| `fetch_alerts` | 平台 v1 告警；`owner/name` 精确解析仓库，按 source 与严重级别阈值过滤（静态分析 `unknown` 恒透传） |
+| `history` | 平台运行列表映射为原 shape |
+| `get_last_report` | 最近一次运行详情，标注 `source: platform` |
+| `get_run_logs` | 仅 remote；透传平台 grouped / raw digest |
+| `discover_repos` | 降级为平台已纳管仓库，标注 `source: platform` + `degraded: true` |
+| 其余 4 个工具 | 保持本地能力，不受后端切换影响 |
+
+remote 错误（401 / 403 / 404 / 429 / 5xx / 不可达）返回明确错误，**不静默降级 local**；请求超时默认 10s
+（`DEPENDFIX_MCP_PLATFORM_TIMEOUT_MS`）。`discover_repos` 的结果标 `degraded: true` / `probed: false`，
+`topics` / `hasDependabotConfig` 为占位默认值，不代表真实探测。
 
 ---
 
@@ -46,7 +65,7 @@
 ┌──────────────▼──────────────────────┐
 │  @dependfix/mcp                     │
 │  ├── index.ts     # server / stdio  │
-│  ├── tools/       # 8 tools         │
+│  ├── tools/       # 9 tools         │
 │  └── bin.ts       # entry           │
 └──────────────┬──────────────────────┘
                │ 直接调用（无网络）
@@ -114,7 +133,7 @@ MCP Server 不依赖 CLI args 解析，直接走程序化 API。这要求 `Depen
 
 ### 4.3 认证
 
-MCP Server 本身不管理凭据。`GITHUB_TOKEN` 和 `DEPENDFIX_AI_API_KEY` 从环境变量读取：
+MCP Server 本身不管理凭据。`GITHUB_TOKEN` / `DEPENDFIX_AI_API_KEY` / `DEPENDFIX_PLATFORM_API_KEY`（remote 还需 `DEPENDFIX_PLATFORM_URL`）从环境变量读取：
 
 ```
 mcpServer.connect(transport)

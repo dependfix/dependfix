@@ -175,7 +175,7 @@
   - **残余**：① 契约 tag 比对在无历史 tag 时显式 skipped（发布前应保证完整 tag）；② 快照只比对字段集合与分页上限，类型由 TS / 契约测试约束；③ dashboard 每次全量聚合（读面放大后评估缓存）；④ MySQL / PostgreSQL 未起真库验证新 join；⑤ `acknowledgedByUserId` / `upstreamId` 是否收敛到 v1 字段清单留待后续评估。
 
 
-### M63.5 MCP remote 后端（期 2）（P1 🚀）
+### M63.5 MCP remote 后端（期 2）（P1 🚀）—— ✅ 已闭环
 
 - **目标**：`@dependfix/mcp` 支持 `local|remote|auto`，4 个只读工具走平台 v1，新增 `get_run_logs`，`discover_repos` 降级为已纳管仓库列表。
 - **优先级**：P1（把日志与平台状态真正送进 AI 助手；设计首批范围）。
@@ -196,6 +196,16 @@
 - **依赖**：M63.3（key）与 M63.4（9 端点）；设计稿 §7 / §8 期 2。
 - **交付物**：4-6 commits / 8-12 files / 500-800 行。
 - **风险与缓解**：后端切换口径混淆 → 工具 description 标注 `[remote]` + local 零回归；key 处理 → 只读 env、不落日志；错误映射 → 按 `data.code` 单测；插件工具不兼容 → remote 失败不静默降级。
+
+- **执行记录（2026-11-20，6 commits：`1d74847b` remote 后端骨架 / `541d4acd` 四工具接入 / `0be9c9fd` MCP 文档 / `df3aeaa3` 治理与环境契约 / `8d56b119` 仪表板导入清理 / 本提交 todo 收口）**：
+  - **实现**：`platform.ts` 提供 local / remote / auto 选择（显式 local 优先；auto 需平台 URL + key）、Bearer 请求、10s 超时、结构化错误与“不静默降级”映射。`fetch_alerts` / `history` / `get_last_report` / `discover_repos` 增加 remote 分支（local 零改动），新增 `get_run_logs`（仅 remote，local 明确提示），注册 8 → 9 且 remote 工具 description 标 `[remote]`。remote 告警按 owner/name 精确解析仓库、分页拉取、source 与严重级别阈值过滤（静态分析 `unknown` 恒透传，与 core `filterAlerts` 同源）；history 映射平台 runs；get_last_report 标 `source: platform`；discover_repos 降级为已纳管仓库（`degraded: true` / `probed: false`，应用 max_repos）。
+  - **AC1 / AC2**：无配置 / 显式 local 时既有 8 工具走原路径（测试环境钉 local，宿主平台 env 不再污染）；配置齐备时 4 个工具走 remote，集合形状与 local 对齐（`fetch_alerts.id` 放宽为 `number | string`）；写工具与 `pnpm_audit` 仍 local。
+  - **AC3 / AC4**：401 / 403 / 404 / 429（含 Retry-After）/ 5xx / 超时 / 网络 / 非 JSON 均有明确文案且不降级；remote mock HTTP 覆盖分页、过滤、错误、超时、显式 local。
+  - **AC5**：`discover_repos` 结果标 `source: platform` / `degraded: true` / `probed: false`，描述在 remote 下说明忽略 topics / include / exclude / probe。
+  - **审计**：deep R1 **Reject**（B01 remote 告警过滤丢弃 code-scanning unknown；W01 宿主 env 污染 local 测试 / W02 无超时 / W03 文案边界 / W04 分页静默截断 / W05 discover 伪探测 / W06 文档工具数不一致 / W07 测试缺口 / W08 跨批 platform 改动）→ 全部收口（dashboard 清理独立提交）→ R2 quick **Pass**。
+  - **证据**：mcp 10 文件 / 64 passed（含 W01 泄漏复测 63→64）；`typecheck` 7 项目；`lint:check` 0 error（root / platform 各 5 warning）；`gates:docs` 22 项；`check:contract-freeze` OK（4 个 remote env）；mcp build 通过。
+  - **残余**：① remote 与平台真实联调（key scope / 组织隔离 / 真实 429）未在 CI 执行；② `discover_repos` 仍返回占位 `topics: []` / `hasDependabotConfig: false`（已用 `probed: false` 标注，未做完整探测）；③ remote 过滤谓词与 core 为判据复制而非共享导出；④ 超时 env 直接读 process.env，单测未注入。
+
 
 ## 上一阶段
 

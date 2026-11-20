@@ -1,45 +1,17 @@
 import { formatDurationMs } from '@dependfix/core'
 import type { H3Event } from 'h3'
-import { parseSandboxLimits, parseTags, parseVerifyCommands, Repository } from '#server/entities/repository'
+import { parseVerifyCommands, Repository } from '#server/entities/repository'
 import { ensureDatabaseInitialized } from '#server/database'
 import { repositorySchema } from '#server/schemas/repository'
 import { requireAuth, requireRole } from '#server/utils/guard'
 import { createLocalizedError } from '#server/utils/localized-error'
 import { resolveOrganizationId } from '#server/utils/organization'
-import { normalizePRCheckFocus, parsePRCheckFocus } from '#server/utils/pr-check-focus'
+import { normalizePRCheckFocus } from '#server/utils/pr-check-focus'
 import { recordExecutionLimitsAudit, recordMajorUpgradePolicyAudit, recordVerifyCommandsAudit } from '#server/services/repository-audit'
 import { resolveExecutionCeilingMs } from '#server/utils/execution-limits'
 import { resolveAllowMajorUpgradeDefault } from '#server/utils/allow-major-upgrade'
 import { normalizeDockerImage } from '#server/utils/docker-image'
-
-const toView = (r: Repository) => ({
-    id: r.id,
-    owner: r.owner,
-    name: r.name,
-    platform: r.platform,
-    defaultBranch: r.defaultBranch,
-    packageManager: r.packageManager,
-    credentialId: r.credentialId,
-    credentialName: r.credential?.name ?? null,
-    actionWorkflowFile: r.actionWorkflowFile,
-    executorKind: r.executorKind,
-    note: r.note,
-    tags: parseTags(r.tags),
-    sandboxLimits: parseSandboxLimits(r.sandboxLimits),
-    sandboxImage: r.sandboxImage,
-    verifyCommands: parseVerifyCommands(r.verifyCommands),
-    prCheckFocus: parsePRCheckFocus(r.prCheckFocus),
-    executionTimeoutMs: r.executionTimeoutMs,
-    verifyCommandTimeoutMs: r.verifyCommandTimeoutMs,
-    installTimeoutMs: r.installTimeoutMs,
-    cloneTimeoutMs: r.cloneTimeoutMs,
-    allowMajorUpgrade: r.allowMajorUpgrade,
-    aiEnabled: r.aiEnabled,
-    aiTrigger: r.aiTrigger,
-    lastScanAt: r.lastScanAt,
-    createdAt: r.createdAt,
-    updatedAt: r.updatedAt,
-})
+import { toRepositoryListView } from '#server/services/view/repos'
 
 /**
  * GET /api/repos：仓库列表（含关联凭据名称）。
@@ -56,7 +28,7 @@ const listRepositories = async (event: H3Event) => {
         order: { createdAt: 'DESC' },
         relations: { credential: true },
     })
-    return repos.map(toView)
+    return repos.map(toRepositoryListView)
 }
 
 /** POST /api/repos：创建仓库（Zod 校验 + owner/name 唯一性 + 组织归属填充） */
@@ -203,7 +175,7 @@ const createRepository = async (event: H3Event) => {
         })
     }
 
-    return withRelation ? toView(withRelation) : toView(saved)
+    return withRelation ? toRepositoryListView(withRelation) : toRepositoryListView(saved)
 }
 
 export default defineEventHandler(async (event) => {

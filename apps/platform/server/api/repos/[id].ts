@@ -1,14 +1,15 @@
 import { formatDurationMs } from '@dependfix/core'
 import type { H3Event } from 'h3'
 import { normalizeDockerImage } from '#server/utils/docker-image'
-import { parseSandboxLimits, parseTags, parseVerifyCommands, Repository } from '#server/entities/repository'
+import { parseVerifyCommands, Repository } from '#server/entities/repository'
 import { ensureDatabaseInitialized } from '#server/database'
 import { repositoryUpdateSchema } from '#server/schemas/repository'
 import { requireAuth, requireOrgResource, requireRole } from '#server/utils/guard'
 import { createLocalizedError } from '#server/utils/localized-error'
-import { normalizePRCheckFocus, parsePRCheckFocus } from '#server/utils/pr-check-focus'
+import { normalizePRCheckFocus } from '#server/utils/pr-check-focus'
 import { recordExecutionLimitsAudit, recordMajorUpgradePolicyAudit, recordVerifyCommandsAudit } from '#server/services/repository-audit'
 import { resolveExecutionCeilingMs } from '#server/utils/execution-limits'
+import { toRepositoryDetailView } from '#server/services/view/repos'
 
 /** GET /api/repos/[id]：仓库详情 */
 const getRepository = async (event: H3Event, id: string) => {
@@ -23,32 +24,7 @@ const getRepository = async (event: H3Event, id: string) => {
     if (!found) {
         throw createLocalizedError(event, { statusCode: 404, code: 'REPO_NOT_FOUND' })
     }
-    return {
-        id: found.id,
-        owner: found.owner,
-        name: found.name,
-        platform: found.platform,
-        defaultBranch: found.defaultBranch,
-        packageManager: found.packageManager,
-        credentialId: found.credentialId,
-        credentialName: found.credential?.name ?? null,
-        actionWorkflowFile: found.actionWorkflowFile,
-        executorKind: found.executorKind,
-        note: found.note,
-        tags: parseTags(found.tags),
-        sandboxLimits: parseSandboxLimits(found.sandboxLimits),
-        sandboxImage: found.sandboxImage,
-        verifyCommands: parseVerifyCommands(found.verifyCommands),
-        prCheckFocus: parsePRCheckFocus(found.prCheckFocus),
-        executionTimeoutMs: found.executionTimeoutMs,
-        verifyCommandTimeoutMs: found.verifyCommandTimeoutMs,
-        installTimeoutMs: found.installTimeoutMs,
-        cloneTimeoutMs: found.cloneTimeoutMs,
-        allowMajorUpgrade: found.allowMajorUpgrade,
-        lastScanAt: found.lastScanAt,
-        createdAt: found.createdAt,
-        updatedAt: found.updatedAt,
-    }
+    return toRepositoryDetailView(found)
 }
 
 /** PUT /api/repos/[id]：更新仓库（部分字段，写操作限 admin/org_admin + 组织归属校验） */

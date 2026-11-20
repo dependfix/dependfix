@@ -12,7 +12,7 @@ import {
     runsPaginationShape,
     runsSortShape,
 } from '#server/utils/runs-query'
-import { parseRunResource } from '#server/utils/run-resource'
+import { toRunListView } from '#server/services/view/runs'
 
 /**
  * 查询参数 schema（todo.md §M14.2 UX-R1 + §M16.1）：
@@ -35,36 +35,6 @@ const querySchema = z.object({
 }).refine(isValidRunsRange, {
     message: 'from must be less than or equal to to',
     path: ['to'],
-})
-
-const toView = (r: ScanRun) => ({
-    id: r.id,
-    repositoryId: r.repositoryId,
-    owner: r.repository?.owner ?? null,
-    name: r.repository?.name ?? null,
-    mode: r.mode,
-    severityThreshold: r.severityThreshold,
-    executorKind: r.executorKind,
-    status: r.status,
-    startedAt: r.startedAt,
-    finishedAt: r.finishedAt,
-    runUrl: r.runUrl,
-    summary: r.summaryJson ? JSON.parse(r.summaryJson) as Record<string, unknown> : null,
-    // 运行结果可信度：exitCode 为进程级事实；环境性失败计数与 summary 同源落库。
-    // 旧数据 exitCode 为 null；B 模式执行器不传递 exitCode（触发受理哨兵），但环境性失败计数仍可落库。
-    // 消费方须按 null 降级，不得把 null 推断为 0 成功。
-    exitCode: r.exitCode,
-    environmentalFailureCount: r.environmentalFailureCount,
-    // 资源 / OOM 归因：列与 resourceJson 同源；null = 不可采集（原因在 resource.degradedReason）
-    memoryMaxBytes: r.memoryMaxBytes,
-    peakRssBytes: r.peakRssBytes,
-    oomKilled: r.oomKilled,
-    resource: parseRunResource(r.resourceJson),
-    error: r.errorJson ? JSON.parse(r.errorJson) as { code: string, message: string } | null : null,
-    // 失败分类（非失败终态为 null；落库口径见 run-failure-classify.ts）
-    failureCode: r.failureCode,
-    failureStage: r.failureStage,
-    failureKind: r.failureKind,
 })
 
 /**
@@ -110,7 +80,7 @@ export default defineEventHandler(async (event) => {
         .getManyAndCount()
 
     return {
-        items: runs.map(toView),
+        items: runs.map(toRunListView),
         total,
         page,
         pageSize,

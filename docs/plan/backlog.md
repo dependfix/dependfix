@@ -54,7 +54,7 @@
 
 ### 候选评估中（待评估 / 本阶段延后项）
 
-> **候选池概览（2026-11-19 M62 归档后复算）**：本区 **35 项**（`### 候选评估中` 段内 `^- \*\*` 逐行计数）；每次上收 / 新增 / 移出后按段内实测更新本句与首行，不保留历史链路。P 标签覆盖不全（未标注者评估时补，不默认升级）；1.0 分档见 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)。
+> **候选池概览（2026-11-20 M63 归档后复算）**：本区 **35 项**（`### 候选评估中` 段内 `^- \*\*` 逐行计数）；每次上收 / 新增 / 移出后按段内实测更新本句与首行，不保留历史链路。P 标签覆盖不全（未标注者评估时补，不默认升级）；1.0 分档见 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)。
 > **1.0 门槛与分档**：分档、门槛判定与批次计划单点声明于 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)（2026-10-30 冻结口径，不随候选上收收缩；本文件不重复维护数字）。
 
 - **备份 `.tmp` 清扫缺年龄门槛（P3 🛠️，2026-10-31 M53.2 收口登记）** —— `cleanupOldBackups` 对 `*.bak.tmp` 无条件回收；单实例串行路径不可达冲突，但并发 `db:restore` 或多实例共卷启动时可能删掉对端正在写的临时文件（rename ENOENT → 该轮快照丢失，fail-open 后仅剩日志）。待评估：加入 `mtime < now - 10min` 年龄门槛或按 PID 命名临时文件。触发：启用多实例 / 多容器共享数据卷，或出现并发恢复需求时。
@@ -250,7 +250,12 @@
 #### M62 归档残余（2026-11-19 登记）
 
 - **展示与性能残余（P3 🎨🛠️）** —— `/scans` 单 run 详情（`repo-history-dialog`）未展示资源 / OOM 项；报告 `## Command OOM` 段未区分 `preExisting`；`assessLockfileWork` 与链路重复读 lockfile / manifest（性能项）。触发：下一阶段评估平台可观测面或告警多的仓库成本。
-- **设计治理索引经验计数陈旧（P3 📚）** —— `docs/design/governance/index.md` 写「§1-§85 共 85 条」，实测已 90 条；触发：任一次治理索引更新时顺手对齐（范围外修正需用户授权）。
+
+#### M63 归档残余（2026-11-20 登记）
+
+- **v1 契约与跨库残余（P3 🛠️📚）** —— 契约快照只比对字段集合 / 分页上限（类型由 TS 与契约测试约束）；MySQL / PostgreSQL 未起真库验证组织 join；dashboard 每次全量聚合（读面放大后评估缓存）；`acknowledgedByUserId` / `upstreamId` 是否收敛进 v1 字段清单待评估。触发：v1 接入外部看板或读量上升时。
+- **MCP remote 残余（P3 🚀）** —— `discover_repos` 的 `topics` / `hasDependabotConfig` 为占位默认值（已标 `probed: false`）；remote 告警过滤判据为复制 core 而非共享导出；超时 env 直接读 `process.env`、单测不可注入。触发：remote 后端进入日常使用或 core 过滤口径变更时。
+- **日志聚合边界（P3 🎨）** —— 200 组上限下最坏聚合文本约 427 KB / JSON 约 833 KB（v1 由 pageSize 兜底）；`/root.`、`/app.js` 因右边界取舍不归一（非误伤）；日志头部无视觉基线、暗色 tag 对比度未测。触发：日志样本规模或外部消费方增长时。
 
 ## 待人工验收（真实环境，随可用性推进）
 
@@ -295,6 +300,10 @@
 - **gated report-only**：需 rootless daemon + `SANDBOX_E2E_TOKEN`，在 `WITH_DOCKER_CLI=true` 镜像下跑通一次 report-only 并核对 `GET /api/sandbox/self-check` 返回 `available: true`；当前环境无 rootless socket（仅 rootful daemon）且无 token，`sandbox-report` gated 用例按 env skip（未证实项）。
 - **opt-in 构建取证**：`WITH_DOCKER_CLI=true` 真实构建平台镜像，核对容器内 `docker --version`、默认构建 `docker_cli_missing` 与 opt-in 后自检可用；Dockerfile 分支尚未实跑。
 - 前置：部署形态矩阵与命令见 [quick-start.md](../guide/quick-start.md)「部署形态与可行执行器」。
+
+### M63 真实平台 remote 联调（2026-11-20 归档登记）
+
+- 需真实平台实例 + `dfk_` key（read scope）与被纳管仓库，验证 `fetch_alerts` / `history` / `get_last_report` / `get_run_logs` 的 remote 结果、组织隔离与真实 429；M63 的 mcp 测试仅覆盖 mock HTTP。
 
 ### M62 真实仓库 baseline 对比（2026-11-19 归档登记）
 
@@ -437,9 +446,9 @@
 
 | 内容类型 | 位置 |
 |:--|:--|
-| 当前阶段活跃任务 | **M63 平台对外只读观测面**（2026-11-20 规划，5 原子，见 [todo.md](todo.md)）；插队容量治理见 [planning.md §3.1.1](../standards/planning.md#_3-1-1-插队后的阶段容量再平衡-hard-requirement-2026-10-19) |
-| 下一阶段（未规划） | M63 闭环后按本文件候选池重新评估（35 条）；M59 / M60 残余留在本文件；**1.1.0 已于 2026-11-15 发布**，定时发布启用仍在「待上收候选」段等待观察窗口 |
+| 当前阶段活跃任务 | 无活跃阶段（M63 已于 2026-11-20 归档，下一阶段待规划）；插队容量治理见 [planning.md §3.1.1](../standards/planning.md#_3-1-1-插队后的阶段容量再平衡-hard-requirement-2026-10-19) |
+| 下一阶段（未规划） | M63 归档后按本文件候选池重新评估（35 条）；M59 / M60 / M63 残余留在本文件；**1.1.0 已于 2026-11-15 发布**，定时发布启用仍在「待上收候选」段等待观察窗口 |
 | 已完成阶段归档 | [todo-archive.md](todo-archive.md)（阶段索引 + [archive/](archive/) 分片） |
-| 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M0-M62 已归档；M63 进行中） |
+| 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M0-M63 已归档） |
 | 长期主线 / 候选 / 待人工验收 / 已知边界 | 本文档（按四象限结构） |
 | 历史归档索引 | [archive/index.md](archive/index.md) |

@@ -47,7 +47,7 @@
 > **前置 / 风险**：`@better-auth/api-key` 与 `better-auth 1.7.22` 兼容性未实测（M63.3 首个 D 动作，失败走自建回退）；
 > `api.md §3` 信封漂移；期 3 / 4（触发与交付写）明确不在本期。
 
-### M63.1 日志可消费化与丢弃披露（1a）（P1 🎨🛠️）
+### M63.1 日志可消费化与丢弃披露（1a）（P1 🎨🛠️）—— ✅ 已闭环
 
 - **目标**：两处运行详情弹窗提供「聚合」复制 / 下载，聚合文本可直接粘贴给 AI；并由 `droppedBefore` 明确披露采集侧已丢弃的早期条目。
 - **优先级**：P1（日志 99% 为重复噪音，实测单次最大 178 KB / 1000 条；属首批首要目标）。
@@ -69,6 +69,16 @@
 - **依赖**：设计稿 §6.4 / §8 期 1a；既有 `sanitizeString`；迁移 helper（`addColumnIfMissing`）。
 - **交付物**：6-8 commits / 14-16 files / 700-900 行（行 = diff 改动量含删除；规划轮估算）；按 6-8 commits 拆分，单 commit ≤ 10 文件（AC1 / AC2 / AC4 → 前段，AC3 / AC6 → 中段，AC5 → 后段）。
 - **风险与缓解**：分组误折叠 → `error` 不归一化 + `sample` 保留原文；丢弃数语义混淆 → 三态断言 + UI 文案；两处弹窗漂移 → 同源 composable + e2e；迁移 → 前缀感知 helper + 存量库集成用例。
+
+- **执行记录（2026-11-20，6 commits：`d25eaed3` 共享脱敏与聚合 / `9e6a9c44` 丢弃数列与详情 / `6fd25169` 采集侧计数透传 / `321a6baf` 弹窗聚合档 / `1093ba0d` e2e / 本提交 todo 收口）**：
+  - **实现**：`shared/log-digest`（清洗 ANSI / URL 凭据 / 绝对路径 / 敏感键赋值 → 模板归一化 → `(level, template)` 分组；`error` 逐条不折叠；单条含 sample/context 2 KB、error 合计 64 KB、error 组 200、总组数 200 上限均有披露）；`shared/sanitize` 下沉并保留 `#server/utils/sanitize` 导入面；`MemoryLogger` 与沙箱 `buildLogsJson` 统计截断条数；`ScanRun.logsDropped` 迁移（前缀感知 + 幂等 + 存量行 NULL）与详情透传；两处运行详情弹窗新增「聚合 / 原始」档（默认聚合，复制 / 下载同源 composable，原始档零回归）与丢弃提示（CaomeiTag warning）。
+  - **AC1 / AC2**：脱敏 fixture（1000 条，含 ANSI / 绝对路径 / URL 凭据）grouped JSON 实测 2.6 KB < 10 KB，2 条 error 均在且正文可读；`level=warn` → `total=991` / `groupCount=3` / 最大组 `count=989`（实现复算与单测双证）。
+  - **AC3 / AC6**：三态 `null`（历史行 / github-action）/ `0`（container 未丢）/ `>0`（沙箱或超限）在实体、迁移、编排、详情与 UI 全链路断言；存量库迁移后新列为 NULL；UI 仅在 `>0` 时提示。
+  - **AC4 / AC5**：聚合文本含分组摘要、计数、截断与丢弃提示；两处弹窗共用 `use-run-log-digest`，e2e 断言默认聚合、聚合/原始下载文件名与 360px 窄视口；原始档沿用 `logsText` 与服务端附件。
+  - **审计**：deep（数据库列 + API 契约 + 客户端清洗）R1 **Reject**（B01 contract-freeze 缺列 / B02 提交切分跨组不可编译；W01 键值凭据 / W02 路径边界 / W03 error 折叠 / W04 组数无上限 / W05 装配无测试 / W06 窄视口溢出 / W07 对比度 / W08 context 未实现）→ 全部收口 → R2 Reject（仅 B02 切分 + W09 context 绕过预算 + S08 注释）→ 按「实体组 / 执行器组」重排提交并补 sample 预算 → R3 quick **Pass**。
+  - **证据**：`lint:check` 0 error（4 存量 warning）、`lint:css:check` 通过、`typecheck` 7 项目（commit 2 / 3 边界各复跑 EXIT=0）、platform 全量 214 文件 / 2723 passed / 10 skipped、定向 log-digest 22 / sanitize 39 / 迁移与注册 10 / 详情 API 11 / 编排丢弃三态 3、e2e scans + alerts 21 passed、视觉 2 passed、`check:contract-freeze` OK；变异去掉编排两处赋值 → 2 例失败并已还原。
+  - **残余**：① 200 组上限下最坏聚合文本约 427 KB / JSON 约 833 KB（10 KB 为非硬目标，v1 由 pageSize 兜底）；② `/root.`、`/app.js` 因右边界取舍不归一（非误伤）；③ 新日志头部无视觉基线（几何由 360px e2e 覆盖，浅色 tag 对比度 6.11:1，暗色未测）；④ `context` 序列化进 sample 属设计稿 §6.4 的实现口径，M63.4 v1 需保持同源。
+
 
 ### M63.2 共享视图层与 v1 契约骨架（1b-1）（P1 🛠️）
 

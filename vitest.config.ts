@@ -59,6 +59,7 @@ export default defineConfig({
                 'packages/cli/src/**/*.ts',
                 'packages/mcp/src/**/*.ts',
                 'apps/platform/app/**/*.ts',
+                'apps/platform/shared/**/*.ts',
                 'apps/platform/server/**/*.ts',
                 'scripts/**/*.mjs',
             ],

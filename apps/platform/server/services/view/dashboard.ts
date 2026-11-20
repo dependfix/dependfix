@@ -11,16 +11,20 @@ import { ScanResult } from '#server/entities/scan-result'
  * - `fixedCount` 数 `fixStatus='success'`（success 永不被 supersede，等价于活跃中的 success）；
  * - `topPackages` 保留全量历史语义（含已关闭告警）。
  */
-export const loadDashboardStats = async (ds: DataSource) => {
+export const loadDashboardStats = async (ds: DataSource, organizationId: string) => {
     const repoRepo = ds.getRepository(Repository)
     const runRepo = ds.getRepository(ScanRun)
     const resultRepo = ds.getRepository(ScanResult)
 
-    const repositoryCount = await repoRepo.count()
-
-    const activeResults = await resultRepo.find({
-        where: { supersededAt: IsNull() },
+    const repositoryCount = await repoRepo.count({
+        where: { organizationId },
     })
+
+    const activeQuery = resultRepo.createQueryBuilder('result')
+        .leftJoin('result.repository', 'repository')
+        .where('result.supersededAt IS NULL')
+    activeQuery.andWhere('repository.organizationId = :organizationId', { organizationId })
+    const activeResults = await activeQuery.getMany()
     const severityCounts: Record<string, number> = {
         critical: 0,
         high: 0,
@@ -40,25 +44,29 @@ export const loadDashboardStats = async (ds: DataSource) => {
     const fixedCount = activeResults.filter((result) => result.fixStatus === 'success').length
 
     // Top-10 包告警（count DESC + packageName ASC 次键，保证确定性）
-    const topPackagesRows = await ds
+    const topPackagesQuery = ds
         .createQueryBuilder(ScanResult, 'r')
+        .leftJoin('r.repository', 'repository')
         .select('r.packageName', 'packageName')
         .addSelect('COUNT(*)', 'count')
         .groupBy('r.packageName')
         .orderBy('count', 'DESC')
         .addOrderBy('packageName', 'ASC')
         .limit(10)
-        .getRawMany<{ packageName: string, count: string | number }>()
+    topPackagesQuery.andWhere('repository.organizationId = :organizationId', { organizationId })
+    const topPackagesRows = await topPackagesQuery.getRawMany<{ packageName: string, count: string | number }>()
     const topPackages: { packageName: string, count: number }[] = topPackagesRows.map((row) => ({
         packageName: row.packageName,
         count: typeof row.count === 'string' ? Number.parseInt(row.count, 10) : row.count,
     }))
 
-    const latestRun = await runRepo.findOne({
-        where: {},
-        order: { createdAt: 'DESC' },
-        relations: { repository: true },
-    })
+    const latestRunQuery = runRepo.createQueryBuilder('run')
+        .leftJoinAndSelect('run.repository', 'repository')
+        .orderBy('run.createdAt', 'DESC')
+        .addOrderBy('run.id', 'DESC')
+        .limit(1)
+    latestRunQuery.where('repository.organizationId = :organizationId', { organizationId })
+    const latestRun = await latestRunQuery.getOne()
 
     return {
         repositoryCount,

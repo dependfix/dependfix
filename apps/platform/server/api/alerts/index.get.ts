@@ -2,7 +2,7 @@ import { z } from 'zod'
 import { ScanResult } from '#server/entities/scan-result'
 import { ensureDatabaseInitialized } from '#server/database'
 import { requireAuth } from '#server/utils/guard'
-import { toAlertView } from '#server/services/view/alerts'
+import { applyAlertFilters, applyAlertOrder, toAlertView } from '#server/services/view/alerts'
 
 /**
  * GET /api/alerts：告警视图（按仓库/严重级别/来源筛选）。
@@ -63,33 +63,8 @@ export default defineEventHandler(async (event) => {
         .leftJoinAndSelect('result.scanRun', 'scanRun')
         .leftJoinAndSelect('scanRun.repository', 'repository')
         .take(500)
-    if (repositoryId && repositoryId !== 'all') {
-        // 新增 repositoryId 列后直接走 result.repositoryId 过滤（无需再 JOIN scanRun 推断）
-        qb.andWhere('result.repositoryId = :repositoryId', { repositoryId })
-    }
-    if (severity && severity !== 'all') {
-        qb.andWhere('result.severity = :severity', { severity })
-    }
-    if (source && source !== 'all') {
-        qb.andWhere('result.source = :source', { source })
-    }
-    // 默认 supersededAt IS NULL：alerts 视图只显示活跃告警
-    // includeSuperseded=true 时不过滤（前端"显示已解决"开关使用）
-    if (!includeSuperseded) {
-        qb.andWhere('result.supersededAt IS NULL')
-    }
-
-    if (groupBy === 'package') {
-        qb.orderBy('result.packageName', 'ASC')
-    } else if (groupBy === 'repository') {
-        // repository 模式：跨 repo 排序 + 同一 repo 内按 packageName ASC（保证迁移前的 rowGroup subheader 相邻行字段值变化）
-        qb.orderBy('repository.owner', 'ASC').addOrderBy('repository.name', 'ASC').addOrderBy('result.packageName', 'ASC')
-    } else {
-        qb.orderBy('result.createdAt', 'DESC')
-    }
-    // 并列兜底：主排序键相同（同毫秒 createdAt / 同 packageName）时按主键 DESC，
-    // 避免行序依赖数据库返回顺序（同一查询两次不一致 → 视觉基线抖动）
-    qb.addOrderBy('result.id', 'DESC')
+    applyAlertFilters(qb, { repositoryId, severity, source, includeSuperseded })
+    applyAlertOrder(qb, groupBy)
 
     const results = await qb.getMany()
 

@@ -6,6 +6,7 @@ import { requireAuth } from '#server/utils/guard'
 import { createLocalizedError } from '#server/utils/localized-error'
 import { parseOptional } from '#server/utils/zod-helpers'
 import { toPRCheckView } from '#server/utils/pr-check-view'
+import { applyPRCheckFilters, applyPRCheckOrder } from '#server/services/view/pr-checks'
 
 /**
  * GET /api/pr-checks：依赖更新 PR check 状态监测列表（详见 docs/plan/todo.md §M24.1）。
@@ -61,20 +62,10 @@ const listHandler = async (event: H3Event) => {
     // （ManyToOne 不产生行倍增，与 take(500) 上限语义兼容）
     const qb = ds.getRepository(PRCheck).createQueryBuilder('prCheck')
         .leftJoinAndSelect('prCheck.repository', 'repository')
-        .orderBy('prCheck.createdAt', 'DESC')
-        // 同毫秒并列时按主键 DESC 兜底，保证 take(500) 截断集合稳定（api.md §4）
-        .addOrderBy('prCheck.id', 'DESC')
-        .take(500)
-
-    if (repositoryId && repositoryId !== 'all') {
-        qb.andWhere('prCheck.repositoryId = :repositoryId', { repositoryId })
-    }
-    if (conclusion) {
-        qb.andWhere('prCheck.conclusion = :conclusion', { conclusion })
-    }
-    if (alertFiring !== undefined) {
-        qb.andWhere('prCheck.alertFiring = :alertFiring', { alertFiring })
-    }
+    applyPRCheckFilters(qb, { repositoryId, conclusion, alertFiring })
+    // 同毫秒并列时按主键 DESC 兜底，保证 take(500) 截断集合稳定（api.md §4）
+    applyPRCheckOrder(qb)
+    qb.take(500)
 
     const rows = await qb.getMany()
     return rows.map(toPRCheckView)

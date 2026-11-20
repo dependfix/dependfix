@@ -1,6 +1,7 @@
 import { ensureDatabaseInitialized } from '#server/database'
 import { requireAuth } from '#server/utils/guard'
 import { loadDashboardStats } from '#server/services/view/dashboard'
+import { resolveOrganizationId } from '#server/utils/organization'
 
 /** GET / getDashboardStats：仪表板统计（仓库数/告警数按严重级别/已修复数/最近扫描/Top-10 包告警）
  *
@@ -18,5 +19,5 @@ import { loadDashboardStats } from '#server/services/view/dashboard'
 export default defineEventHandler(async (event) => {
     await requireAuth(event)
     const ds = await ensureDatabaseInitialized()
-    return loadDashboardStats(ds)
+    return loadDashboardStats(ds, await resolveOrganizationId(ds))
 })

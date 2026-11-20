@@ -80,7 +80,7 @@
   - **残余**：① 200 组上限下最坏聚合文本约 427 KB / JSON 约 833 KB（10 KB 为非硬目标，v1 由 pageSize 兜底）；② `/root.`、`/app.js` 因右边界取舍不归一（非误伤）；③ 新日志头部无视觉基线（几何由 360px e2e 覆盖，浅色 tag 对比度 6.11:1，暗色未测）；④ `context` 序列化进 sample 属设计稿 §6.4 的实现口径，M63.4 v1 需保持同源。
 
 
-### M63.2 共享视图层与 v1 契约骨架（1b-1）（P1 🛠️）
+### M63.2 共享视图层与 v1 契约骨架（1b-1）（P1 🛠️）—— ✅ 已闭环
 
 - **目标**：抽出 runs / repos / dashboard / alerts / pr-checks 共享视图层，建立 `/api/v1` 薄封装与字段白名单，先交付 health / repos / runs 五个端点且不复制业务逻辑。
 - **优先级**：P1（1b 的基础；不抽视图层就只能复制 handler，违反设计 D4 单一事实源）。
@@ -100,6 +100,16 @@
 - **依赖**：设计稿 §6.1 / §6.2 / §6.3；现有 `runs-query.ts` 与各 handler 的 `toView`。
 - **交付物**：3-5 commits / 8-10 files / 450-650 行。
 - **风险与缓解**：视图抽取改变内部响应 → 内部端点快照用例；字段白名单漏项 → 每端点负向断言；`owner` / `name` 查询性能 → 索引与上限。
+
+- **执行记录（2026-11-20，6 commits：`a274f03f` 路径归一下沉 / `acbeb3c3` 运行与仓库视图层 / `8a51f2f0` 告警仪表板健康视图 / `472eaa0f` v1 五端点 / `9d7d0421` 契约与鉴权测试 / 本提交 todo 收口）**：
+  - **实现**：`server/services/view/{runs,repos,alerts,dashboard,health}` 承接内部与 v1 共用映射；内部 runs / repos / alerts / dashboard / health 改为调用视图层（字段集合与重构前逐端点相等，`credentialName` / `logsDropped` 等语义不变）；pr-checks 复用既有 `utils/pr-check-view`（已是列表/详情单一事实源），未重复搬迁。`server/schemas/api-v1-fields.ts` 声明字段白名单、`API_V1_FORBIDDEN_FIELDS`、集合分页（默认 100 / 最大 500）与 `toPage`。v1 交付 health / repos / repos:id / runs / runs:id 五端点：health 免认证；其余会话鉴权 + 组织隔离；repos 新增 owner/name 精确查询（AND，命中 owner+name+platform 唯一索引前缀）；runs 复用 `runs-query` 筛选/排序/分页（上限 200）；runs 详情剔除日志与采集侧计数，自由文本经脱敏 + 绝对路径归一，summary 深度清洗并防原型键。错误码 `API_V1_VALIDATION_FAILED` 双语登记。
+  - **AC1（子集）/ AC8**：e2e 验证 health 免认证、repos/runs 及两个详情路径无会话 401 `UNAUTHORIZED`；health / 200 / 401 响应均无 `Access-Control-Allow-Origin`。key / scope / 限流按设计留给 M63.3，未引入半成品。
+  - **AC5 / AC7**：契约单测逐端点比对 `API_V1_FIELDS` 并递归扫描 5 个禁用字段（嵌套命中 0）；`pageSize=9999` 钳制为 repos 500 / runs 200，`total` 与 DB 直查一致，page1/page2 主键互斥；owner+name 精确过滤不退化全量。
+  - **AC12（子集）**：内部端点字段集合与重构前逐端点相等；runs / repos / alerts / dashboard 定向 191 passed，浏览器路径 e2e（api-v1 + repos-crud + dashboard + scans + alerts-sidebar）42 passed。
+  - **审计**：deep R1 **Pass**（0 blocker；W01 详情鉴权/组织守卫无断言 / W02 skip 未锁 / W03 错误码穷举与 union 需同 commit；S01 文本清洗边界 / S02 原型键 / S03 health 重复 / S04 多余 join / S05 组织 backfill）→ 修复 W01-W03 + S02-S04 → R2 quick **Pass**（0 新增问题；剩余 repos 详情组织守卫用例与 `hasCredential=true` fixture 建议由 M63.3 补齐）。
+  - **证据**：`lint:check` 0 error（root 6 warning / platform 8 warning 均在预算内）、`lint:css:check` 通过、`typecheck` 7 项目（5 个提交边界复跑 EXIT=0）、platform 全量 215 文件 / 2731 passed / 10 skipped、e2e 42 passed、api-v1 e2e 4 passed（重建产物后复跑）、platform build 通过、`check:contract-freeze` OK。
+  - **残余**：① v1 暂只有会话鉴权，API key / scope / 限流 / 访问日志与 `runs/{id}/logs` 在 M63.3 / M63.4；② repos 详情跨组织守卫与 `hasCredential=true` 尚无固化用例（建议随 M63.3 AC3 补）；③ `tags` / `actionWorkflowFile` / `manifestPath` 未统一过自由文本清洗（设计仅点名 error / summary，边界保留）；④ 每次 v1 读请求仍会触发默认组织 backfill 的幂等 UPDATE，读面放大后再评估缓存。
+
 
 ### M63.3 API key 认证与安全面（1b-2）（P1 🛡️）
 

@@ -1,6 +1,6 @@
-# 经验归档分片（§七十九 - §九十）：运维实测与发布链沉淀
+# 经验归档分片（§七十九 - §九十一）：运维实测与发布链沉淀
 
-> 本分片为 [§70-§85 索引](./experience-archive-§70-§99-delivery-platform.md) 的第二片（原分片按 `^##` H2 边界拆分，章节编号与锚点不变；自 §八十六 起只更新范围标签与 H1，**文件名沿用建立时规划上界** `-§79-§85-`；实测内容范围 §七十九-§九十）；正文只写结论与落点。
+> 本分片为 [§70-§85 索引](./experience-archive-§70-§99-delivery-platform.md) 的第二片（原分片按 `^##` H2 边界拆分，章节编号与锚点不变；自 §八十六 起只更新范围标签与 H1，**文件名沿用建立时规划上界** `-§79-§85-`；实测内容范围 §七十九-§九十一）；正文只写结论与落点。
 
 ## 七十九、M53.2 运维实测批次经验沉淀（惰性单例启动点 / WAL 备份 / 早退守卫）
 
@@ -349,3 +349,28 @@
 - **现象**：本仓 `max-lines` 只开 `skipBlankLines`（空行不计、注释计入）；M62.1 拆分前的 `packages/core/src/report/types.ts` 为 857 物理行 / 798 非空行，已贴 800 上限，继续加字段必然触顶。
 - **手法**：把职责迁出（词汇表 → 独立模块、段渲染 → 独立函数、工厂 → 独立文件），按职责边界拆分而不是按行数切；拆分后保持原导入面与行为不变，跑定向测试。**边界**：测试文件超限按 [§四十一](experience-archive-§41-§48-archive-batch.md) 处理，本条指源文件。
 - **落点**：`eslint.config.js` 的 `max-lines` 配置行（`skipBlankLines: true`，阈值 800）+ 本条 L3 索引。
+
+
+### 补充（2026-11-20 M63 归档批次并入；两条来自 M62 归档后 / M63 规划前的阶段外批次，2026-11-19）
+
+- **发布后镜像推送挂起按失败 job 重跑**：多 registry 推送时 ACR 单点可挂起，人工取消后该 job 记 cancelled（构建与缓存已成功）；先确认卡在 push 层，再 `gh run rerun --failed`，重复挂起再评估降级。证据：`b7e47f6e`（2026-11-19，`2aa2a03f^`）Publish Docker run `44559127734` 首轮 `Build (amd64)` cancelled、attempt 2 双架构 + manifest success。
+  - **落点**：[release-pipeline.md §4.7](release-pipeline.md#_4-7-镜像通道矩阵与-acr-架构边界-2026-11-12-m58-5) + [release.md §已知限制与排查](../../guide/release.md#已知限制与排查)。
+- **运行时安全基线抬升必须五面联动**：镜像 tag+digest、门禁基线表、发布包 engines、zh/en 文档与镜像、AGENTS 事实行同批更新；以官方 `dist/index.json` 的 `security:true` 为准并核对公告 CVE 计数（AGENTS 修改需用户授权）。证据：2026-11-11 Node.js 安全公告基线；`ba9dae2a` / `b33746f4` / `4e0644f5`（2026-11-19 阶段外批次）同批对齐 `engines` / 镜像 / 文档。
+  - **落点**：[tech-stack.md](../../guide/tech-stack.md) + [deployment.md](../../guide/deployment.md) + 发布包 `engines`。
+
+## 九十一、M63 归档批次经验沉淀（日志双层预算 / 提交符号分组 / 白名单精确键 / 脱敏真实取样 / 双后端钉环境 / 聚合组织注入）
+
+> **批次**：M63 平台对外只读观测面（2026-11-20 规划 / 2026-11-20 归档）。**准入依据**：③ 同类模式复现（提交切分、脱敏假绿、环境驱动测试）+ ④ 工具 / 环境陷阱（契约快照 tag）。落点见各条目末行。
+
+- **日志聚合要同时限制组数与单组字节，sample 附加上下文也走同一预算**：只限组数会被「每条不同且冗长」放大到 MB 级；只限正文会让 `context` 绕过 2 KB / 64 KB 预算。做法：组数上限（分页可达全量组）+ 单条 2 KB + error 合计 64 KB，sample 序列化后复用单条预算并置 `errorTruncated`；grouped / raw 共用清洗通道。
+  - **落点**：`apps/platform/shared/log-digest.ts` + 单测 + [api-v1.md](../../guide/api-v1.md)。
+- **跨包新增字段的提交边界按「符号声明 + 全部引用」成组**：编排层先引用后一个 commit 才加的实体列，中间 commit 的 typecheck 必红。做法：实体 / 类型与全部引用同 commit，再落采集与展示；边界 commit 实跑 `pnpm --filter <pkg> typecheck`，`git show --stat` 核对。
+  - **落点**：[git.md §3](../../standards/git.md)。
+- **对外字段白名单用精确键比对，文档快照与常量由单测同源**：只断言禁用字段不存在会漏新增字段。做法：`Object.keys(response).sort()` 与 `API_V1_FIELDS` 全等（含嵌套 groups / entries / results）；文档快照块单测强制等于常量；跨 tag 比对只承诺字段 / 分页，不宣称类型校验。
+  - **落点**：`apps/platform/server/schemas/api-v1-fields.ts` + [api-v1.md](../../guide/api-v1.md)。
+- **密钥脱敏正则用真实生成值批量取样**：`dfk_\w+` 对 base64url 的 `-` 截断，200 个真实 key 中 111 个只遮首段；手工样例不含 `-` 造成假绿。做法：字符集与生成器对齐（`[\w-]+` / `\S+`），用例调用真实生成函数，另保留 Authorization 头整体替换断言。
+  - **落点**：`apps/platform/shared/sanitize.ts` + `tests/unit/log-digest.test.ts`。
+- **双后端 / 环境驱动工具在测试 setup 钉默认分支**：development 机已配置平台 env 时 local 用例成片走 remote（实测 17 例失败），CI 却恒绿。做法：全局 setup 清空后端 env 并钉 local，非默认分支逐例显式设置；再做「带非默认 env 跑默认用例」泄漏复测。
+  - **落点**：[testing.md §6.13](../../standards/testing.md) + `packages/mcp/src/vitest.setup.ts`。
+- **聚合统计加组织参数时每个子查询都要注入（含 latest 行）**：只给主列表加条件，`repositoryCount` / `alertsTotal` / `topPackages` / `latestRun` 仍全库，跨组织仓库名与运行 id 外泄；浅断言（`>= N`）会把泄漏值当通过。做法：`organizationId` 必填，count / join / groupBy / limit 1 逐一注入，单测断言精确值并排除跨组织样本。
+  - **落点**：`apps/platform/server/services/view/dashboard.ts` + v1 契约用例。

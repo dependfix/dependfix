@@ -120,12 +120,12 @@ pnpm check:real-env --require-all          # 十条全部 passed（1.0 发布前
 - **证据字段**：PR Check 落库记录（含 head SHA 与结论）、邮件原文（脱敏）、`ACTION_STATUS_MONITOR_ENABLED` 生效日志。
 - **验收判据**：polling 结论与 GitHub 实际一致；邮件真实送达一次。**重试记录**只对周报路径（30 分钟退避）要求，一次性通知不作等价要求。
 
-### G3.6 MCP Server（8 tool）
+### G3.6 MCP Server（9 tool）
 
 - **前置资源**：MCP 客户端（Claude Desktop / Copilot / Cursor 任一）+ `GITHUB_TOKEN` 环境变量（MCP 只读该变量）+ `fix_dependency` 需要的本地 `workDir`。
 - **最小可执行命令**：客户端 `mcpServers` 配 `npx -y @dependfix/mcp` → 调用 **`run_scan`** 与 **`fix_dependency`** 各一次。
 - **证据字段**：客户端配置片段（脱敏）、tool 调用记录、生成的报告路径。
-- **验收判据**：`run_scan` / `fix_dependency` 各成功一次；缺 token 返回结构化错误而非崩溃（8 个 tool 清单以 `packages/mcp/src/index.ts` 为准）。
+- **验收判据**：`run_scan` / `fix_dependency` 各成功一次；缺 token 返回结构化错误而非崩溃（9 个 tool 清单以 `packages/mcp/src/index.ts` 为准）。
 
 ### G3.7 Agent Skill
 

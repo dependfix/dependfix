@@ -1,6 +1,6 @@
 # 平台对外 API 与远程 MCP 设计（apps/platform）
 
-> **状态**：🔶 M63 实施中（2026-11-19 立项 / 2026-11-20 规划）
+> **状态**：✅ 只读面已实施（2026-11-20；期 1a + 1b + 期 2 remote 后端完成；期 3 触发面 / 期 4 交付写后置）
 > **范围**：`apps/platform` 只读观测接口 + `@dependfix/mcp` remote 后端
 > **关联**：[API 规范](../../standards/api.md)、[安全规范](../../standards/security.md)、[MCP Server 设计](./mcp-server.md)、[平台架构](./architecture-platform.md)、[平台认证与用户体系](./platform-auth-users.md)
 
@@ -35,7 +35,7 @@
 | 日志消费面 | Web UI 已有「复制」与「下载」，但**均为原始全文**；本地 MCP 的 `RunResult` **不含日志**，离线取不到 | `run-detail-dialog.vue` 的 `copyLogs` / `downloadLogs`；`packages/core/src/report/types.ts` 的 `RunResult` |
 | 执行链 | 平台 `fix-and-pr` 与引擎 `executeFixAndPrMode` 是**两份实现**（注释自述「逻辑等价」） | `server/services/executor/platform-delivery.ts` 文件头 |
 | 队列 | BullMQ + Redis，缺失时同步降级 | `server/services/queue/*`、`bullmq ^6.7.5` |
-| 本地 MCP | 8 个 tool，stdio；直调 `@dependfix/core` + `@dependfix/engine`（**不经 CLI**）；`fetch_alerts` / `run_scan` / `cleanup_branches` 会经 GitHub API 或 `git clone` 出网 | `packages/mcp/package.json` 依赖 + `src/index.ts` 注册 |
+| 本地 MCP | 9 个 tool，stdio；直调 `@dependfix/core` + `@dependfix/engine`（**不经 CLI**）；`fetch_alerts` / `run_scan` / `cleanup_branches` 会经 GitHub API 或 `git clone` 出网 | `packages/mcp/package.json` 依赖 + `src/index.ts` 注册 |
 | 认证插件可用性 | `better-auth/plugins` **不含** `apiKey`；只有 `bearer`（把 token 转成 session Cookie） | `node_modules/better-auth/dist/plugins/` 实测 |
 
 ## 3. 关键决策
@@ -43,7 +43,7 @@
 | 编号 | 决策 | 理由 |
 |:--|:--|:--|
 | D1 | 首批只开**只读观测**端点 | 绕过写侧三类风险；大部分查询逻辑已在服务层，边际成本最低 |
-| D2 | MCP **不新建包**，`@dependfix/mcp` 增加 remote 后端 | 8 个 tool 中多个平台已有对应数据源；新包会让分发、文档、skill 三处翻倍 |
+| D2 | MCP **不新建包**，`@dependfix/mcp` 增加 remote 后端 | 9 个 tool 中多个平台已有对应数据源；新包会让分发、文档、skill 三处翻倍 |
 | D3 | 独立 API key，不复用会话 Cookie / `bearer` | key 需要命名、scope、独立吊销与审计；`bearer` 的 token 语义是会话，有效期随会话且不可分级 |
 | D4 | 公开契约走 `/api/v1` **子集**，不镜像内部路由 | 内部路由是 UI 实现细节，随 UX 改动（`GET /api/runs` 已加过 `sortBy` / `from` / `to`） |
 | D5 | 写能力（触发 → 交付）分两期后置 | 前置条件是执行链语义收口，见 §8 |
@@ -349,7 +349,7 @@ key 绑定 `organizationId`，所有查询强制注入（复用 `resolveOrganiza
 
 - [API 规范](../../standards/api.md)（通用规范；§3 信封漂移见 §9）
 - [安全规范](../../standards/security.md)（key、脱敏与 CORS 边界）
-- [MCP Server 设计](./mcp-server.md)（8 个 tool 的入参与实现要点）
+- [MCP Server 设计](./mcp-server.md)（9 个 tool 的入参与实现要点）
 - [平台认证与用户体系设计](./platform-auth-users.md)（三角色与组织隔离）
 - [平台架构](./architecture-platform.md)（分层与执行模型）
 - [对外 PR 交付闭环设计](./pr-delivery-closure.md)（期 4 的语义来源）

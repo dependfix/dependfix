@@ -15,7 +15,7 @@
 | `@dependfix/core` | 核心领域模型库 | https://www.npmjs.com/package/@dependfix/core |
 | `@dependfix/engine` | 执行引擎（编排/采集/修复/研判，cli/mcp/platform 共享） | https://www.npmjs.com/package/@dependfix/engine |
 | `@dependfix/skills` | 产品 Agent Skill 权威源（`dependfix-remediator`，纯内容包） | https://www.npmjs.com/package/@dependfix/skills |
-| `@dependfix/mcp` | MCP Server（stdio 传输，8 个 tool 暴露扫描/修复能力） | https://www.npmjs.com/package/@dependfix/mcp |
+| `@dependfix/mcp` | MCP Server（stdio 传输，9 个 tool（含 remote 日志查询）暴露扫描/修复能力） | https://www.npmjs.com/package/@dependfix/mcp |
 | `@dependfix/platform` | Nuxt 管理平台（控制面：仓库/凭据管理、扫描触发、结果展示）—— **不发布到 npm，仅 docker 通道** | — |
 
 > 依赖关系：`dependfix` 依赖 `@dependfix/core`、`@dependfix/engine` 与 `@dependfix/skills`（运行时解析 skill 内容）；`@dependfix/engine` 依赖 `@dependfix/core`；`@dependfix/mcp` 依赖 `@dependfix/core` 与 `@dependfix/engine`；`apps/platform` 依赖 `@dependfix/core`、`@dependfix/engine` 与 `dependfix`（仅 build 期，不进入发布图）。npm 发布顺序：被依赖方先行（`@dependfix/core` → `@dependfix/engine` → `@dependfix/skills` → `dependfix` → `@dependfix/mcp`）。`@dependfix/platform` 走 `npmPublishable: false` 的 tag-only 分支：跳过 `pnpm publish` 但仍创建 annotated tag，与 docker publish 通道协作（详见"platform 发布通道"）。

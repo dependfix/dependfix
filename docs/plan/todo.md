@@ -111,7 +111,7 @@
   - **残余**：① v1 暂只有会话鉴权，API key / scope / 限流 / 访问日志与 `runs/{id}/logs` 在 M63.3 / M63.4；② repos 详情跨组织守卫与 `hasCredential=true` 尚无固化用例（建议随 M63.3 AC3 补）；③ `tags` / `actionWorkflowFile` / `manifestPath` 未统一过自由文本清洗（设计仅点名 error / summary，边界保留）；④ 每次 v1 读请求仍会触发默认组织 backfill 的幂等 UPDATE，读面放大后再评估缓存。
 
 
-### M63.3 API key 认证与安全面（1b-2）（P1 🛡️）
+### M63.3 API key 认证与安全面（1b-2）（P1 🛡️）—— ✅ 已闭环
 
 - **目标**：为 v1 提供独立 API key（Bearer）、scope、限流、访问日志与 key 管理，并完成 `dfk_` 脱敏；不以会话 Cookie 或 `bearer` 插件替代。
 - **优先级**：P1（只读面的准入与审计基础；key 泄露 / 情报外泄的主要风险面）。
@@ -133,6 +133,16 @@
 - **依赖**：M63.2 的 v1 骨架；设计稿 §5 / §9；`better-auth` 1.7.22。
 - **交付物**：4-6 commits / 10-13 files / 550-750 行。
 - **风险与缓解**：插件不兼容 → 自建回退（实体 + SHA-256 + 常量时间比较）；key 泄露 → 高熵 + 哈希 + `dfk_` 脱敏 + TTL；多实例限流 → 进程内 `lru-cache`，多实例切 Redis（边界登记）。
+
+- **执行记录（2026-11-20，6 commits：`48cb7ca8` 数据表 / `d0e6b904` v1 鉴权接入 / `4d6337cf` key 管理 / `1194030b` dfk_ 脱敏 / `a8f22d87` e2e / 本提交文档收口）**：
+  - **D3 实测结论**：`@better-auth/api-key@1.7.22` 与 `better-auth 1.7.22` 版本对齐，但 organization 归属模式运行时强制 better-auth organization 插件（`ORGANIZATION_PLUGIN_REQUIRED`），与平台自有 `Organization` 实体冲突 → 按设计预置回退改为自建 key 存储，插件依赖已移除；结论写入设计稿 §5.1 / §9。
+  - **实现**：`ApiKey`（`apikey` 表，组织归属，`dfk_` + 36 字节 base64url 明文，库内 SHA-256 唯一索引，metadata.scopes，enabled / expiresAt / requestCount / lastRequest）与 `ApiRequestLog`（鉴权结论，按 key / 组织 + 时间索引，30 天保留且每小时最多清理一次）；迁移前缀感知 + 幂等 + down。`api-key-guard`：Bearer → 摘要查库 → 常量时间比较 → 过期 / 禁用 / 吊销 401 → scope 缺失 403 + 日志 → 两档限流（常规 600/5min、日志 60/5min，429 + `Retry-After`）→ 使用计数与访问日志；无 key 回退会话且不注入 scopes。v1 数据端点全部接入，详情跨组织 403 `RESOURCE_NOT_IN_ORG`，集合按组织过滤。/api/v1/keys GET/POST/DELETE：会话 + admin/org_admin、每组织 10 把、90 天 TTL、一次性明文、列表只出前缀、创建限流 + 访问日志、跨组织吊销按 404。`dfk_` 进入 `sanitizeString`（兼容 base64url `-`/`_`）。
+  - **AC1-AC4**：无 key 且无会话 401；read key 可访问、无 Cookie Bearer 可读；会话访问按会话授权且不注入 scopes；缺 read 403 + 写日志；跨组织详情 403、集合不泄露；两档限流分别有定向用例，429 + `Retry-After`。
+  - **AC9 / AC10**：`dfk_` 脱敏用真实生成 key 断言完整遮蔽；创建返回一次性明文、库内存摘要、90 天 TTL、10 把上限、吊销立即失效、创建接口限流与访问日志均有单测 / e2e。
+  - **审计**：deep R1 **Reject**（B01 dfk_ 规则被 `-` 截断 / B02 契约冻结缺两表 / B03 lockfile 夹带无关升级；W01-W10）→ 全部收口（含过期 / 禁用、创建限流、真实跨组织、访问日志、30 天保留、时间列 `getDateType`、使用计数、设计稿回填）→ R2 quick **Pass**（新增 3 条非阻断 suggest 已修 / 登记）。
+  - **证据**：platform 全量 218 文件 / 2751 passed / 10 skipped；定向 key 守卫 + 管理 + 迁移 + 脱敏 41 passed；e2e api-keys + api-v1 7 passed（重建产物后）；`typecheck` 7 项目、`lint:check` 0 error（root 6 / platform 6 warning）、`lint:css:check`、`check:contract-freeze`、`pnpm install --frozen-lockfile` 全通过。
+  - **残余**：① 限流为进程内 LRU，多实例部署需切 Redis；② 过期 / 禁用 / 无效 key 的 401 不写访问日志（无组织可归属）；③ 跨组织 403 未单独入审计（拒绝结果仍由端点返回）；④ 吊销为硬删除（访问日志保留，设计稿已写明）；⑤ MySQL / PostgreSQL 未起真库，时间列与唯一索引为静态核对；⑥ 过期 key 行不做后台清理（列表仍可见，可手工吊销）。
+
 
 ### M63.4 其余 v1 端点与契约守卫（1b-3）（P1 🛠️📚）
 

@@ -986,6 +986,10 @@
         "logsTitle": "执行日志",
         "logsCopy": "复制日志",
         "logsDownload": "下载日志",
+        "logsDigest": "聚合",
+        "logsRaw": "原始",
+        "logsDropped": "已丢弃 {count} 条早期日志",
+        "logsDroppedHint": "采集侧只保留最近的日志；更早的条目已被丢弃，当前内容不是完整执行过程",
         "logsEmpty": "暂无执行日志",
         "retry": {
             "action": "重试",

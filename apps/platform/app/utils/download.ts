@@ -15,6 +15,20 @@ const parseFilename = (disposition: string | null): string | null => {
     return match?.[1] ?? null
 }
 
+/** 以 Blob 触发同源下载（客户端生成的文本，如日志聚合档） */
+export const downloadText = (filename: string, text: string): void => {
+    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' })
+    const objectUrl = URL.createObjectURL(blob)
+    const anchor = document.createElement('a')
+    anchor.href = objectUrl
+    anchor.download = filename
+    document.body.appendChild(anchor)
+    anchor.click()
+    document.body.removeChild(anchor)
+    // 延迟释放：个别浏览器在 click() 同步返回后仍读取 object URL，立即 revoke 可能中断下载
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 0)
+}
+
 export const downloadFile = async (url: string, fallbackFilename: string): Promise<void> => {
     const response = await fetch(url, { credentials: 'same-origin' })
     if (!response.ok) {

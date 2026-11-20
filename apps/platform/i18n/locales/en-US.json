@@ -986,6 +986,10 @@
         "logsTitle": "Execution Logs",
         "logsCopy": "Copy Logs",
         "logsDownload": "Download logs",
+        "logsDigest": "Digest",
+        "logsRaw": "Raw",
+        "logsDropped": "{count} earlier log entries dropped",
+        "logsDroppedHint": "Only the most recent entries were captured; earlier entries were dropped, so this is not the full run.",
         "logsEmpty": "No execution logs",
         "retry": {
             "action": "Retry",

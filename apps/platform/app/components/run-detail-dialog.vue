@@ -27,7 +27,7 @@ import {
 } from '~/utils/run-view'
 import { scanSeverityLabel } from '~/utils/scan-options'
 import { useRunOom } from '~/composables/use-run-oom'
-import { downloadFile } from '~/utils/download'
+import { useRunLogDigest } from '~/composables/use-run-log-digest'
 
 interface RunResultView {
     id: string
@@ -93,6 +93,8 @@ interface RunDetailView {
     } | null
     logs?: Array<{ timestamp: string, level: string, message: string }>
     logsText?: string | null
+    /** 采集侧丢弃数（三态：null / 0 / >0） */
+    logsDropped?: number | null
 }
 
 const props = defineProps<{
@@ -119,6 +121,14 @@ const resultColumns = computed<DataTableColumn<RunResultView>[]>(() => [
 ])
 
 const detail = ref<RunDetailView | null>(null)
+const {
+    mode: logMode,
+    logText,
+    droppedBefore: logsDropped,
+    hasDropped: hasLogsDropped,
+    copy: copyLogText,
+    download: downloadLogText,
+} = useRunLogDigest(detail)
 const loading = ref(false)
 const error = ref('')
 const downloadingLogs = ref(false)
@@ -227,32 +237,18 @@ const formatLogTime = (timestamp: string) => {
 }
 
 const copyLogs = async () => {
-    if (!detail.value?.logsText) {
-        return
-    }
-    try {
-        await navigator.clipboard.writeText(detail.value.logsText)
-    } catch {
-        // 降级方案
-        const textarea = document.createElement('textarea')
-        textarea.value = detail.value.logsText
-        document.body.appendChild(textarea)
-        textarea.select()
-        document.execCommand('copy')
-        document.body.removeChild(textarea)
-    }
+    await copyLogText()
 }
 
-/** 下载单个 run 的执行日志（服务端 txt 附件；无日志时入口隐藏） */
+/** 下载执行日志：聚合档用本地 Blob，原始档走服务端 txt 附件（无日志时入口隐藏） */
 const downloadLogs = async () => {
-    const run = detail.value
-    if (!run) {
+    if (!detail.value) {
         return
     }
     downloadingLogs.value = true
     error.value = ''
     try {
-        await downloadFile(`/api/runs/${run.id}/logs`, `run-${run.id}.txt`)
+        await downloadLogText()
     } catch (e: unknown) {
         error.value = t('runs.errors.logsDownloadFailed', {
             message: e instanceof Error ? e.message : t('common.errors.unknown'),
@@ -615,6 +611,31 @@ watch(() => props.runId, (runId) => {
             <div v-if="detail.logs && detail.logs.length > 0" class="run-detail__logs">
                 <div class="run-detail__logs-header">
                     <span class="run-detail__logs-title">{{ t('runs.logsTitle') }}</span>
+                    <span
+                        v-if="hasLogsDropped"
+                        class="run-detail__logs-dropped"
+                        :title="t('runs.logsDroppedHint')"
+                    >
+                        <CaomeiTag tone="warning">
+                            {{ t('runs.logsDropped', {count: logsDropped ?? 0}) }}
+                        </CaomeiTag>
+                    </span>
+                    <CaomeiButton
+                        size="sm"
+                        :variant="logMode === 'digest' ? 'primary' : 'ghost'"
+                        :aria-pressed="logMode === 'digest'"
+                        @click="logMode = 'digest'"
+                    >
+                        {{ t('runs.logsDigest') }}
+                    </CaomeiButton>
+                    <CaomeiButton
+                        size="sm"
+                        :variant="logMode === 'raw' ? 'primary' : 'ghost'"
+                        :aria-pressed="logMode === 'raw'"
+                        @click="logMode = 'raw'"
+                    >
+                        {{ t('runs.logsRaw') }}
+                    </CaomeiButton>
                     <CaomeiButton
                         variant="ghost"
                         rounded
@@ -772,16 +793,25 @@ watch(() => props.runId, (runId) => {
 
     &__logs-header {
         display: flex;
+        flex-wrap: wrap;
         align-items: center;
-        justify-content: space-between;
+        gap: $space-1;
         padding: $space-2 $space-3;
         background: $color-surface;
         border-bottom: 1px solid $color-border;
     }
 
     &__logs-title {
+        flex-shrink: 0;
+        margin-right: auto;
         font-weight: 600;
         font-size: $font-size-sm;
+        white-space: nowrap;
+    }
+
+    &__logs-dropped {
+        flex-shrink: 0;
+        margin-right: $space-1;
     }
 
     /* 日志滚动区高度自适应（原固定 200px）：视口比例 clamp —— 下限 240px 保证可视区不小于旧值，

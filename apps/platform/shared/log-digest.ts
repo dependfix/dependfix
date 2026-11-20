@@ -25,6 +25,8 @@ export interface LogDigestEntry {
 export interface LogDigestOptions {
     /** 只统计这些级别（单值或数组；不传 = 全部） */
     level?: string | string[]
+    /** 大小写不敏感的子串过滤（作用于原始 message；不传 = 不过滤） */
+    query?: string
     /**
      * 采集侧已丢弃的早期条目数（`ScanRun.logsDropped`）：
      * `null` / 缺省 = 未采集或不可知（历史行、github-action 执行器），`0` = 确认未丢，`> 0` = 丢弃 N 条。
@@ -195,6 +197,13 @@ export function buildLogTemplate(cleanedMessage: string): string {
         .join('\n')
 }
 
+function matchesQuery(message: string, query: string | undefined): boolean {
+    if (!query) {
+        return true
+    }
+    return (message ?? '').toLowerCase().includes(query.toLowerCase())
+}
+
 function matchesLevel(level: string, filter: string | string[] | undefined): boolean {
     if (!filter) {
         return true
@@ -219,6 +228,7 @@ export function digestLogEntries(
 ): LogDigestResult {
     const droppedBefore = options.droppedBefore === undefined ? null : options.droppedBefore
     const filtered = entries.filter((entry) => matchesLevel(entry.level, options.level))
+        .filter((entry) => matchesQuery(entry.message, options.query))
 
     const groups = new Map<string, LogDigestGroup>()
     let errorTruncated = false
@@ -295,17 +305,102 @@ export function digestLogEntries(
     })
 
     const sortedGroups = [...errorGroups, ...nonErrorGroups]
-    const truncated = sortedGroups.length > LOG_DIGEST_MAX_GROUPS
-    const visibleGroups = truncated ? sortedGroups.slice(0, LOG_DIGEST_MAX_GROUPS) : sortedGroups
 
     return {
         total: filtered.length,
-        returned: visibleGroups.length,
+        returned: sortedGroups.length,
         groupCount: sortedGroups.length,
-        truncated,
+        truncated: false,
         errorTruncated,
         droppedBefore,
-        groups: visibleGroups,
+        groups: sortedGroups,
+    }
+}
+
+/** 对已聚合结果分页（v1 `view=grouped`）：返回片段并重算 returned / truncated */
+export function paginateDigest(
+    result: LogDigestResult,
+    page = 1,
+    pageSize = LOG_DIGEST_MAX_GROUPS,
+): LogDigestResult {
+    const safePage = Math.max(1, page)
+    const safeSize = Math.min(Math.max(1, pageSize), LOG_DIGEST_MAX_GROUPS)
+    const start = (safePage - 1) * safeSize
+    const groups = result.groups.slice(start, start + safeSize)
+    return {
+        ...result,
+        returned: groups.length,
+        truncated: result.groupCount > start + groups.length,
+        groups,
+    }
+}
+
+/** 原始视图条目（v1 `view=raw`） */
+export interface LogRawEntry {
+    timestamp: string
+    level: string
+    message: string
+}
+
+export interface LogRawResult {
+    total: number
+    returned: number
+    truncated: boolean
+    errorTruncated: boolean
+    droppedBefore: number | null
+    entries: LogRawEntry[]
+}
+
+/**
+ * 原始日志视图：过滤 → 同一清洗通道（2 KB 单条上限）→ error 200 条 / 64 KB 上限 → 分页。
+ * 与 grouped 共用 `cleanLogMessage`，不得另写清洗规则。
+ */
+export function prepareRawLogEntries(
+    entries: readonly LogDigestEntry[],
+    options: LogDigestOptions & { page?: number, pageSize?: number } = {},
+): LogRawResult {
+    const page = Math.max(1, options.page ?? 1)
+    const pageSize = Math.max(1, options.pageSize ?? 50)
+    const droppedBefore = options.droppedBefore === undefined ? null : options.droppedBefore
+    const filtered = entries
+        .filter((entry) => matchesLevel(entry.level, options.level))
+        .filter((entry) => matchesQuery(entry.message, options.query))
+
+    const prepared: LogRawEntry[] = []
+    let errorTruncated = false
+    let errorCount = 0
+    let errorBytes = 0
+    for (const entry of filtered) {
+        const cleanedFull = cleanLogMessage(entry.message ?? '')
+        const message = truncateBytes(cleanedFull, LOG_DIGEST_MAX_MESSAGE_BYTES)
+        if (message !== cleanedFull) {
+            errorTruncated = true
+        }
+        const level = entry.level.toLowerCase()
+        if (level === 'error') {
+            if (errorCount >= LOG_DIGEST_MAX_ERROR_GROUPS || errorBytes + byteLength(message) > LOG_DIGEST_MAX_ERROR_BYTES) {
+                errorTruncated = true
+                continue
+            }
+            errorCount += 1
+            errorBytes += byteLength(message)
+        }
+        prepared.push({
+            timestamp: typeof entry.timestamp === 'string' ? entry.timestamp : '',
+            level,
+            message,
+        })
+    }
+
+    const start = (page - 1) * pageSize
+    const sliced = prepared.slice(start, start + pageSize)
+    return {
+        total: filtered.length,
+        returned: sliced.length,
+        truncated: prepared.length > start + sliced.length,
+        errorTruncated,
+        droppedBefore,
+        entries: sliced,
     }
 }
 

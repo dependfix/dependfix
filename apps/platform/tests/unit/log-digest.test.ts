@@ -9,6 +9,8 @@ import {
     formatLogDigest,
     LOG_DIGEST_MAX_ERROR_GROUPS,
     LOG_DIGEST_MAX_GROUPS,
+    paginateDigest,
+    prepareRawLogEntries,
     LOG_DIGEST_MAX_ERROR_BYTES,
     LOG_DIGEST_MAX_MESSAGE_BYTES,
     type LogDigestEntry,
@@ -217,18 +219,21 @@ describe('shared/log-digest 截断与 droppedBefore', () => {
         expect(result.groups.length).toBeLessThan(entries.length)
     })
 
-    it('组数超过上限时置 truncated 并只返回前 N 组', () => {
+    it('组数超过上限时由 paginateDigest 截断并置 truncated（分页可达后续组）', () => {
         const entries = Array.from({ length: LOG_DIGEST_MAX_GROUPS + 1 }, (_, index) => ({
             timestamp: '2026-01-01T00:00:00Z',
             level: 'info',
             message: `unique message ${letters(index)}`,
         }))
-        const result = digestLogEntries(entries)
-        expect(result.groupCount).toBe(LOG_DIGEST_MAX_GROUPS + 1)
-        expect(result.returned).toBe(LOG_DIGEST_MAX_GROUPS)
-        expect(result.truncated).toBe(true)
-        const text = formatLogDigest(result)
-        expect(text).toContain('only the first 200 of 201 groups are shown')
+        const full = digestLogEntries(entries)
+        expect(full.groupCount).toBe(LOG_DIGEST_MAX_GROUPS + 1)
+        const first = paginateDigest(full, 1, LOG_DIGEST_MAX_GROUPS)
+        expect(first.returned).toBe(LOG_DIGEST_MAX_GROUPS)
+        expect(first.truncated).toBe(true)
+        const second = paginateDigest(full, 2, LOG_DIGEST_MAX_GROUPS)
+        expect(second.returned).toBe(1)
+        expect(second.truncated).toBe(false)
+        expect(formatLogDigest(first)).toContain('only the first 200 of 201 groups are shown')
     })
 
     it('droppedBefore 三态：null 未知 / 0 未丢 / >0 提示丢弃', () => {
@@ -239,6 +244,42 @@ describe('shared/log-digest 截断与 droppedBefore', () => {
         expect(result.droppedBefore).toBe(12)
         expect(text).toContain('dropped before: 12')
         expect(text).toContain('12 earlier entries were dropped')
+    })
+})
+
+describe('shared/log-digest v1 查询扩展', () => {
+    it('query 子串过滤在分组前生效', () => {
+        const result = digestLogEntries(fixture, { level: 'warn', query: 'deprecated' })
+        expect(result.total).toBe(1)
+        expect(result.groupCount).toBe(1)
+    })
+
+    it('paginateDigest 按组分页并重算 returned / truncated', () => {
+        const result = digestLogEntries(fixture)
+        const page = paginateDigest(result, 2, 2)
+        expect(page.returned).toBe(2)
+        expect(page.groupCount).toBe(result.groupCount)
+        expect(page.truncated).toBe(true)
+        expect(page.groups).toEqual(result.groups.slice(2, 4))
+    })
+
+    it('raw 视图同源清洗、过滤、分页与 droppedBefore', () => {
+        const raw = prepareRawLogEntries(fixture, { level: 'warn', query: 'retry', page: 1, pageSize: 3, droppedBefore: 12 })
+        expect(raw.total).toBe(989)
+        expect(raw.returned).toBe(3)
+        expect(raw.truncated).toBe(true)
+        expect(raw.droppedBefore).toBe(12)
+        expect(raw.entries[0]!.message).not.toContain('')
+        expect(raw.entries[0]!.message).toContain('<path>')
+        expect(raw.entries[0]!.message).not.toContain('/root')
+    })
+
+    it('raw 视图对超长正文截断并置 errorTruncated', () => {
+        const raw = prepareRawLogEntries([
+            { timestamp: '2026-01-01T00:00:00Z', level: 'info', message: 'x'.repeat(LOG_DIGEST_MAX_MESSAGE_BYTES + 1) },
+        ])
+        expect(raw.errorTruncated).toBe(true)
+        expect(byteLength(raw.entries[0]!.message)).toBeLessThanOrEqual(LOG_DIGEST_MAX_MESSAGE_BYTES)
     })
 })
 

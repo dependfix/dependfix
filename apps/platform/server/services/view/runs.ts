@@ -1,8 +1,8 @@
+import { sanitizeV1Payload, sanitizeV1Text } from './text'
 import type { ScanResult } from '#server/entities/scan-result'
 import type { ScanRun } from '#server/entities/scan-run'
 import type { LogEntry } from '#server/utils/memory-logger'
 import { parseRunResource } from '#server/utils/run-resource'
-import { redactAbsolutePaths, sanitizeDeep, sanitizeString } from '#server/utils/sanitize'
 
 /**
  * 运行（ScanRun）视图映射：内部端点与 `/api/v1` 共用的单一事实源。
@@ -10,31 +10,6 @@ import { redactAbsolutePaths, sanitizeDeep, sanitizeString } from '#server/utils
  * - 内部列表 / 详情字段保持既有形状（浏览器零回归）
  * - v1 只暴露 `API_V1_FIELDS.run` / `runDetail` 白名单字段，并额外清洗自由文本
  */
-
-/** v1 自由文本清洗：脱敏 + 绝对路径归一（与日志 digest 同一条路径规则） */
-const sanitizeV1Text = (value: string): string => redactAbsolutePaths(sanitizeString(value))
-
-/** 深度清洗对象里的字符串（summary 等自由结构） */
-const sanitizeV1Value = (value: unknown): unknown => {
-    if (typeof value === 'string') {
-        return sanitizeV1Text(value)
-    }
-    if (Array.isArray(value)) {
-        return value.map(sanitizeV1Value)
-    }
-    if (value && typeof value === 'object') {
-        // null 原型 + 跳过原型键：输入来自 DB JSON，防御 `__proto__` / `constructor` 污染
-        const result: Record<string, unknown> = Object.create(null) as Record<string, unknown>
-        for (const [key, child] of Object.entries(value)) {
-            if (key === '__proto__' || key === 'constructor' || key === 'prototype') {
-                continue
-            }
-            result[key] = sanitizeV1Value(child)
-        }
-        return result
-    }
-    return value
-}
 
 /** 内部运行列表视图（GET /api/runs 既有形状） */
 export const toRunListView = (run: ScanRun) => ({
@@ -118,7 +93,7 @@ export const toRunV1View = (run: ScanRun) => {
         startedAt: run.startedAt,
         finishedAt: run.finishedAt,
         runUrl: run.runUrl,
-        summary: summary ? sanitizeV1Value(sanitizeDeep(summary)) as Record<string, unknown> : null,
+        summary: summary ? sanitizeV1Payload(summary) as Record<string, unknown> : null,
         exitCode: run.exitCode,
         environmentalFailureCount: run.environmentalFailureCount,
         memoryMaxBytes: run.memoryMaxBytes,

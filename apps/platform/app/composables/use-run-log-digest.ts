@@ -1,5 +1,5 @@
 import { computed, ref, watch, type Ref } from 'vue'
-import { digestLogEntries, formatLogDigest, type LogDigestEntry } from '#shared/log-digest'
+import { digestLogEntries, formatLogDigest, LOG_DIGEST_MAX_GROUPS, paginateDigest, type LogDigestEntry } from '#shared/log-digest'
 import { downloadFile, downloadText } from '~/utils/download'
 
 /**
@@ -27,9 +27,9 @@ export function useRunLogDigest(detail: Ref<RunLogDetail | null | undefined>) {
     watch(() => detail.value?.id, () => {
         mode.value = 'digest'
     })
-    const digest = computed(() => digestLogEntries(detail.value?.logs ?? [], {
+    const digest = computed(() => paginateDigest(digestLogEntries(detail.value?.logs ?? [], {
         droppedBefore: detail.value?.logsDropped ?? null,
-    }))
+    }), 1, LOG_DIGEST_MAX_GROUPS))
     const digestText = computed(() => formatLogDigest(digest.value))
     const droppedBefore = computed<number | null>(() => detail.value?.logsDropped ?? null)
     const hasDropped = computed(() => (droppedBefore.value ?? 0) > 0)

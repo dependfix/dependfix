@@ -11,6 +11,7 @@
  * - Authorization 头：`Authorization: <scheme> <token>` → `Authorization: <scheme> ***`
  * - 敏感键赋值：`password=…` / `_authToken=…` / `?access_token=…` / `"token": "…"` → 值 `***`
  * - GitHub token 前缀：`ghp_` / `gho_` / `ghu_` / `ghs_` / `ghr_` / `github_pat_` → `***`
+ * - dependfix API key 前缀：`dfk_` → `dfk_***`
  * - 敏感字段名：password / passwd / secret / token / credential / api-key / private-key /
  *   connection-string / access-key → `***`
  * - `Error` 实例：展开为 `{ name, message, stack, code?, cause? }`（字段各自脱敏）
@@ -27,7 +28,7 @@ export function sanitizeString(message: string): string {
         .replace(/(Authorization:\s+(?:basic|token|bearer)\s+)\S+/gi, '$1***')
         // 敏感键名赋值（JSON / query / env 文本）：保留键名，值整体替换
         .replace(/(["']?(?:password|passwd|secret|token|api[-_]?key|credential|access[-_]?token|_authtoken)["']?\s*[=:]\s*)(?:"[^"]*"|'[^']*'|[^\s&,;]+)/gi, '$1***')
-        .replace(/(github_pat_|gh[pousr]_)\w+/g, '$1***')
+        .replace(/(github_pat_|gh[pousr]_|dfk_)[\w-]+/g, '$1***')
         // PEM 私钥块（多行）整体替换，避免只遮住首行后正文仍落盘
         .replace(/-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----/g, '[redacted-private-key]')
 }

@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
+import { generateApiKey } from '../../server/utils/api-key'
 import {
     buildLogTemplate,
     byteLength,
@@ -36,6 +37,17 @@ describe('shared/log-digest 清洗', () => {
         expect(cleaned).toContain('<path>')
         expect(cleaned).not.toContain('/root/private/repo')
         expect(cleaned).not.toContain('ghp_shortinvalid')
+    })
+
+    it('dependfix API key 前缀 dfk_ 进入脱敏规则（含 base64url 的 - 字符）', () => {
+        const generated = generateApiKey()
+        const cleaned = cleanLogMessage(`raw key ${generated} leaked`)
+        expect(cleaned).toContain('dfk_***')
+        expect(cleaned).not.toContain(generated.slice(4))
+        expect(cleanLogMessage('raw key dfk_abc-def_ghi leaked')).toBe('raw key dfk_*** leaked')
+        // Authorization 头由更前置的规则整体替换（不保留前缀，同样安全）
+        expect(cleanLogMessage('Authorization: Bearer dfk_abcdefghijklmnopqrstuvwxyz failed'))
+            .toBe('Authorization: Bearer *** failed')
     })
 
     it('敏感键名赋值（env / query / JSON）脱敏值而保留键名', () => {

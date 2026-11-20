@@ -175,6 +175,16 @@ export class ScanRun extends BaseEntity {
     logsJson!: string | null
 
     /**
+     * 采集侧在写入前已丢弃的早期日志条目数（三态）：
+     * `null` = 未采集或不可知（本列上线前的存量行、`github-action` 执行器不采集日志）；
+     * `0` = 确认未丢弃；`> 0` = 丢弃 N 条，详情视图据此提示「日志不是完整执行过程」。
+     *
+     * 口径见 [platform-public-api.md §6.4](../../../../docs/design/governance/platform-public-api.md#64-日志查询digest-契约)。
+     */
+    @Column({ type: 'integer', nullable: true, name: 'logs_dropped' })
+    logsDropped!: number | null
+
+    /**
      * AI 研判配置快照（JSON 字符串）
      * - 记录本次扫描实际使用的 AI 配置：{ enabled, provider, model, baseUrl?, apiUrl?, trigger, hasApiKey }
      * - apiKey 不写入快照（避免日志/审计泄露）；hasApiKey 布尔代替

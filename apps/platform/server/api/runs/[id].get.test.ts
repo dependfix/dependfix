@@ -236,12 +236,28 @@ describe('GET /api/runs/[id]', () => {
             executorKind: 'container',
             status: 'completed',
             logsJson: JSON.stringify(logEntries),
+            logsDropped: 5,
         }))
 
         const detail = await call('GET', `/api/runs/${logRun.id}`, { id: logRun.id }) as Record<string, unknown>
         expect(detail.logsText).not.toBeNull()
         expect(typeof detail.logsText).toBe('string')
         expect(detail.logs).toEqual(logEntries)
+        expect(detail.logsDropped).toBe(5)
+    })
+
+    it('returns logsDropped null for runs where the collector did not record it', async () => {
+        const ds = await ensureDatabaseInitialized()
+        const legacyRun = await ds.getRepository(ScanRun).save(ds.getRepository(ScanRun).create({
+            repositoryId,
+            mode: 'report-only',
+            severityThreshold: 'low',
+            executorKind: 'github-action',
+            status: 'completed',
+        }))
+
+        const detail = await call('GET', `/api/runs/${legacyRun.id}`, { id: legacyRun.id }) as Record<string, unknown>
+        expect(detail.logsDropped).toBeNull()
     })
 
     it('returns null owner/name when repository relation is missing', async () => {

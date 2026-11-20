@@ -84,5 +84,7 @@ export default defineEventHandler(async (event) => {
         })),
         logs: logEntries,
         logsText,
+        // 采集侧丢弃数（三态：NULL / 0 / >0），客户端聚合视图据此提示「日志非完整执行过程」
+        logsDropped: run.logsDropped ?? null,
     }
 })

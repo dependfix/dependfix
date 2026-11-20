@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { createMcpServer } from './index'
 
-describe('createMcpServer（冒烟：8 tool 注册）', () => {
+describe('createMcpServer（冒烟：9 tool 注册）', () => {
     it('registers the 8 expected tools', () => {
         const server = createMcpServer()
         // McpServer 实例的 _registeredTools 以工具名为键
@@ -13,6 +13,7 @@ describe('createMcpServer（冒烟：8 tool 注册）', () => {
             'fetch_alerts',
             'fix_dependency',
             'get_last_report',
+            'get_run_logs',
             'history',
             'pnpm_audit',
             'run_scan',

@@ -1,6 +1,6 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
-import { fetchAlertsSchema, getLastReportSchema, runScanSchema, fixDependencySchema, discoverReposSchema, cleanupBranchesSchema, historySchema, pnpmAuditSchema } from './tools/schemas'
+import { fetchAlertsSchema, getLastReportSchema, runScanSchema, fixDependencySchema, discoverReposSchema, cleanupBranchesSchema, historySchema, pnpmAuditSchema, getRunLogsSchema } from './tools/schemas'
 import { fetchAlerts } from './tools/fetch-alerts'
 import { getLastReport } from './tools/get-last-report'
 import { runScan } from './tools/run-scan'
@@ -9,9 +9,11 @@ import { discoverRepos } from './tools/discover-repos'
 import { cleanupBranches } from './tools/cleanup-branches'
 import { getHistory } from './tools/history'
 import { pnpmAudit } from './tools/pnpm-audit.tool'
+import { getRunLogs } from './tools/get-run-logs'
+import { resolveBackend } from './platform'
 
 /**
- * dependfix MCP Server：向 AI 助手暴露 8 个 tool。
+ * dependfix MCP Server：向 AI 助手暴露 9 个 tool。
  * - fetch_alerts（只读）：拉取 Dependabot / Code Scanning 告警
  * - get_last_report（只读）：读取最近 JSON 报告
  * - run_scan（写入）：执行扫描/修复（默认 report-only；支持 AI 研判透传）
@@ -20,9 +22,15 @@ import { pnpmAudit } from './tools/pnpm-audit.tool'
  * - cleanup_branches（写入）：清理已合并/已关闭的 dependfix 分支（非交互）
  * - history（只读）：查询仓库历史运行摘要
  * - pnpm_audit（只读）：本地 pnpm audit 回退数据源
- * 凭据从 GITHUB_TOKEN 环境变量读取（mcp-server.md §4.3）。
+ * - get_run_logs（只读，remote）：读取平台侧单次运行日志
+ * 凭据从 GITHUB_TOKEN 环境变量读取（mcp-server.md §4.3）；remote 后端另读平台 URL / key。
  */
 export const createMcpServer = (): McpServer => {
+    const remote = resolveBackend() === 'remote'
+    const tag = remote ? ' [remote]' : ''
+    const discoverDescription = remote
+        ? `按平台已纳管仓库列表（remote 降级：忽略 topics / include / exclude / probe_dependabot，仅保留 max_repos）${tag}`
+        : '按 owner / org 自动发现仓库（支持 topics / include / exclude 名单策略，只读）'
     const server = new McpServer({
         name: 'dependfix',
         version: '0.1.0',
@@ -31,7 +39,7 @@ export const createMcpServer = (): McpServer => {
     server.registerTool(
         'fetch_alerts',
         {
-            description: '拉取指定仓库的 Dependabot 安全告警（可选并行 Code Scanning，只读）',
+            description: `拉取指定仓库的 Dependabot 安全告警（可选并行 Code Scanning，只读）${tag}`,
             inputSchema: fetchAlertsSchema,
         },
         async (input) => {
@@ -45,7 +53,7 @@ export const createMcpServer = (): McpServer => {
     server.registerTool(
         'get_last_report',
         {
-            description: '读取最近一次 dependfix JSON 报告（只读）',
+            description: `读取最近一次 dependfix JSON 报告（只读）${tag}`,
             inputSchema: getLastReportSchema,
         },
         async () => {
@@ -87,7 +95,7 @@ export const createMcpServer = (): McpServer => {
     server.registerTool(
         'discover_repos',
         {
-            description: '按 owner / org 自动发现仓库（支持 topics / include / exclude 名单策略，只读）',
+            description: discoverDescription,
             inputSchema: discoverReposSchema,
         },
         async (input) => {
@@ -115,11 +123,25 @@ export const createMcpServer = (): McpServer => {
     server.registerTool(
         'history',
         {
-            description: '查询指定仓库的历史运行摘要（倒序时间，只读）',
+            description: `查询指定仓库的历史运行摘要（倒序时间，只读）${tag}`,
             inputSchema: historySchema,
         },
         async (input) => {
             const result = await getHistory(input)
+            return {
+                content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+            }
+        },
+    )
+
+    server.registerTool(
+        'get_run_logs',
+        {
+            description: `读取平台侧单次运行日志（grouped 聚合 / raw 原始；仅 remote 后端）${tag}`,
+            inputSchema: getRunLogsSchema,
+        },
+        async (input) => {
+            const result = await getRunLogs(input)
             return {
                 content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
             }

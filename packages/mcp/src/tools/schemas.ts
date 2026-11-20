@@ -66,6 +66,17 @@ export const historySchema = z.object({
     repo: z.string().describe('目标仓库，格式 owner/repo'),
 })
 
+/** `get_run_logs` 输入：读取平台侧单次运行日志（仅 remote 后端） */
+export const getRunLogsSchema = z.object({
+    run_id: z.string().min(1).describe('平台运行 id（ScanRun.id）'),
+    repo: z.string().optional().describe('所属仓库 owner/repo（可选，仅用于格式校验）'),
+    view: z.enum(['grouped', 'raw']).default('grouped').describe('日志视图：grouped 聚合（默认）/ raw 原始条目'),
+    level: z.string().optional().describe('级别过滤（逗号多选：debug,info,warn,error）'),
+    q: z.string().max(200).optional().describe('大小写不敏感的子串过滤'),
+    page: z.number().int().min(1).optional().describe('页码（默认 1）'),
+    page_size: z.number().int().min(1).max(200).optional().describe('每页数量（默认 50，最大 200）'),
+})
+
 /** `pnpm_audit` 输入：本地 pnpm audit 回退数据源 */
 export const pnpmAuditSchema = z.object({
     /** 本地仓库工作目录（已 clone，包含 pnpm-lock.yaml） */

@@ -27,7 +27,7 @@ MCP Server 已发布（npm `@dependfix/mcp`，≥1.0.0）。探测到 MCP 工具
 
 开始编排前先确定执行后端（只需一次）：
 
-1. **检查当前会话是否已加载 dependfix MCP 工具**：工具列表中是否存在 `fetch_alerts` / `run_scan` / `fix_dependency` / `get_last_report` / `discover_repos` / `cleanup_branches` / `history` / `pnpm_audit`（server 前缀可能为 `dependfix` 或 `@dependfix/mcp`）。不确定时用命令确认：
+1. **检查当前会话是否已加载 dependfix MCP 工具**：工具列表中是否存在 `fetch_alerts` / `run_scan` / `fix_dependency` / `get_last_report` / `discover_repos` / `cleanup_branches` / `history` / `pnpm_audit` / `get_run_logs`（server 前缀可能为 `dependfix` 或 `@dependfix/mcp`）。不确定时用命令确认：
    - Claude Code：`claude mcp list`（或检查项目根 `.mcp.json` 的 `mcpServers`）
    - OpenCode：检查 `opencode.json` / `~/.config/opencode/opencode.json` 的 `mcp` 配置
 2. **决策规则**：

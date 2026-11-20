@@ -1,9 +1,8 @@
 import { z } from 'zod'
 import { ScanRun } from '#server/entities/scan-run'
 import { ensureDatabaseInitialized } from '#server/database'
-import { requireAuth } from '#server/utils/guard'
+import { requireV1Auth } from '#server/utils/api-key-guard'
 import { createLocalizedError } from '#server/utils/localized-error'
-import { resolveOrganizationId } from '#server/utils/organization'
 import {
     applyRunsOrder,
     applyRunsWhere,
@@ -31,7 +30,7 @@ const querySchema = z.object({
 })
 
 export default defineEventHandler(async (event) => {
-    await requireAuth(event)
+    const auth = await requireV1Auth(event, { requireScope: 'read' })
 
     const parsed = querySchema.safeParse(getQuery(event))
     if (!parsed.success) {
@@ -44,11 +43,10 @@ export default defineEventHandler(async (event) => {
     const { repositoryId, status, failureStage, failureKind, from, to, page, pageSize, sortBy, sortOrder } = parsed.data
 
     const ds = await ensureDatabaseInitialized()
-    const organizationId = await resolveOrganizationId(ds)
 
     const qb = ds.getRepository(ScanRun).createQueryBuilder('run')
         .leftJoinAndSelect('run.repository', 'repository')
-    applyRunsWhere(qb, { repositoryId, status, failureStage, failureKind, from, to }, organizationId)
+    applyRunsWhere(qb, { repositoryId, status, failureStage, failureKind, from, to }, auth.organizationId)
     applyRunsOrder(qb, { sortBy, sortOrder })
     const [runs, total] = await qb
         .skip((page - 1) * pageSize)

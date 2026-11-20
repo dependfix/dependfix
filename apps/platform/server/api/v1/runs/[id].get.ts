@@ -1,7 +1,7 @@
 import { ScanRun } from '#server/entities/scan-run'
 import { ScanResult } from '#server/entities/scan-result'
 import { ensureDatabaseInitialized } from '#server/database'
-import { requireAuth, requireOrgResource } from '#server/utils/guard'
+import { requireV1Auth } from '#server/utils/api-key-guard'
 import { createLocalizedError } from '#server/utils/localized-error'
 import { toRunV1DetailView } from '#server/services/view/runs'
 
@@ -12,7 +12,7 @@ import { toRunV1DetailView } from '#server/services/view/runs'
  * 结果行自由文本经 `sanitizeString` 清洗，组织隔离与内部端点一致。
  */
 export default defineEventHandler(async (event) => {
-    await requireAuth(event)
+    const auth = await requireV1Auth(event, { requireScope: 'read' })
 
     const id = getRouterParam(event, 'id') as string
     if (!id) {
@@ -27,7 +27,9 @@ export default defineEventHandler(async (event) => {
     if (!run) {
         throw createLocalizedError(event, { statusCode: 404, code: 'SCAN_RUN_NOT_FOUND' })
     }
-    await requireOrgResource(event, run.repository?.organizationId)
+    if (run.repository?.organizationId !== auth.organizationId) {
+        throw createLocalizedError(event, { statusCode: 403, code: 'RESOURCE_NOT_IN_ORG' })
+    }
 
     const results = await ds.getRepository(ScanResult).find({
         where: { scanRunId: run.id },

@@ -1117,6 +1117,18 @@
             "zh-CN": "导出内容超出上限，请缩小筛选范围或减少单次导出的运行数",
             "en": "Export exceeds the limit; narrow the filters or reduce the number of runs per export"
         },
+        "API_KEY_LIMIT_REACHED": {
+            "zh-CN": "每个组织最多 10 把 API key",
+            "en": "At most 10 API keys per organization"
+        },
+        "API_KEY_NOT_FOUND": {
+            "zh-CN": "API key 不存在",
+            "en": "API key not found"
+        },
+        "RATE_LIMITED": {
+            "zh-CN": "请求过于频繁，请稍后重试",
+            "en": "Too many requests, please retry later"
+        },
         "API_V1_VALIDATION_FAILED": {
             "zh-CN": "请求参数不合法",
             "en": "Invalid request parameters"

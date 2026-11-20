@@ -1,9 +1,8 @@
 import { z } from 'zod'
 import { Repository } from '#server/entities/repository'
 import { ensureDatabaseInitialized } from '#server/database'
-import { requireAuth } from '#server/utils/guard'
+import { requireV1Auth } from '#server/utils/api-key-guard'
 import { createLocalizedError } from '#server/utils/localized-error'
-import { resolveOrganizationId } from '#server/utils/organization'
 import { apiV1PaginationShape, toPage } from '#server/schemas/api-v1-fields'
 import { toRepositoryV1View } from '#server/services/view/repos'
 
@@ -21,7 +20,7 @@ const querySchema = z.object({
 })
 
 export default defineEventHandler(async (event) => {
-    await requireAuth(event)
+    const auth = await requireV1Auth(event, { requireScope: 'read' })
 
     const parsed = querySchema.safeParse(getQuery(event))
     if (!parsed.success) {
@@ -34,11 +33,10 @@ export default defineEventHandler(async (event) => {
     const { owner, name, page, pageSize } = parsed.data
 
     const ds = await ensureDatabaseInitialized()
-    const organizationId = await resolveOrganizationId(ds)
     const repo = ds.getRepository(Repository)
 
     const where = {
-        organizationId,
+        organizationId: auth.organizationId,
         ...(owner ? { owner } : {}),
         ...(name ? { name } : {}),
     }

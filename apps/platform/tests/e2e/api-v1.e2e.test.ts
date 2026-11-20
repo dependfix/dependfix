@@ -50,6 +50,19 @@ test.describe('/api/v1 只读契约', () => {
             expect(item).not.toHaveProperty('verifyCommands')
         }
 
+        for (const path of ['/api/v1/alerts?pageSize=1', '/api/v1/pr-checks?pageSize=1']) {
+            const response = await page.request.get(path)
+            expect(response.status(), path).toBe(200)
+            expect(response.headers()['access-control-allow-origin']).toBeUndefined()
+            const body = await response.json() as { items: unknown[], page: number, pageSize: number, total: number }
+            expect(Array.isArray(body.items)).toBe(true)
+            expect(body.page).toBe(1)
+            expect(body.pageSize).toBe(1)
+        }
+        const dashboard = await page.request.get('/api/v1/dashboard/stats')
+        expect(dashboard.status()).toBe(200)
+        expect(dashboard.headers()['access-control-allow-origin']).toBeUndefined()
+
         const runs = await page.request.get('/api/v1/runs?pageSize=1')
         expect(runs.status()).toBe(200)
         expect(runs.headers()['access-control-allow-origin']).toBeUndefined()
@@ -60,6 +73,46 @@ test.describe('/api/v1 只读契约', () => {
             expect(item).not.toHaveProperty('logs')
             expect(item).not.toHaveProperty('logsText')
         }
+    })
+
+    test('logs 端点 grouped / raw 与 droppedBefore', async ({ page }) => {
+        const stamp = Date.now()
+        const owner = `e2e-v1-logs-${stamp}`
+        const seeded = await page.request.post('/api/e2e/fixtures', {
+            data: {
+                repos: [{ owner, name: 'app' }],
+                scanRuns: [{
+                    repositoryOwner: owner,
+                    repositoryName: 'app',
+                    status: 'completed',
+                    logsDropped: 3,
+                    logs: [
+                        { timestamp: '2026-11-19T10:00:00Z', level: 'warn', message: 'retry 200ms at /root/a' },
+                        { timestamp: '2026-11-19T10:00:01Z', level: 'warn', message: 'retry 300ms at /root/b' },
+                        { timestamp: '2026-11-19T10:00:02Z', level: 'error', message: 'failed at /app/package.json' },
+                    ],
+                }],
+            },
+        })
+        expect(seeded.status()).toBe(200)
+        const seededBody = await seeded.json() as { scanRuns: { id: string }[] }
+        const runId = seededBody.scanRuns[0]!.id
+
+        const grouped = await page.request.get(`/api/v1/runs/${runId}/logs`)
+        expect(grouped.status()).toBe(200)
+        const groupedBody = await grouped.json() as { view: string, groupCount: number, droppedBefore: number, groups: { level: string, count: number }[] }
+        expect(groupedBody.view).toBe('grouped')
+        expect(groupedBody.groupCount).toBe(2)
+        expect(groupedBody.droppedBefore).toBe(3)
+        expect(groupedBody.groups.find((group) => group.level === 'warn')!.count).toBe(2)
+
+        const raw = await page.request.get(`/api/v1/runs/${runId}/logs?view=raw&q=retry&pageSize=1`)
+        expect(raw.status()).toBe(200)
+        const rawBody = await raw.json() as { view: string, total: number, returned: number, entries: { message: string }[] }
+        expect(rawBody.view).toBe('raw')
+        expect(rawBody.total).toBe(2)
+        expect(rawBody.returned).toBe(1)
+        expect(rawBody.entries[0]!.message).toContain('retry')
     })
 
     test('未知 run id 返回 404', async ({ page }) => {

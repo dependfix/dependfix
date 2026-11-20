@@ -6,9 +6,14 @@ import reposHandler from './repos/index.get'
 import repoHandler from './repos/[id].get'
 import runsHandler from './runs/index.get'
 import runHandler from './runs/[id].get'
+import logsHandler from './runs/[id]/logs.get'
+import alertsHandler from './alerts/index.get'
+import prChecksHandler from './pr-checks/index.get'
+import dashboardHandler from './dashboard/stats.get'
 import { ensureDatabaseInitialized } from '#server/database'
 import { Repository } from '#server/entities/repository'
 import { Organization } from '#server/entities/organization'
+import { PRCheck } from '#server/entities/pr-check'
 import { ScanRun } from '#server/entities/scan-run'
 import { ScanResult } from '#server/entities/scan-result'
 import { resolveOrganizationId } from '#server/utils/organization'
@@ -97,10 +102,41 @@ describe('/api/v1 只读契约（repos / runs）', () => {
             status: 'completed',
             summaryJson: JSON.stringify({ alertsTotal: 1, note: 'Authorization: Bearer abc.def' }),
             errorJson: JSON.stringify({ code: 'CLONE_FAILED', message: 'failed https://user:pass@example.com/repo' }),
-            logsJson: JSON.stringify([{ timestamp: new Date().toISOString(), level: 'info', message: 'internal log line' }]),
+            logsJson: JSON.stringify([
+                { timestamp: '2026-11-19T10:00:00Z', level: 'warn', message: 'retry 200ms at /root/a' },
+                { timestamp: '2026-11-19T10:00:01Z', level: 'warn', message: 'retry 300ms at /root/b' },
+                { timestamp: '2026-11-19T10:00:02Z', level: 'error', message: 'install failed at /app/package.json' },
+            ]),
             logsDropped: 2,
         }))
         runId = run.id
+
+        await ds.getRepository(PRCheck).save(ds.getRepository(PRCheck).create({
+            repositoryId: repoId,
+            prNumber: 7,
+            headSha: 'deadbeefcafe',
+            authorLogin: 'dependabot[bot]',
+            conclusion: 'failure',
+            prState: 'open',
+            overallStatus: 'failure',
+            alertFiring: true,
+            errorMessage: 'failed at /root/private/repo',
+            detailsUrl: 'https://ci.example.com/run?access_token=secret-sas',
+            signalsJson: JSON.stringify([{
+                kind: 'check',
+                provider: 'github',
+                name: 'CI /root/check-name',
+                state: 'failure',
+                rawState: 'failure',
+                sourceId: '1',
+                targetUrl: 'https://ci.example.com/run?access_token=abc',
+                logUrl: null,
+                summary: 'failed at /root/private/repo with dfk_ab-cdefghij',
+                observedAt: '2026-11-19T10:00:00Z',
+            }]),
+            failureSourcesJson: JSON.stringify([{ provider: 'github', name: 'CI /root/check-name', kind: 'check' }]),
+            lastPolledAt: new Date('2026-11-19T10:00:00Z'),
+        }))
 
         await ds.getRepository(ScanResult).save(ds.getRepository(ScanResult).create({
             scanRunId: runId,
@@ -209,6 +245,76 @@ describe('/api/v1 只读契约（repos / runs）', () => {
         // 集合端点（runs）按组织过滤，不返回跨组织运行
         const runs = await runsHandler(makeEvent('GET', '/api/v1/runs?pageSize=200')) as { items: { id: string }[] }
         expect(runs.items.some((item) => item.id === crossRunId)).toBe(false)
+    })
+
+    it('alerts / pr-checks / dashboard 字段白名单与分页对象', async () => {
+        const alerts = await alertsHandler(makeEvent('GET', '/api/v1/alerts?pageSize=9999')) as {
+            items: Record<string, unknown>[]
+            total: number
+            pageSize: number
+        }
+        expect(alerts.pageSize).toBe(500)
+        expect(alerts.items).toHaveLength(1)
+        expectWhitelist(alerts.items[0]!, API_V1_FIELDS.alert)
+        expect(alerts.items[0]!.summary).toContain('<path>')
+
+        const prChecks = await prChecksHandler(makeEvent('GET', '/api/v1/pr-checks?conclusion=failure')) as {
+            items: Record<string, unknown>[]
+            total: number
+        }
+        expect(prChecks.total).toBe(1)
+        expectWhitelist(prChecks.items[0]!, API_V1_FIELDS.prCheck)
+        expect(prChecks.items[0]!.errorMessage).toContain('<path>')
+        expect(prChecks.items[0]!.repository).toBe('demo/app')
+        const serialized = JSON.stringify(prChecks.items[0])
+        expect(serialized).not.toContain('/root')
+        expect(serialized).not.toContain('access_token=abc')
+        expect(serialized).toContain('dfk_***')
+
+        const dashboard = await dashboardHandler(makeEvent('GET', '/api/v1/dashboard/stats')) as Record<string, unknown>
+        expectWhitelist(dashboard, API_V1_FIELDS.dashboard)
+        // 跨组织（other-org）不计入：仅 demo/app 与 demo/other
+        expect(dashboard.repositoryCount).toBe(2)
+        expect(dashboard.alertsTotal).toBe(1)
+        expect((dashboard.latestRun as { id: string } | null)?.id).not.toBe(crossRunId)
+    })
+
+    it('logs grouped / raw 同源清洗、分页与 droppedBefore，跨组织 403', async () => {
+        const grouped = await logsHandler(makeEvent('GET', `/api/v1/runs/${runId}/logs`, undefined, {}, { id: runId })) as unknown as {
+            view: string
+            total: number
+            groupCount: number
+            droppedBefore: number
+            groups: Record<string, unknown>[]
+        }
+        expect(grouped.view).toBe('grouped')
+        expect(grouped.total).toBe(3)
+        expect(grouped.groupCount).toBe(2)
+        expect(grouped.droppedBefore).toBe(2)
+        expectWhitelist(grouped as unknown as Record<string, unknown>, API_V1_FIELDS.logGrouped)
+        expectWhitelist(grouped.groups[0]!, API_V1_FIELDS.logGroup)
+        // 两条 warn 归一为同一模板；error 逐条保留正文
+        expect(grouped.groups.find((group) => group.level === 'warn')!.count).toBe(2)
+        expect(grouped.groups.find((group) => group.level === 'error')!.template).toContain('<path>')
+
+        const raw = await logsHandler(makeEvent('GET', `/api/v1/runs/${runId}/logs?view=raw&q=retry&pageSize=1`, undefined, {}, { id: runId })) as unknown as {
+            view: string
+            total: number
+            returned: number
+            truncated: boolean
+            entries: Record<string, unknown>[]
+        }
+        expect(raw.view).toBe('raw')
+        expect(raw.total).toBe(2)
+        expect(raw.returned).toBe(1)
+        expect(raw.truncated).toBe(true)
+        expectWhitelist(raw as unknown as Record<string, unknown>, API_V1_FIELDS.logRaw)
+        expectWhitelist(raw.entries[0]!, API_V1_FIELDS.logEntry)
+
+        await expect(logsHandler(makeEvent('GET', `/api/v1/runs/${crossRunId}/logs`, undefined, {}, { id: crossRunId })))
+            .rejects.toMatchObject({ statusCode: 403 })
+        await expect(logsHandler(makeEvent('GET', `/api/v1/runs/${runId}/logs?level=bogus`, undefined, {}, { id: runId })))
+            .rejects.toMatchObject({ statusCode: 400 })
     })
 
     it('非法查询返回 400 且 code 稳定', async () => {

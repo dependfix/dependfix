@@ -35,6 +35,10 @@ test.describe('/api/v1/keys 与 API key 鉴权', () => {
             })
             expect(runs.status()).toBe(200)
             expect(runs.headers()['access-control-allow-origin']).toBeUndefined()
+            for (const path of ['/api/v1/alerts?pageSize=1', '/api/v1/pr-checks?pageSize=1', '/api/v1/dashboard/stats']) {
+                const response = await keyContext.request.get(path, { headers: { authorization: `Bearer ${keyBody.key}` } })
+                expect(response.status(), path).toBe(200)
+            }
 
             // 无效 key → 401
             const invalid = await keyContext.request.get('/api/v1/repos', {

@@ -1,4 +1,4 @@
-import { IsNull, type DataSource } from 'typeorm'
+import type { DataSource } from 'typeorm'
 import { Repository } from '#server/entities/repository'
 import { ScanRun } from '#server/entities/scan-run'
 import { ScanResult } from '#server/entities/scan-result'

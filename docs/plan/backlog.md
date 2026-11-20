@@ -54,7 +54,7 @@
 
 ### 候选评估中（待评估 / 本阶段延后项）
 
-> **候选池概览（2026-11-20 M63 归档后复算）**：本区 **35 项**（`### 候选评估中` 段内 `^- \*\*` 逐行计数）；每次上收 / 新增 / 移出后按段内实测更新本句与首行，不保留历史链路。P 标签覆盖不全（未标注者评估时补，不默认升级）；1.0 分档见 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)。
+> **候选池概览（2026-11-21 issue #269 研判新增后复算）**：本区 **37 项**（`### 候选评估中` 段内 `^- \*\*` 逐行计数）；每次上收 / 新增 / 移出后按段内实测更新本句与首行，不保留历史链路。P 标签覆盖不全（未标注者评估时补，不默认升级）；1.0 分档见 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)。
 > **1.0 门槛与分档**：分档、门槛判定与批次计划单点声明于 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)（2026-10-30 冻结口径，不随候选上收收缩；本文件不重复维护数字）。
 
 - **备份 `.tmp` 清扫缺年龄门槛（P3 🛠️，2026-10-31 M53.2 收口登记）** —— `cleanupOldBackups` 对 `*.bak.tmp` 无条件回收；单实例串行路径不可达冲突，但并发 `db:restore` 或多实例共卷启动时可能删掉对端正在写的临时文件（rename ENOENT → 该轮快照丢失，fail-open 后仅剩日志）。待评估：加入 `mtime < now - 10min` 年龄门槛或按 PID 命名临时文件。触发：启用多实例 / 多容器共享数据卷，或出现并发恢复需求时。
@@ -164,12 +164,16 @@
   - **不做**：不改版本推导与发布判定逻辑；不合并 schedule 与 workflow_dispatch 的步骤集。
   - **触发条件**：启用定时发布（本项为启用前置）。
 
-- **发布链自动更新 major tag（P3 🚀，2026-11-15 登记；用户倾向不实施）** —— **状态**：已决策倾向不实施，仅保留恢复触发条件，不参与本批次上收。背景：GitHub 官方推荐每次发布把 `vN` 移到当前发布提交（major 变更新建 `vN+1`），实测主流 action（`actions/checkout` v7→v7.0.1 / `actions/setup-node` v7→v7.1.0 / `docker/build-push-action` v7→v7.4.0 / `softprops/action-gh-release` v3→v3.0.4 / `pnpm/action-setup` v6 annotated（v6.1.1））均按此维护（复现：`gh api repos/<owner>/<repo>/tags?per_page=5 --jq '.[] | "\(.name) \(.commit.sha[0:10])"'`，2026-11-15 实测）。本项目 2026-11-15 决策采用「具体版本 + Dependabot bump」，`v1` 已冻结在 1.1.0（理由：标签漂移影响可复现性与供应链审计）。
-  - **待评估点**：是否在 `release.yml` 增加一步「比较 semver → 仅当新版本是当前 major 内最大版本时 `git tag -fa vN` + force push」；需同时定义幂等（已指向 HEAD 则跳过）、immutable releases 兼容（开启后禁止 force push）、回滚口径（`vN` 回退属破坏性）。
-  - **触发条件**：用户希望恢复 `@v1` 滚动便利；或目标仓库数量增长导致逐仓 bump 引用成本不可接受。
-  - **验收标准（草案，仅恢复实施时适用）**：① 发布后 `vN` 指向当前 major 内最大版本（semver 比较，非字典序）；② 已指向 HEAD 时跳过（幂等）；③ immutable releases 开启时显式失败并给处置；④ 回滚命令与演练记录成文。
-  - **风险与缓解**：可变引用削弱可复现性 → 仅作为便利入口，用户可见示例仍给具体版本；force push 失败留中间态 → 步骤置于 tag 推送之后并 fail-fast。
-  - **不做**：不改变现有「具体版本」示例口径；默认不实施。
+- **发布链自动更新 major tag（P3 🚀，2026-11-15 登记；用户倾向不实施）** —— **状态**：已决策倾向不实施，仅保留恢复触发条件。背景：GitHub 官方与主流 action 按「每次发布把 `vN` 移到当前发布提交」维护（2026-11-15 实测）；本项目 2026-11-15 决策采用「具体版本 + Dependabot bump」，`v1` 冻结在 1.1.0（标签漂移影响可复现性与供应链审计）。
+  - **待评估点**：`release.yml` 增「semver 比较 → 仅当前 major 最大版本时 `git tag -fa vN` + force push」，需定义幂等 / immutable releases 兼容 / 回滚口径。
+  - **触发条件**：用户希望恢复 `@v1` 滚动便利；或逐仓 bump 成本不可接受。
+  - **验收标准（草案，仅恢复实施时适用）**：① `vN` 指向当前 major 最大版本（semver 非字典序）；② 已指向 HEAD 跳过；③ immutable releases 开启时显式失败；④ 回滚命令与演练记录成文。
+  - **不做**：不改变「具体版本」示例口径；默认不实施。
+  - **风险与缓解**：可变引用削弱可复现性 → 仅作便利入口；force push 失败留中间态 → 步骤置于 tag 推送之后并 fail-fast。
+
+- **规划文档模型 v1 前向落地（P2 📚 治理，2026-11-21 issue #269 研判登记）** —— **目标**：把 [#269](https://github.com/dependfix/dependfix/issues/269) 中研判成立的部分前向落到规范与机检。**范围**：① `todo.md` 当前阶段段首 6 列进度表（大条目 / 小条目 / 状态 / 提交 / 审计 / 容量），`提交` 记实际 commit 短 hash、`容量` 记计划 commits 区间，files / 行仍由阶段容量基线承载；② `planning.md §2.2` / `§2.5` 同源改两级——大条目 8 要素、小条目 4 项（优先级 / 范围 / 不做什么 / 风险从大条目继承，合计 8 要素不缺失），小条目用既有三级编号 `Mxx.y.z`；③ `§1.1` 两处与 `§3.1` 容量控制行改默认 4-6、上限 8，第 7-8 项须写不拆阶段的可核判据；④ `archive/index.md` 补分片命名式（`*-phases-<起>[-<止>].md`）+ 遗留名白名单（`m2-m55` 名实歧义、`m6-m7-t711` / `m10-c53-c59c61` 不合式）；⑤ `check-doc-governance` 增进度表行数、分片命名两项机检，不变量声明面同步（`doc-governance.md §4.3` + `archive/index.md`）。**验收**：新增阶段有表且机检 exit 0；无活跃阶段时 no-op；白名单 3 条在规范内枚举。**不做**：归档块 6 项字段（提案未枚举字段名）；小条目 ID 强制进 commit subject；已归档阶段回改。**交付物**：2-3 commits / 5-7 文件（`planning.md`、`archive/index.md`、`check-doc-governance.mjs` + 测试）/ 400-700 行。**风险**：规范条款与机检不同源 → 同批挂检查点矩阵。**依赖**：backlog 容量治理。**触发**：下一阶段规划前。
+
+- **backlog 容量治理：分片或健康预算复核（P3 📚 治理，2026-11-21 issue #269 研判登记）** —— 现状：健康字符余量已近零（实测见 `archive/index.md §4`），新增候选与字段规范化都会贴顶。**待评估**：① 按「长期主线 / 短期候选 / 已知边界」拆到独立文件或 archive 分片；② 或复核 §4.2 健康预算（须同源改 `doc-governance.md §4.2` 与 `archive/index.md §4`）；③ 再评估候选条目字段规范化（issue #269 本批延后项）。**验收**：拆分后 `check-doc-governance` 0 新增 warning、跨文件链接 0 死链。**不做**：不靠调高阈值绕过压缩。**触发**：下一次新增候选触发 warning。
 
 ### 待上收候选（评估完成，等待用户决策）
 

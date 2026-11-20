@@ -13,9 +13,15 @@
 | PUT | 更新资源 |
 | DELETE | 删除资源 |
 
-## 3. 统一响应格式
+## 3. 统一响应格式（历史声明）
+
+> **2026-11-20 订正**：本节的 `ApiResponse` 信封**不是当前实现**。内部端点成功时返回裸对象或
+> `{ items, total, page, pageSize }`，错误由 Nitro 序列化为 `{ statusCode, statusMessage, message, data }`
+> （业务 `code` 位于 `data.code`）。本节保留为历史设计声明；对外只读面契约见
+> [api-v1.md](../guide/api-v1.md)。
 
 ```typescript
+// 历史声明（未实现）
 interface ApiResponse<T = any> {
     code: number       // 业务状态码，200 表示成功
     message: string    // 状态描述或错误信息

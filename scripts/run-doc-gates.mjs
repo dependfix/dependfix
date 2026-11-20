@@ -30,6 +30,7 @@ export const DOC_GATES = [
     'check:doc-governance',
     'check:doc-size',
     'check:contract-freeze',
+    'check:api-v1-contract',
     'check:mergify',
     'check:orphan-ids',
     'check:standards-redundant:strict',

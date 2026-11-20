@@ -1,5 +1,6 @@
 import { queryRepoHistory } from '@dependfix/engine'
 import { isValidRepoIdentifier } from '@dependfix/core'
+import { platformErrorToTool, platformGet, resolveBackend, resolvePlatformRepo } from '../platform'
 import { toToolError } from './errors'
 
 /** `history` 返回结构 */
@@ -7,6 +8,7 @@ export type HistoryResult =
     | {
         ok: true
         repo: string
+        truncated?: boolean
         runs: Array<{
             runId: string
             startedAt: string
@@ -27,6 +29,9 @@ export const getHistory = async (input: { repo: string }): Promise<HistoryResult
     if (!isValidRepoIdentifier(input.repo)) {
         return { ok: false, error: `repo 格式非法（预期 owner/repo，收到 ${input.repo}）` }
     }
+    if (resolveBackend() === 'remote') {
+        return getHistoryRemote(input.repo)
+    }
     try {
         const reportDir = process.env.DEPENDFIX_MCP_REPORT_DIR ?? './dependfix-reports'
         const entries = queryRepoHistory(input.repo, reportDir)
@@ -45,5 +50,47 @@ export const getHistory = async (input: { repo: string }): Promise<HistoryResult
         }
     } catch (error) {
         return toToolError(error)
+    }
+}
+
+interface PlatformRun {
+    id: string
+    status: string
+    startedAt: string | null
+    finishedAt: string | null
+    createdAt: string
+    summary: Record<string, unknown> | null
+}
+
+const getHistoryRemote = async (repo: string): Promise<HistoryResult> => {
+    const [owner, name] = repo.split('/')
+    try {
+        const platformRepo = await resolvePlatformRepo(owner, name)
+        if (!platformRepo) {
+            return { ok: false, error: `平台未纳管仓库 ${repo}` }
+        }
+        const response = await platformGet<{ items: PlatformRun[], total: number }>('/api/v1/runs', {
+            repositoryId: platformRepo.id,
+            pageSize: 100,
+        })
+        return {
+            ok: true,
+            repo,
+            truncated: response.items.length < response.total,
+            runs: response.items.map((run) => {
+                const started = run.startedAt ?? run.createdAt
+                const durationMs = run.finishedAt ? Math.max(0, Date.parse(run.finishedAt) - Date.parse(started)) : 0
+                return {
+                    runId: run.id,
+                    startedAt: started,
+                    durationMs,
+                    repositories: [repo],
+                    summary: run.summary ?? {},
+                    repoStats: [],
+                }
+            }),
+        }
+    } catch (error) {
+        return platformErrorToTool(error)
     }
 }

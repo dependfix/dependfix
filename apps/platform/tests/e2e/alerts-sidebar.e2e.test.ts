@@ -277,4 +277,30 @@ test.describe('alerts 去重视图受影响运行 Sidebar', () => {
         await expect(sidebar).toBeVisible()
         await expect(sidebar).toContainText('12345678')
     })
+    test('运行详情日志聚合档与丢弃提示（与扫描历史弹窗同源）', async ({ page }) => {
+        const run = makeRun({
+            logsDropped: 4,
+            logsText: '[2026-11-19T10:00:00.000Z] WARN  retry',
+            logs: [
+                { timestamp: '2026-11-19T10:00:00.000Z', level: 'warn', message: 'retry 200ms at /root/workspace/repo' },
+                { timestamp: '2026-11-19T10:00:01.000Z', level: 'error', message: 'install failed at /app/workspace/package.json' },
+            ],
+        })
+        await installRoutes(page, [run])
+
+        await page.goto('/alerts')
+        await waitForHydration(page)
+        await page.locator('#view-mode').click()
+        await page.locator('.caomei-select__content .caomei-select__item').filter({ hasText: '原始列表' }).click()
+        const row = page.locator('.caomei-data-table__row').filter({ hasText: 'lodash' }).first()
+        await expect(row).toBeVisible()
+        await row.locator('button[aria-label="详情"]').click()
+        await page.locator('.caomei-drawer__content').locator('button[aria-label="详情"]').click()
+
+        const dialog = page.locator('.caomei-dialog__content')
+        const logsHeader = dialog.locator('.run-detail__logs-header')
+        await expect(logsHeader.getByRole('button', { name: '聚合' })).toBeVisible()
+        await expect(logsHeader.getByRole('button', { name: '原始' })).toBeVisible()
+        await expect(dialog.locator('.run-detail__logs-dropped')).toContainText('4')
+    })
 })

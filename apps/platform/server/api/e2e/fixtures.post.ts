@@ -141,6 +141,14 @@ const scanRunSchema = z.object({
             unknown: z.number().int().min(0).optional(),
         }).optional(),
     }).optional(),
+    /** 执行日志（JSON 数组；日志聚合视图的 e2e 用例用，最多 1000 条） */
+    logs: z.array(z.object({
+        timestamp: z.string(),
+        level: z.enum(['debug', 'info', 'warn', 'error']),
+        message: z.string().max(4000),
+    })).max(1000).optional(),
+    /** 采集侧日志丢弃数（三态：缺省 null / 0 / >0） */
+    logsDropped: z.number().int().min(0).nullable().optional(),
     /** 进程级退出码（缺省 null；视觉基线可钉死非 null 值） */
     exitCode: z.number().int().min(0).max(255).nullable().optional(),
     /** 环境性失败计数列（缺省 null；与 summary.environmentalFailures 同源） */
@@ -373,6 +381,8 @@ export default defineEventHandler(async (event) => {
                 failureCode: sr.failureCode ?? null,
                 failureStage: sr.failureStage ?? null,
                 failureKind: sr.failureKind ?? null,
+                logsJson: sr.logs ? JSON.stringify(sr.logs) : null,
+                logsDropped: sr.logsDropped ?? null,
             }))
             runResults.push({
                 index: i,

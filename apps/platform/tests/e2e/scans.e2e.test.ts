@@ -94,6 +94,70 @@ test.describe('/scans 独立页面', () => {
     })
 
     /**
+     * 日志聚合档：默认聚合复制 / 下载 + `logsDropped > 0` 提示；「原始」档下载仍走服务端附件。
+     */
+    test('case 3b: /scans?run=xxx — 日志聚合档默认启用、丢弃提示与下载档位', async ({ page }) => {
+        const stamp = Date.now()
+        const owner = `e2e-scans-digest-${stamp}`
+        const cookies = (await page.context().cookies()).map((c) => `${c.name}=${c.value}`).join('; ')
+        const seeded = await page.request.post('/api/e2e/fixtures', {
+            headers: { cookie: cookies },
+            data: {
+                repos: [{ owner, name: 'app' }],
+                scanRuns: [{
+                    repositoryOwner: owner,
+                    repositoryName: 'app',
+                    status: 'completed',
+                    logsDropped: 7,
+                    logs: [
+                        { timestamp: '2026-11-19T10:00:00.000Z', level: 'warn', message: 'retry 200ms at /root/workspace/repo' },
+                        { timestamp: '2026-11-19T10:00:01.000Z', level: 'warn', message: 'retry 300ms at /root/workspace/repo' },
+                        { timestamp: '2026-11-19T10:00:02.000Z', level: 'error', message: 'install failed at /app/workspace/package.json' },
+                    ],
+                }],
+            },
+        })
+        expect(seeded.status()).toBe(200)
+        const seededBody = await seeded.json() as { scanRuns: { id: string }[] }
+        const runId = seededBody.scanRuns[0]!.id
+
+        await page.goto(`/scans?run=${runId}`)
+        await waitForHydration(page)
+        await expect(page.locator('.caomei-dialog__content')).toBeVisible({ timeout: 15000 })
+
+        const logsHeader = page.locator('.repo-history__logs-header')
+        await expect(logsHeader.getByRole('button', { name: '聚合' })).toBeVisible()
+        await expect(logsHeader.getByRole('button', { name: '原始' })).toBeVisible()
+        await expect(page.locator('.repo-history__logs-dropped')).toContainText('7')
+
+        const [digestDownload] = await Promise.all([
+            page.waitForEvent('download'),
+            logsHeader.getByRole('button', { name: '下载日志' }).click(),
+        ])
+        expect(digestDownload.suggestedFilename()).toBe(`run-${runId}-digest.txt`)
+
+        await logsHeader.getByRole('button', { name: '原始' }).click()
+        const [rawDownload] = await Promise.all([
+            page.waitForEvent('download'),
+            logsHeader.getByRole('button', { name: '下载日志' }).click(),
+        ])
+        expect(rawDownload.suggestedFilename()).toBe(`run-${runId}.txt`)
+
+        // 窄视口（360px）：头部换行、不横向溢出，下载按钮仍可点
+        await page.setViewportSize({ width: 360, height: 720 })
+        const overflow = await logsHeader.evaluate((el) => el.scrollWidth - el.clientWidth)
+        expect(overflow).toBeLessThanOrEqual(0)
+        const titleBox = await logsHeader.locator('.repo-history__logs-title').boundingBox()
+        expect(titleBox).not.toBeNull()
+        expect(titleBox!.width).toBeGreaterThan(40)
+        const [narrowDownload] = await Promise.all([
+            page.waitForEvent('download'),
+            logsHeader.getByRole('button', { name: '下载日志' }).click(),
+        ])
+        expect(narrowDownload.suggestedFilename()).toBe(`run-${runId}.txt`)
+    })
+
+    /**
      * 运行失败分类筛选：状态列「失败 · {阶段}」+ 失败阶段筛选生效。
      * 用 e2e fixtures 端点注入两条确定性失败 run（verify / clone），避免依赖无 token 扫描的真实分类。
      */

@@ -32,6 +32,16 @@ export function sanitizeString(message: string): string {
         .replace(/-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----/g, '[redacted-private-key]')
 }
 
+/**
+ * 绝对路径归一（设计稿 §6.2 / §6.4）：工作目录 / 内部路径不进入 v1 响应与日志聚合正文。
+ * 前缀必须有右边界，避免把 `/application`、`/homepage` 误判为 `/app`、`/home`。
+ */
+const ABSOLUTE_PATH_PATTERN = /(?:\/(?:root|home|app|tmp|var|usr))(?![A-Za-z0-9_.-])(?:\/[^\s"'`()<>,;]*)?/g
+
+export function redactAbsolutePaths(value: string): string {
+    return value.replace(ABSOLUTE_PATH_PATTERN, '<path>')
+}
+
 /** 敏感字段名（维度内 OR：命中任一即整体替换为 `***`）。 */
 const SENSITIVE_KEY_PATTERN = /token|secret|passw|authorization|credential|api[-_]?key|private[-_]?key|connection[-_]?string|access[-_]?key/i
 

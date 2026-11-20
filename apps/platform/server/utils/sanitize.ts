@@ -6,6 +6,7 @@
  */
 export {
     CIRCULAR_PLACEHOLDER,
+    redactAbsolutePaths,
     sanitizeDeep,
     sanitizeString,
 } from '#shared/sanitize'

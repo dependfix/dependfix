@@ -8,7 +8,7 @@
  * `(level, template)` 分组；`error` 不折叠（逐条输出），避免把不同根因压成一条。
  */
 
-import { sanitizeString } from './sanitize'
+import { redactAbsolutePaths, sanitizeString } from './sanitize'
 
 /** 日志级别（与 `LogEntry` 对齐；消费侧允许字符串，未知级别按原样保留） */
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error'
@@ -88,9 +88,6 @@ const ANSI_PATTERNS: RegExp[] = [
     new RegExp(`${ESC}[@-_]`, 'g'),
 ]
 
-/** 绝对路径前缀（设计稿 §6.4 枚举）；保留其后标点，避免吞掉句子结构 */
-const ABSOLUTE_PATH_PATTERN = /(?:\/(?:root|home|app|tmp|var|usr))(?![A-Za-z0-9_.-])(?:\/[^\s"'`()<>,;]*)?/g
-
 const ISO_TIMESTAMP_PATTERN = /\b\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?\b/g
 const UUID_PATTERN = /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi
 const HEX_ID_PATTERN = /\b[0-9a-f]{8,}\b/gi
@@ -133,7 +130,7 @@ export function cleanLogMessage(message: string): string {
         cleaned = cleaned.replace(pattern, '')
     }
     cleaned = sanitizeString(cleaned)
-    cleaned = cleaned.replace(ABSOLUTE_PATH_PATTERN, '<path>')
+    cleaned = redactAbsolutePaths(cleaned)
     return cleaned
 }
 

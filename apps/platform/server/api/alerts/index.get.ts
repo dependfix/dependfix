@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { ScanResult } from '#server/entities/scan-result'
 import { ensureDatabaseInitialized } from '#server/database'
 import { requireAuth } from '#server/utils/guard'
+import { toAlertView } from '#server/services/view/alerts'
 
 /**
  * GET /api/alerts：告警视图（按仓库/严重级别/来源筛选）。
@@ -94,32 +95,5 @@ export default defineEventHandler(async (event) => {
 
     // per-alert 模型：每行已是独立告警，occurrenceCount/firstSeenAt/lastSeenAt 字段直接来自 ScanResult，
     // 无需应用层 fingerprint 聚合（旧的跨次扫描去重逻辑由 per-alert 模型替代）
-    return results.map((r) => ({
-        id: r.id,
-        runId: r.scanRunId,
-        repository: r.scanRun?.repository ? `${r.scanRun.repository.owner}/${r.scanRun.repository.name}` : null,
-        source: r.source,
-        severity: r.severity,
-        packageName: r.packageName,
-        manifestPath: r.manifestPath,
-        ruleId: r.ruleId,
-        summary: r.summary,
-        fixable: r.fixable,
-        fixStrategy: r.fixStrategy,
-        recommendedVersion: r.recommendedVersion,
-        htmlUrl: r.htmlUrl,
-        fixStatus: r.fixStatus,
-        errorMessage: r.errorMessage,
-        // 新增字段（直接来自 ScanResult）
-        upstreamId: r.upstreamId,
-        occurrenceCount: r.occurrenceCount,
-        firstSeenAt: r.firstSeenAt.toISOString(),
-        lastSeenAt: r.lastSeenAt.toISOString(),
-        supersededAt: r.supersededAt?.toISOString() ?? null,
-        // 漏洞唯一标识透传：依赖类告警携带 GHSA（GitHub Advisory Database）+ CVE 列表，
-        // code-scanning / code-quality 源无此概念，ghsaId=null / cveIds=[]。
-        // 写入路径见 ScanResult.reconcile（JSON 序列化 cveIds 字符串）；读取时反序列化。
-        ghsaId: r.ghsaId,
-        cveIds: r.cveIds ? JSON.parse(r.cveIds) as string[] : [],
-    }))
+    return results.map(toAlertView)
 })

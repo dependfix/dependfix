@@ -615,14 +615,17 @@ export class SandboxExecutor implements ScanExecutor {
                 stderrTail ? `stderr 末尾：${stderrTail}` : '',
                 stdoutTail ? `stdout 末尾：${stdoutTail}` : '',
             ].filter(Boolean).join('；')
+            const timeoutLogs = tail || stdout || runResult.stderr
+                ? buildLogsJson(stdout, runResult.stderr)
+                : null
             return {
                 exitCode: 2,
                 error: {
                     code: 'execution_timeout',
                     message: `执行超时(${this.timeoutMs}ms 上限)${tail ? `；容器输出${tail.replace(/^(stderr|stdout)/, ' $1')}` : ''}`,
                 },
-                ...(tail || stdout || runResult.stderr
-                    ? { logsJson: buildLogsJson(stdout, runResult.stderr) }
+                ...(timeoutLogs
+                    ? { logsJson: timeoutLogs.logsJson, logsDropped: timeoutLogs.dropped }
                     : {}),
                 resource,
                 startedAt,
@@ -665,7 +668,9 @@ export class SandboxExecutor implements ScanExecutor {
         const raw = stdout.slice(start + RESULT_SENTINEL_START.length, end).trim()
         // 结果区间之外仍是 CLI 日志：剔除结果 JSON 后作为执行日志回传
         const stdoutLogs = `${stdout.slice(0, start)}${stdout.slice(end + RESULT_SENTINEL_END.length)}`
-        const logsJson = buildLogsJson(stdoutLogs, runResult.stderr)
+        const logs = buildLogsJson(stdoutLogs, runResult.stderr)
+        const logsJson = logs.logsJson
+        const logsDropped = logs.dropped
 
         let parsed: { exitCode?: number, result?: RunResult } | null = null
         try {
@@ -681,6 +686,7 @@ export class SandboxExecutor implements ScanExecutor {
                 startedAt,
                 finishedAt,
                 logsJson,
+                logsDropped,
             }
         }
 
@@ -695,6 +701,7 @@ export class SandboxExecutor implements ScanExecutor {
                 startedAt,
                 finishedAt,
                 logsJson,
+                logsDropped,
             }
         }
 
@@ -710,6 +717,7 @@ export class SandboxExecutor implements ScanExecutor {
                 startedAt,
                 finishedAt,
                 logsJson,
+                logsDropped,
             }
         }
 
@@ -727,6 +735,7 @@ export class SandboxExecutor implements ScanExecutor {
                     startedAt,
                     finishedAt,
                     logsJson,
+                    logsDropped,
                 }
             }
         }
@@ -739,6 +748,7 @@ export class SandboxExecutor implements ScanExecutor {
             startedAt,
             finishedAt,
             logsJson,
+            logsDropped,
         }
     }
 }

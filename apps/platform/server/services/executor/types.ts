@@ -78,6 +78,11 @@ export interface ScanExecutorResult {
     prNumber?: number
     /** 执行日志（JSON 数组：[{timestamp, level, message, context}]） */
     logsJson?: string
+    /**
+     * 采集侧已丢弃的早期日志条目数（`ScanRun.logsDropped`）：
+     * `0` = 确认未丢；缺省 = 该执行器不采集（如 github-action），落库为 NULL。
+     */
+    logsDropped?: number
     /** 执行窗口内存 / OOM 快照（容器执行器采集；缺省 = 未接入，落库为 NULL + 原因） */
     resource?: ExecutorResourceUsage
     startedAt: string

@@ -186,6 +186,7 @@ const persistRunTerminalState = async (
             failureStage: run.failureStage ?? null,
             failureKind: run.failureKind ?? null,
             logsJson: run.logsJson ?? null,
+            logsDropped: run.logsDropped ?? null,
             prNumber: run.prNumber ?? null,
             updatedAt: new Date(),
         })
@@ -411,6 +412,8 @@ const runScanInternal = async (
     // 执行日志（container 由 MemoryLogger 输出 / sandbox 由 stdout+stderr 尾部回传）：声明在 try 外，
     // 使 catch-all（reconcile / 落库抛错）也能把已采集的日志落库
     let logsJson: string | undefined | null
+    // 采集侧日志丢弃数（三态：undefined = 未采集 → 落库 NULL；0 = 确认未丢；>0 = 丢弃 N 条）
+    let logsDropped: number | undefined
     let decision: ReturnType<typeof resolveScanRunState> | undefined
     let decidedResult: RunResult | undefined
     let decidedRunUrl: string | null = null
@@ -468,6 +471,7 @@ const runScanInternal = async (
                     error = execResult.error
                     exitCode = execResult.exitCode
                     logsJson = execResult.logsJson ?? null
+                    logsDropped = execResult.logsDropped
                     // 沙箱内自包含交付：runUrl / PR 编号来自结果契约（fix 直推为分支页，fix-and-pr 为 PR 地址）
                     runUrl = execResult.runUrl ?? null
                     savedRun.prNumber = execResult.prNumber ?? null
@@ -506,8 +510,9 @@ const runScanInternal = async (
                 runUrl = execResult.runUrl
                 // PR 回环反馈的观察态锚点（fix-and-pr 交付时非空，见 pr-feedback-loop.md §3）
                 savedRun.prNumber = execResult.prNumber ?? null
-                // 捕获执行日志（MemoryLogger 输出）
+                // 捕获执行日志（MemoryLogger 输出）与采集侧丢弃数
                 logsJson = execResult.logsJson
+                logsDropped = execResult.logsDropped
             }
         }
 
@@ -612,9 +617,12 @@ const runScanInternal = async (
         repository.lastScanAt = new Date()
         await repoRepo.save(repository)
 
-        // 保存执行日志（MemoryLogger 输出）
+        // 保存执行日志（MemoryLogger 输出）与采集侧丢弃数
         if (logsJson) {
             savedRun.logsJson = logsJson
+        }
+        if (logsDropped !== undefined) {
+            savedRun.logsDropped = logsDropped
         }
 
         // 终态写回走条件更新：清理侧已置终态时不得被迟到 worker 覆盖（见 persistRunTerminalState）
@@ -666,6 +674,9 @@ const runScanInternal = async (
         if (logsJson) {
             savedRun.logsJson = logsJson
         }
+        if (logsDropped !== undefined) {
+            savedRun.logsDropped = logsDropped
+        }
         // 编排 catch-all 失败同样落失败分类（与状态机失败路径同源）
         applyFailureClassification(savedRun, { status: 'failed', error: orchestrationFailure })
         // 编排 catch-all 同样走条件更新：与正常终态写回同一守卫
@@ -694,6 +705,7 @@ async function runContainerExecutor(
     runUrl: string | null
     prNumber: number | undefined
     logsJson: string | null
+    logsDropped: number | undefined
     resource: ExecutorResourceUsage | undefined
 }> {
     if (!(await executor.isAvailable())) {
@@ -707,6 +719,7 @@ async function runContainerExecutor(
             runUrl: null,
             prNumber: undefined,
             logsJson: null,
+            logsDropped: undefined,
             resource: undefined,
         }
     }
@@ -718,6 +731,7 @@ async function runContainerExecutor(
         runUrl: execResult.runUrl ?? null,
         prNumber: execResult.prNumber,
         logsJson: execResult.logsJson ?? null,
+        logsDropped: execResult.logsDropped,
         resource: execResult.resource,
     }
 }

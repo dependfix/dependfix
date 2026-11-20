@@ -474,7 +474,7 @@ export class ContainerExecutor implements ScanExecutor {
                 const hasNewCommit = await checkHasNewCommit(workDir, preRunHead)
                 if (!hasNewCommit) {
                     // 引擎未产生新 commit（无告警 / 告警已收敛 / 全部 failed 已被回滚）→ 不推
-                    return { exitCode, result, startedAt, finishedAt: new Date().toISOString(), logsJson: memLogger.toJson() }
+                    return { exitCode, result, startedAt, finishedAt: new Date().toISOString(), logsJson: memLogger.toJson(), logsDropped: memLogger.dropped }
                 }
 
                 try {
@@ -522,7 +522,7 @@ export class ContainerExecutor implements ScanExecutor {
                                 // 实际场景下 platform-delivery PR 失败时仍可重新从 _pending 目录恢复
                                 runUrl: `https://github.com/${owner}/${name}/tree/dependfix/auto-fix-${runIdFingerprint(result)}`,
                                 // 失败也要带执行日志：否则运行详情 / 导出只剩「（无执行日志）」，无法离线归因
-                                logsJson: memLogger.toJson(),
+                                logsJson: memLogger.toJson(), logsDropped: memLogger.dropped,
                             }
                         }
                         // push_failed：分支未推
@@ -534,7 +534,7 @@ export class ContainerExecutor implements ScanExecutor {
                             },
                             startedAt,
                             finishedAt: new Date().toISOString(),
-                            logsJson: memLogger.toJson(),
+                            logsJson: memLogger.toJson(), logsDropped: memLogger.dropped,
                         }
                     }
                     // 未预期的非 PlatformDeliveryError → 走 execution_failed 兜底
@@ -550,7 +550,7 @@ export class ContainerExecutor implements ScanExecutor {
                 prNumber,
                 startedAt,
                 finishedAt: new Date().toISOString(),
-                logsJson: memLogger.toJson(),
+                logsJson: memLogger.toJson(), logsDropped: memLogger.dropped,
             }
         } catch (error) {
             // 纵深防御：错误消息脱敏（防未来任何路径把凭据带进错误文本）
@@ -610,7 +610,7 @@ export class ContainerExecutor implements ScanExecutor {
                 },
                 startedAt,
                 finishedAt: new Date().toISOString(),
-                logsJson: memLogger.toJson(),
+                logsJson: memLogger.toJson(), logsDropped: memLogger.dropped,
             }
         } finally {
             try {

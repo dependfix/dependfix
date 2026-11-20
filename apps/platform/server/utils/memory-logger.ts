@@ -35,7 +35,6 @@ export interface MemoryLoggerOptions {
     /** 最小日志级别（默认 info） */
     minLevel?: 'debug' | 'info' | 'warn' | 'error'
 }
-
 const LOG_LEVEL_ORDER: Record<string, number> = {
     debug: 10,
     info: 20,
@@ -61,6 +60,8 @@ export class MemoryLogger implements Logger {
     private readonly consoleOutput: boolean
     private readonly maxEntries: number
     private readonly minLevel: number
+    /** 因超出 `maxEntries` 被丢弃的早期条目数（采集侧截断披露，`ScanRun.logsDropped`） */
+    private droppedEntries = 0
 
     constructor(options: MemoryLoggerOptions) {
         this.name = options.name
@@ -97,6 +98,13 @@ export class MemoryLogger implements Logger {
      */
     get count(): number {
         return this.entries.length
+    }
+
+    /**
+     * 获取因超出 `maxEntries` 被丢弃的早期条目数（采集侧截断披露）。
+     */
+    get dropped(): number {
+        return this.droppedEntries
     }
 
     /**
@@ -146,9 +154,11 @@ export class MemoryLogger implements Logger {
         // 添加到内存
         this.entries.push(entry)
 
-        // 超出最大条数时截断（保留最新的）
+        // 超出最大条数时截断（保留最新的），并累计丢弃数供详情视图披露
         if (this.entries.length > this.maxEntries) {
-            this.entries.splice(0, this.entries.length - this.maxEntries)
+            const overflow = this.entries.length - this.maxEntries
+            this.entries.splice(0, overflow)
+            this.droppedEntries += overflow
         }
 
         // 同时输出到控制台

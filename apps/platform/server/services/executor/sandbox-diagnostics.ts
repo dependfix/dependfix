@@ -45,16 +45,20 @@ export function lastLines(text: string, maxChars: number): string {
     return sanitizeString(picked.join(' / '))
 }
 
-export function buildLogsJson(stdout: string, stderr: string, maxLines = 100): string {
+export function buildLogsJson(stdout: string, stderr: string, maxLines = 100): { logsJson: string, dropped: number } {
     const now = new Date().toISOString()
     const toLines = (text: string) => text.split('\n')
         .map((line) => sanitizeString(line.trim()))
         .filter(Boolean)
-        .slice(-maxLines)
+    const stdoutLines = toLines(stdout)
+    const stderrLines = toLines(stderr)
+    const keptStdout = stdoutLines.slice(-maxLines)
+    const keptStderr = stderrLines.slice(-maxLines)
+    const dropped = (stdoutLines.length - keptStdout.length) + (stderrLines.length - keptStderr.length)
     const entries = [
-        ...toLines(stdout).map((message) => ({ timestamp: now, level: 'info', message })),
-        ...toLines(stderr).map((message) => ({ timestamp: now, level: 'error', message })),
+        ...keptStdout.map((message) => ({ timestamp: now, level: 'info', message })),
+        ...keptStderr.map((message) => ({ timestamp: now, level: 'error', message })),
     ]
-    return JSON.stringify(entries)
+    return { logsJson: JSON.stringify(entries), dropped }
 }
 

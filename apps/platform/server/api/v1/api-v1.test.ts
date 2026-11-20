@@ -8,10 +8,11 @@ import runsHandler from './runs/index.get'
 import runHandler from './runs/[id].get'
 import { ensureDatabaseInitialized } from '#server/database'
 import { Repository } from '#server/entities/repository'
+import { Organization } from '#server/entities/organization'
 import { ScanRun } from '#server/entities/scan-run'
 import { ScanResult } from '#server/entities/scan-result'
 import { resolveOrganizationId } from '#server/utils/organization'
-import { requireAuth, requireOrgResource } from '#server/utils/guard'
+import { requireAuth } from '#server/utils/guard'
 import { API_V1_FIELDS, API_V1_FORBIDDEN_FIELDS } from '#server/schemas/api-v1-fields'
 
 vi.mock('#server/utils/guard', () => ({
@@ -33,6 +34,8 @@ describe('/api/v1 只读契约（repos / runs）', () => {
     let repoId: string
     let secondRepoId: string
     let runId: string
+    let crossRepoId: string
+    let crossRunId: string
 
     beforeAll(async () => {
         setupMemoryDatabase()
@@ -66,6 +69,25 @@ describe('/api/v1 只读契约（repos / runs）', () => {
             executorKind: 'container',
         }))
         secondRepoId = second.id
+
+        await ds.getRepository(Organization).save(ds.getRepository(Organization).create({ id: 'other-org', name: 'Other Org' }))
+        const crossRepo = await repoRepo.save(repoRepo.create({
+            organizationId: 'other-org',
+            owner: 'other',
+            name: 'cross',
+            platform: 'github',
+            defaultBranch: 'main',
+            packageManager: 'pnpm',
+            executorKind: 'container',
+        }))
+        crossRepoId = crossRepo.id
+        crossRunId = (await ds.getRepository(ScanRun).save(ds.getRepository(ScanRun).create({
+            repositoryId: crossRepoId,
+            mode: 'report-only',
+            severityThreshold: 'high',
+            executorKind: 'container',
+            status: 'completed',
+        }))).id
 
         const run = await ds.getRepository(ScanRun).save(ds.getRepository(ScanRun).create({
             repositoryId: repoId,
@@ -137,6 +159,7 @@ describe('/api/v1 只读契约（repos / runs）', () => {
         expect(page1.items).toHaveLength(1)
         expect(page2.items).toHaveLength(1)
         expect(page1.items[0]!.id).not.toBe(page2.items[0]!.id)
+        expect([repoId, secondRepoId]).toContain(page2.items[0]!.id)
     })
 
     it('repo 详情字段白名单且无凭据标识', async () => {
@@ -172,14 +195,20 @@ describe('/api/v1 只读契约（repos / runs）', () => {
         expect(body.results[0]!.errorMessage).toContain('https://***@example.com')
     })
 
-    it('详情端点拒绝未认证与跨组织访问（守卫被真实调用）', async () => {
+    it('详情端点拒绝未认证访问（会话守卫被真实调用）', async () => {
         const authError = Object.assign(new Error('unauthorized'), { statusCode: 401 })
         vi.mocked(requireAuth).mockRejectedValueOnce(authError)
         await expect(repoHandler(makeEvent('GET', `/api/v1/repos/${repoId}`, undefined, {}, { id: repoId }))).rejects.toBe(authError)
+    })
 
-        const orgError = Object.assign(new Error('cross org'), { statusCode: 403 })
-        vi.mocked(requireOrgResource).mockRejectedValueOnce(orgError)
-        await expect(runHandler(makeEvent('GET', `/api/v1/runs/${runId}`, undefined, {}, { id: runId }))).rejects.toBe(orgError)
+    it('跨组织资源返回 403 RESOURCE_NOT_IN_ORG（repos / runs 详情）', async () => {
+        await expect(repoHandler(makeEvent('GET', `/api/v1/repos/${crossRepoId}`, undefined, {}, { id: crossRepoId })))
+            .rejects.toMatchObject({ statusCode: 403 })
+        await expect(runHandler(makeEvent('GET', `/api/v1/runs/${crossRunId}`, undefined, {}, { id: crossRunId })))
+            .rejects.toMatchObject({ statusCode: 403 })
+        // 集合端点（runs）按组织过滤，不返回跨组织运行
+        const runs = await runsHandler(makeEvent('GET', '/api/v1/runs?pageSize=200')) as { items: { id: string }[] }
+        expect(runs.items.some((item) => item.id === crossRunId)).toBe(false)
     })
 
     it('非法查询返回 400 且 code 稳定', async () => {

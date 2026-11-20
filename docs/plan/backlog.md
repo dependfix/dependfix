@@ -54,7 +54,7 @@
 
 ### 候选评估中（待评估 / 本阶段延后项）
 
-> **候选池概览（2026-11-21 issue #269 研判新增后复算）**：本区 **37 项**（`### 候选评估中` 段内 `^- \*\*` 逐行计数）；每次上收 / 新增 / 移出后按段内实测更新本句与首行，不保留历史链路。P 标签覆盖不全（未标注者评估时补，不默认升级）；1.0 分档见 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)。
+> **候选池概览（2026-11-21 M64 上收后复算）**：本区 **31 项**（`### 候选评估中` 段内 `^- \*\*` 逐行计数）；每次上收 / 新增 / 移出后按段内实测更新本句与首行，不保留历史链路。P 标签覆盖不全（未标注者评估时补，不默认升级）；1.0 分档见 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)。
 > **1.0 门槛与分档**：分档、门槛判定与批次计划单点声明于 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)（2026-10-30 冻结口径，不随候选上收收缩；本文件不重复维护数字）。
 
 - **备份 `.tmp` 清扫缺年龄门槛（P3 🛠️，2026-10-31 M53.2 收口登记）** —— `cleanupOldBackups` 对 `*.bak.tmp` 无条件回收；单实例串行路径不可达冲突，但并发 `db:restore` 或多实例共卷启动时可能删掉对端正在写的临时文件（rename ENOENT → 该轮快照丢失，fail-open 后仅剩日志）。待评估：加入 `mtime < now - 10min` 年龄门槛或按 PID 命名临时文件。触发：启用多实例 / 多容器共享数据卷，或出现并发恢复需求时。
@@ -126,8 +126,6 @@
 
 **2026-11-16 运行日志复盘派生**（来源：`runs-logs-20261116-043236.txt` 第 1 页 50 条运行，1 次 `push_failed` + 1 次 `execution_timeout` + 1 次 `sandbox_unavailable`；不占阶段编号）：
 
-- **默认出站白名单补 `release-assets.githubusercontent.com`（P2 🛡️，2026-11-16 登记）** —— 现象：`momei` 11-13 baseline 记录 `outbound blocked by allowlist: CONNECT release-assets.githubusercontent.com:443`；`DEFAULT_ALLOWED_DOMAINS` 仅有 `github.com` / `api.github.com` / `objects.githubusercontent.com` / `raw.githubusercontent.com`。影响：走 GitHub Release 资产下载的安装 / 构建被拦；容器模式只记违规，沙箱 fix 模式会 `network_violation` 直接 failed。**待评估点**：① 加入单域（最小面）还是 `*.githubusercontent.com`；② 白名单扩面后的审计噪声与安全评审口径。**验收标准（草案）**：① 受影响仓库 baseline 不再出现该 CONNECT 拦截；② 负例（非白名单域）仍被拦并落 audit。**不做**：不放开任意 `*.githubusercontent.com`（除非评审通过）。**触发条件**：再次出现 GitHub Release 资产下载被拦；或沙箱 fix 因该域失败。
-
 - **无补丁版本告警与 advisory 区间口径（P3 🛠️，2026-11-16 登记）** —— 现象：`deepmerge` 在 dependfix / push-all-in-cloud / momei / caomei-ui / rss-impact-server 反复出现，`first_patched_version=null`、range 4.2.0–4.3.1，升级永远修不了；另 `belowTarget` 含 advisory 范围外实例（minimatch 3.1.5 / 3.1.4、5.1.9 低于 >=7.0.0 下界），当前不影响结论但污染跳过计数。**待评估点**：① 为 `first_patched_version=null` 提供「无修复版本」结论 / 建议 dismiss，而不是每天 blocked；② 与报告「未修复」明细的关系（`belowTarget` 的 advisory 区间过滤已随 M62.3 上收，本候选不重复验收）。**验收标准（草案）**：① 无补丁版本告警有稳定结论且不重复刷屏；② 报告可判读。**不做**：不自动 dismiss 上游告警（需用户策略）。**触发条件**：同包无补丁告警连续多轮出现。
 
 - **checkpoint `unknown` 失败的重试与证据（P3 🛠️，2026-11-16 登记）** —— 现象：dependfix ×3 + sharp-cloud-uploader 均报 `unknown — git stash create exited with code 1`，probe 未发现 index.lock / 权限 / 磁盘问题；已知 `git stash create` 对索引锁会静默 exit 1，probe 在失败后才跑，锁可能已释放。影响：仅失去单元级回滚（本页相关 run 多为 0 写入）。**待评估点**：① `unknown` 先重试一次（250ms 后）再降级；② 证据补 `git version` / 并发 git 提示；③ 与 checkpoint 降级口径的关系。**验收标准（草案）**：① 瞬时索引竞争不再落 `unknown`；② 真降级仍可判读；③ 选择性回滚用例零回归。**不做**：不把 `unknown` 升级为 abort。**触发条件**：`unknown` 连续出现或伴随真实回滚失败。
@@ -137,26 +135,6 @@
 **2026-11-13 阶段容量再平衡移出**（来源：M59 同日三批插队命中 §3.1.1 阈值 1，用户确认移出；不占阶段编号）：
 
 - **沙箱镜像双架构自包含冒烟与安全姿态（P2 🚀📚）** —— 目标：镜像内 sandbox 自包含入口在 amd64 / arm64 可运行并发版后自动取证；安全姿态单一口径成文。范围：`smoke-test.sh` 增 sandbox 入口断言（`node /app/sandbox/bin.mjs --version` + `skills doctor`），构建期冒烟与 `post-release-smoke` 共用并写 Job Summary；三篇 sandbox 设计稿翻转 fix 放行后状态；`deployment.md` 补运行面提示。验收：① 双架构冒烟通过（无窗口记未证实），注入回归证明灵敏；② Job Summary 含断言结果且失败仅告警；③ 设计稿无 stale；④ `gates:docs` 通过。不做：不改镜像架构 / QEMU；不重建历史镜像；不引入 rootless 之外的新隔离机制。依赖：M59.1/M59.2、M58.4 冒烟与巡检。触发：M59.1/M59.2 闭环后或需 arm64 取证时。
-
-- **沙箱 fix 的 undici 直连外联纳入连接级拦截（评估 `NODE_USE_ENV_PROXY`）**（P2 🛡️）—— 背景：2026-11-13 M59.1 落地运行级审计代理后，尊重代理 env 的工具（pnpm / git / npm CLI）已被 deny-by-default 拦截；Node 内置 fetch / undici 默认不读代理 env，此类直连只能靠命令输出 URL 提取留痕（仅 audit、不构成违规，见 [security.md §5.3.1](../standards/security.md)）。
-  - **待评估点**：① Node 24+ `NODE_USE_ENV_PROXY=1` 对 `fetch` / undici 的实际覆盖范围与副作用（需最小对照实验）；② 对未支持该开关的 Node 版本的回退策略（注入全局 dispatcher 需改被测仓库代码，不可行）；③ 是否只对沙箱 fix 路径启用，避免影响 CLI 本地运行。
-  - **触发条件**：出现「恶意依赖脚本用 fetch 外带数据」的实际案例；或 Node 版本基线统一到 24+ 之后。
-  - **按 [规划规范 §3.1](../standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
-
-- **外联审计在既有代理环境下的注入失效可见化**（P3 🛡️）—— 背景：2026-11-13 M59.1 的运行级审计代理在宿主/容器已有 `HTTP(S)_PROXY` 时不覆盖用户代理（稳定性优先），此时 deny-by-default 不生效，但平台第二道闸仍按配置判「策略就位」。
-  - **待评估点**：① 在结果 / 运行详情标注「代理未被注入（环境已有代理）」；② `NO_PROXY` 语义统一（2026-11-14 现状：`runTrackedCommand` 已改为调用方值优先、不再注入回环；`verification-runner` 仍置空）——评估是否改为并集；③ 是否对沙箱 fix 路径强制要求「注入生效」（拒绝在既有代理环境运行）。
-  - **触发条件**：部署环境统一经过企业代理 / 网关时；或需要按 run 统计「审计实际覆盖面」时。
-  - **按 [规划规范 §3.1](../standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
-
-- **沙箱 install 网络不可达的快速失败与预算透传**（P2 🛠️，2026-11-14 线上 `execution_timeout` 复盘登记）—— 背景：沙箱容器不继承宿主 `~/.npmrc`，直连 `registry.npmjs.org` 被阻断时 `pnpm install` 停在 TCP 连接阶段（ETIMEDOUT）而非快速失败；随后 `lint / build / typecheck / test` 每条命令各自耗满命令超时，最终整仓 `execution_timeout` 且结果缺失。已交付 `SANDBOX_NPM_REGISTRY`（注入 `pnpm_config_registry` / `npm_config_registry` + 自动并入白名单）与超时输出回传。
-  - **待评估点**：① 安装前对生效 registry 做 5s 连通性预检（容器内 TCP 探测），不可达即报可读错误而非进入安装；② 把平台执行预算（`deadlineAt`）透传给容器内 CLI，让验证链在预算见底时主动收口并回传部分结果；③ 外层 `withTimeout` 触发（adapter 卡死）时同样带回已捕获输出。
-  - **触发条件**：出现除 npm registry 之外的安装源不可达案例（私有 registry / 代理环境），或再次出现「超时但结果缺失」的运行。
-  - **按 [规划规范 §3.1](../standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
-
-- **执行子进程的环境变量硬化（平台密钥 denylist / 基线 env 白名单）**（P1 🛡️，2026-11-14 插队修复登记）—— 背景：`runTrackedCommand` 恢复「继承父进程环境」后，container 执行器下目标仓库的 install / 验证 / 交付脚本可见平台进程 env（`NUXT_ENCRYPTION_KEY` / `AUTH_SECRET` / `DATABASE_*` / `SMTP_*` 等），与 [安全规范 §5.3](../standards/security.md) 「平台密钥不进执行进程」冲突。此为 M59.1 之前的既有暴露面，本次修复回归而非新开口。
-  - **待评估点**：① 以 denylist（`NUXT_*` / `AUTH_SECRET` / `DATABASE_*` / `SMTP_*` / `DEPENDFIX_AI_*`）在基线 env 派生处过滤，保留 `PATH` / `HOME` / registry / store / 代理键；② 是否改为白名单派生（更严，但需枚举所有依赖 env 的工具链变量）；③ sandbox 执行器已是精选 env，是否把 container 路径对齐同一注入模型。
-  - **触发条件**：container 执行器承接第三方 / 不可信仓库；或安全审计把该暴露面列为发布阻断项。
-  - **按 [规划规范 §3.1](../standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
 
 - **发布工作流无变更周的空跑短路（P3 🛠️，2026-11-15 定时发布评估登记）** —— 现状：`release.yml` 的 `Auto version & changelog` 在无版本变更时 no-op，但其后的 `lint` / `gates:docs` / `typecheck` / `test` / `build` / `Build platform` / `release:preflight` 仍全量执行；1.0.0 发布 run（`42351775424`）5 分钟为未含 test / build 的旧流程，现行流程预计 20-30 分钟（测量方 = 2026-11-15 评估会话，按 job 步骤清单估算）。定时启用后无变更周将付同额成本。
   - **范围**：把 `release:plan` 探测提前到 install 之前（`node scripts/create-release-plan.mjs` 只读 git 历史，不依赖安装），无计划时输出 skip 并短路后续步骤（或拆 plan job + release job，`needs` 门控）；`workflow_dispatch` 路径必须保持全量执行。
@@ -170,8 +148,6 @@
   - **验收标准（草案，仅恢复实施时适用）**：① `vN` 指向当前 major 最大版本（semver 非字典序）；② 已指向 HEAD 跳过；③ immutable releases 开启时显式失败；④ 回滚命令与演练记录成文。
   - **不做**：不改变「具体版本」示例口径；默认不实施。
   - **风险与缓解**：可变引用削弱可复现性 → 仅作便利入口；force push 失败留中间态 → 步骤置于 tag 推送之后并 fail-fast。
-
-- **规划文档模型 v1 前向落地（P2 📚 治理，2026-11-21 issue #269 研判登记）** —— **目标**：把 [#269](https://github.com/dependfix/dependfix/issues/269) 中研判成立的部分前向落到规范与机检。**范围**：① `todo.md` 当前阶段段首 6 列进度表（大条目 / 小条目 / 状态 / 提交 / 审计 / 容量），`提交` 记实际 commit 短 hash、`容量` 记计划 commits 区间，files / 行仍由阶段容量基线承载；② `planning.md §2.2` / `§2.5` 同源改两级——大条目 8 要素、小条目 4 项（优先级 / 范围 / 不做什么 / 风险从大条目继承，合计 8 要素不缺失），小条目用既有三级编号 `Mxx.y.z`；③ `§1.1` 两处与 `§3.1` 容量控制行改默认 4-6、上限 8，第 7-8 项须写不拆阶段的可核判据；④ `archive/index.md` 补分片命名式（`*-phases-<起>[-<止>].md`）+ 遗留名白名单（`m2-m55` 名实歧义、`m6-m7-t711` / `m10-c53-c59c61` 不合式）；⑤ `check-doc-governance` 增进度表行数、分片命名两项机检，不变量声明面同步（`doc-governance.md §4.3` + `archive/index.md`）。**验收**：新增阶段有表且机检 exit 0；无活跃阶段时 no-op；白名单 3 条在规范内枚举。**不做**：归档块 6 项字段（提案未枚举字段名）；小条目 ID 强制进 commit subject；已归档阶段回改。**交付物**：2-3 commits / 5-7 文件（`planning.md`、`archive/index.md`、`check-doc-governance.mjs` + 测试）/ 400-700 行。**风险**：规范条款与机检不同源 → 同批挂检查点矩阵。**依赖**：backlog 容量治理。**触发**：下一阶段规划前。
 
 - **backlog 容量治理：分片或健康预算复核（P3 📚 治理，2026-11-21 issue #269 研判登记）** —— 现状：健康字符余量已近零（实测见 `archive/index.md §4`），新增候选与字段规范化都会贴顶。**待评估**：① 按「长期主线 / 短期候选 / 已知边界」拆到独立文件或 archive 分片；② 或复核 §4.2 健康预算（须同源改 `doc-governance.md §4.2` 与 `archive/index.md §4`）；③ 再评估候选条目字段规范化（issue #269 本批延后项）。**验收**：拆分后 `check-doc-governance` 0 新增 warning、跨文件链接 0 死链。**不做**：不靠调高阈值绕过压缩。**触发**：下一次新增候选触发 warning。
 
@@ -189,11 +165,6 @@
   - **已知口径**：发布提交 `chore(release): x.y.z [skip ci]` 由 `GITHUB_TOKEN` 推送，不触发 Test / CodeQL / Pages（GitHub 防递归 + `[skip ci]`），发布内容只由 `release.yml` 内部门禁覆盖。
   - **启用前置**：先闭环「发布工作流无变更周的空跑短路」候选；1.1.0 发布后观察 2 周；`on.push` 继续保留注释，待 schedule 稳定后再评估。
   - **回填要求**：首个定时窗口 run id、auto-version 提交 hash、三项未证实项结论写入本条目后再关闭。
-
-- **批次级「继续执行未完成项」入口（待评估）**（P2 🎨 用户体验）—— 背景：2026-10-18 用户报告宿主机重启导致批量任务中断，明确希望「至少给用户一个选项：直接结束还是继续执行」；同批已落地 P0（僵尸任务终结 + 去重键释放 + 触发自愈 + worker 慢重试），用户裁定本入口作为后续批次，形态选**批次级继续执行**（否决「新状态 + 启动弹窗」与「仅保留单条重试」）。
-  - **待评估点**：① 入口落点（失败批次行内按钮 vs 展开详情）与二次确认文案；② 重启范围（仅 `orphan_run` / transient 且未完成子项 vs 全部失败子项）；③ 承载形态（复用 `executeBatchRun` 创建新 BatchRun 保留审计链 vs 复用原批次）；④ 与现有单条 `POST /api/runs/[id]/retry` 的关系（是否抽取共享「未完成项」判定）。
-  - **触发条件**：用户要求该交互；或再次出现宿主机重启后的批量恢复诉求。
-  - **按 [规划规范 §3.1](../standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
 
 ### 延期 / 暂缓项
 
@@ -450,8 +421,8 @@
 
 | 内容类型 | 位置 |
 |:--|:--|
-| 当前阶段活跃任务 | 无活跃阶段（M63 已于 2026-11-20 归档，下一阶段待规划）；插队容量治理见 [planning.md §3.1.1](../standards/planning.md#_3-1-1-插队后的阶段容量再平衡-hard-requirement-2026-10-19) |
-| 下一阶段（未规划） | M63 归档后按本文件候选池重新评估（35 条）；M59 / M60 / M63 残余留在本文件；**1.1.0 已于 2026-11-15 发布**，定时发布启用仍在「待上收候选」段等待观察窗口 |
+| 当前阶段活跃任务 | M64 执行面安全与交付闭环（2026-11-21 规划，5 原子，见 [todo.md](todo.md) §当前阶段）；插队容量治理见 [planning.md §3.1.1](../standards/planning.md#_3-1-1-插队后的阶段容量再平衡-hard-requirement-2026-10-19) |
+| 下一阶段（未规划） | M64 收口后按本文件候选池重新评估（31 条候选 + 2 条待上收）；M59 / M60 / M63 残余留在本文件；**1.1.0 已于 2026-11-15 发布**，定时发布启用仍在「待上收候选」段等待观察窗口 |
 | 已完成阶段归档 | [todo-archive.md](todo-archive.md)（阶段索引 + [archive/](archive/) 分片） |
 | 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M0-M63 已归档） |
 | 长期主线 / 候选 / 待人工验收 / 已知边界 | 本文档（按四象限结构） |

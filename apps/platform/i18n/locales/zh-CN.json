@@ -1117,6 +1117,10 @@
             "zh-CN": "导出内容超出上限，请缩小筛选范围或减少单次导出的运行数",
             "en": "Export exceeds the limit; narrow the filters or reduce the number of runs per export"
         },
+        "API_V1_VALIDATION_FAILED": {
+            "zh-CN": "请求参数不合法",
+            "en": "Invalid request parameters"
+        },
         "RUNS_VALIDATION_FAILED": {
             "zh-CN": "查询参数校验失败",
             "en": "Invalid query parameters"

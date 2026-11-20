@@ -146,6 +146,7 @@ describe('createLocalizedError', () => {
         RUN_LOGS_NOT_FOUND: true,
         RUN_LOGS_EXPORT_TOO_LARGE: true,
         RUNS_VALIDATION_FAILED: true,
+        API_V1_VALIDATION_FAILED: true,
         SCAN_HISTORY_VALIDATION_FAILED: true,
         REUSE_RUN_NOT_IN_REPO: true,
         REUSE_RUN_RUNNING: true,

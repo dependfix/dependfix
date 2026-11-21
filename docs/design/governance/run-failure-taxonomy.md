@@ -251,6 +251,13 @@
 - **运行级回执**：同一值经 `server/utils/run-build-info.ts` 写入每次 run 的 `scan_run.build_version` / `build_commit` 并透传 `RuntimeConfig.buildVersion/buildCommit`；引擎日志 `[build] dependfix version=… commit=… source=host|engine-package` 的口径与边界见 §5.11。
 
 
+### 5.13 沙箱安装源快速失败与预算透传（M64.3）
+
+- **安装源预检**：沙箱 fix / fix-and-pr 在 clone 前执行 `node bin.mjs --probe-registry <registry>`（TCP 连接级，只读、不发送凭据），超时 `SANDBOX_REGISTRY_PROBE_TIMEOUT_MS`（默认 5s，1s-30s）。失败输出 `__DEPENDFIX_REGISTRY_PROBE_FAILED__ host:port code durationMs` 并退出，平台归类 **`registry_unreachable`**（`stage=install` / `kind=transient`；错误消息含目标与探测耗时）。报告机器可读面：`parseRegistryProbeFailure`（core）。
+- **预算透传**：沙箱 CLI 新增 `--deadline-at <epoch ms>`（执行层，不进 `RuntimeConfig` 之外的配置来源），由执行器按 `now + timeoutMs` 注入；引擎既有预算检查在预算见底时停止启动新工作，CLI 仍写出已得部分结果（`--result-json`）。container 路径沿用执行器内 `config.deadlineAt`。
+- **外层超时输出回传**：`RuntimeAdapter.run` 支持 `onOutput` 增量回调；`SandboxExecutor` 保留输出尾部，外层 `withTimeout`（adapter 卡死）触发时 `execution_timeout` 消息带 `容器输出末尾：…`。
+- **UI**：运行详情失败码与阶段按既有 `failure_code/stage/kind` 展示，`registry_unreachable` 落 install/transient，可重试。
+
 ## 6. 验收标准（草案 → 实现结果）
 
 - [x] `classifyRunFailure` 纯函数 + 单测覆盖全部已知 code / category（含 `unknown` 兜底）——`server/services/run-failure-classify.ts` + 全映射表逐码用例。

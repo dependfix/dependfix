@@ -344,6 +344,8 @@ A/B 场景差异化见 [executor-sandbox.md §7.8.1](../design/governance/execut
 | `--max-retries` | — | GitHub API 限流重试次数（0-10，默认 3） | `DEPENDFIX_MAX_RETRIES` |
 | `--history` | — | 查询仓库历史运行摘要（读 `dependfix-reports/index.json`，倒序；不执行扫描） | — |
 | `--result-json` | — | 把运行结果写入指定 JSON 文件（`{exitCode, result}`）；沙箱执行器据此读取，不复用报告副产物 | — |
+| `--deadline-at` | — | 运行截止时间（epoch 毫秒；平台 / 沙箱执行器注入，预算见底时停止启动新工作并回传部分结果） | — |
+| `--probe-registry` | — | 安装源连通性预检（registry URL 或 `host[:port]`；成功 exit 0，失败输出哨兵并 exit 3；不执行扫描） | — |
 | `--code-scanning` | — | 同时拉取 Code Scanning alerts（与 Dependabot 并行源；需要 token 具备 `security-events: read`，GITHUB_TOKEN 默认具备） | `false`（env `DEPENDFIX_CODE_SCANNING`） |
 | `--allow-major-upgrade` | — | 跨线告警（推荐版本跨大版本，当前线内无修复版本）显式授权自动升级：仅根 package.json 直接依赖（workspace 成员独占声明维持人工）且 lockfile 单版本的告警自动跨线升级，升级后复核脆弱实例消除、强制完整验证（install+lint+build+typecheck+test），失败自动回滚；间接依赖 / 多版本共存跨线告警维持人工处理。**仅 CLI 可用，Action 不支持**（详见下方"跨大版本升级"风险章节） | `false`（**无 env 通道**） |
 | `--commands` | — | 自定义验证命令（逗号分隔）；整链替换默认链（不做合并），默认链内的条目须显式保留 | — |

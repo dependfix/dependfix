@@ -66,6 +66,8 @@ max-backoff-ms
 max-repos
 history
 result-json
+deadline-at
+probe-registry
 upgrade-groups
 toolchain-pnpm-version
 commands

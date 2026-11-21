@@ -44,7 +44,7 @@ import { runWithConcurrency } from '../multirepo/scheduler'
 import { writeArchive } from '../report/archiver'
 import type { RuntimeConfig } from '../config'
 import { enforceVerificationGate } from '../runners/verification-gate'
-import { resetProcessControlState } from '../runners/process-control'
+import { getEnvHardeningSnapshot, resetProcessControlState } from '../runners/process-control'
 import { collectSupplyChainWarnings } from '../supply-chain'
 import { loadRulesConfigFromEnv, resetActiveRulesConfig, setActiveRulesConfig } from '../code-scanning/rule-config'
 import type { CommandResult } from '../runners/verification-runner'
@@ -236,10 +236,9 @@ export class DependfixApp {
             })
         }
 
-        // 进程级状态生命周期（同 `resetActiveRulesConfig` 口径）：运行级取消状态与受管子进程登记
-        // 是模块级单例，每次构造 app 先复位，避免同一进程内的前一次运行状态污染本次运行
-        // （同一进程多次 new DependfixApp 场景：cli 测试 / 平台多 batch 调度）。
+        // 进程级状态生命周期：取消状态与子进程登记是模块级单例，每次构造先复位（cli 测试 / 平台多 batch 调度）。
         resetProcessControlState()
+        this.envHardeningBaseline = getEnvHardeningSnapshot() ?? { filteredKeys: 0, filteredCommands: 0 }
     }
 
     /** 请求中止本次运行（协作式；留痕口径见 app/abort.ts）。 */
@@ -248,6 +247,7 @@ export class DependfixApp {
     }
 
     private deliveryRecord?: RunDelivery // getter 每次新建 ctx，故状态留在实例字段
+    private readonly envHardeningBaseline: { filteredKeys: number, filteredCommands: number }
 
     private get ctx(): AppContext {
         return {
@@ -276,6 +276,7 @@ export class DependfixApp {
             delivery: this.deliveryRecord,
             deadlineAt: this.config.deadlineAt,
             budgetSkips: this.budgetSkips,
+            envHardeningBaseline: this.envHardeningBaseline,
         }
     }
 

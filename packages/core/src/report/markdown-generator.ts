@@ -85,6 +85,27 @@ function appendBaselineSkippedSection(sections: string[], repositories: Reposito
  * 与「运行被 OOM 终止」不是同一事实；命令级 OOM 常出现在 `completed` 运行里，
  * 写成「OOM 终止」会让离线复盘误判交付结论。命令级 OOM 不改变运行失败率。
  */
+/**
+ * Environment Hardening 条件性小节（仅当运行级过滤计数 > 0 时渲染）。
+ *
+ * 只披露计数：键名本身会提示平台密钥的命名与存在面，报告属于可外发物。
+ * 口径见安全规范 §5.3 与 executor-process-isolation.md §8.7。
+ */
+function pushEnvHardeningSection(sections: string[], result: RunResult): void {
+    const envHardening = result.envHardening
+    if (!envHardening || envHardening.filteredKeys <= 0) {
+        return
+    }
+    sections.push(
+        '## Environment Hardening',
+        '',
+        `> 本次运行已从 ${envHardening.filteredCommands} 条执行子进程（受管命令与验证链）的环境中过滤 `
+        + `${envHardening.filteredKeys} 个平台密钥类变量（只记个数，不记键名）。`,
+        '> 工具链变量（`PATH` / `HOME` / `pnpm_config_*` / `npm_config_*` / 代理 / `NODE_EXTRA_CA_CERTS`）保留。',
+        '',
+    )
+}
+
 function appendCommandOomSection(sections: string[], actions: FixAction[]): void {
     const oomActions = actions.filter((action) => action.oomKilled === true)
     if (oomActions.length === 0) {
@@ -221,6 +242,9 @@ export function generateMarkdownReport(result: RunResult): string {
         }
         sections.push('')
     }
+
+    // ---- 2.5.3 Environment Hardening（执行子进程环境已过滤平台密钥类变量）----
+    pushEnvHardeningSection(sections, result)
 
     // ---- 2.6 Repeated Failure Attempts（同告警尝试记录；仅记录存在时渲染）----
     const attemptRecords = result.attemptTracking ?? []

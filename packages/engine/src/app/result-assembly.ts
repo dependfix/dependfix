@@ -14,6 +14,7 @@ import {
 } from '@dependfix/core'
 import type { AiUsage } from '../ai/usage'
 import { isRepoVerificationBlocked } from '../runners/verification-gate'
+import { getEnvHardeningSnapshot } from '../runners/env-hardening'
 import type { AppContext } from './helpers'
 
 // ---------------------------------------------------------------------------
@@ -132,8 +133,30 @@ export function computeSummary(
     // prsOpened / prsSkippedByFingerprint / prsClosedAfterFailure / checksTimedOut
 }
 
+/**
+ * 计算运行级环境硬化增量（当前快照 − 运行起点基线）。
+ *
+ * 只记计数、不记键名；增量为 0（或基线缺省）时返回 `undefined`，报告与运行详情据此不渲染该段。
+ * 并发运行共享进程级计数器：增量是**下界近似**（另一次运行同时过滤会被计入本次），
+ * 生产默认并发 1，该边界写入 `executor-process-isolation.md §8.7`。
+ */
+function resolveEnvHardeningDelta(
+    baseline?: { filteredKeys: number, filteredCommands: number },
+): { filteredKeys: number, filteredCommands: number } | undefined {
+    if (!baseline) {
+        return undefined
+    }
+    const snapshot = getEnvHardeningSnapshot()
+    const filteredKeys = Math.max(0, (snapshot?.filteredKeys ?? 0) - baseline.filteredKeys)
+    const filteredCommands = Math.max(0, (snapshot?.filteredCommands ?? 0) - baseline.filteredCommands)
+    if (filteredKeys === 0 && filteredCommands === 0) {
+        return undefined
+    }
+    return { filteredKeys, filteredCommands }
+}
+
 export function buildRunResult(
-    ctx: Pick<AppContext, 'config' | 'runId' | 'startedAt' | 'finishedAt' | 'summary' | 'repoResults' | 'allAlerts' | 'allActions' | 'allErrors' | 'alertsDisabled' | 'ciAlignment' | 'attemptTracking' | 'prCheckWatch' | 'alertOutcomes' | 'deliverySkips' | 'delivery'>,
+    ctx: Pick<AppContext, 'config' | 'runId' | 'startedAt' | 'finishedAt' | 'summary' | 'repoResults' | 'allAlerts' | 'allActions' | 'allErrors' | 'alertsDisabled' | 'ciAlignment' | 'attemptTracking' | 'prCheckWatch' | 'alertOutcomes' | 'deliverySkips' | 'delivery' | 'envHardeningBaseline'>,
     aiUsage?: AiUsageAggregate, supplyChainWarnings?: SupplyChainWarning[],
 ): RunResult {
     const reportConfig: RunReportConfig = {
@@ -149,6 +172,14 @@ export function buildRunResult(
     }
 
     const alertOutcomes = buildAlertOutcomes(ctx.allAlerts, ctx.allActions, ctx.alertOutcomes)
+    // 运行级环境硬化计数（只记个数）：取「当前快照 − 运行起点基线」的增量，避免同进程内
+    // 前一次运行（或并发运行）的计数串入本次。基线缺省（测试直接构造 ctx）⇒ 不披露。
+    const envHardening = resolveEnvHardeningDelta(ctx.envHardeningBaseline)
+    if (envHardening) {
+        ctx.summary.envFilteredKeys = envHardening.filteredKeys
+    } else {
+        delete ctx.summary.envFilteredKeys
+    }
 
     return {
         runId: ctx.runId,
@@ -169,6 +200,7 @@ export function buildRunResult(
         prCheckWatch: ctx.prCheckWatch && ctx.prCheckWatch.attempts.length > 0 ? ctx.prCheckWatch : undefined,
         deliverySkips: ctx.deliverySkips && ctx.deliverySkips.length > 0 ? ctx.deliverySkips : undefined,
         delivery: ctx.delivery,
+        envHardening,
     }
 }
 

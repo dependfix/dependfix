@@ -115,6 +115,8 @@ export interface RunSummary {
     networkViolations?: number
     /** 本次运行记录的外联审计条数（含白名单命中；用于「allowlist 命中摘要」）。 */
     networkAudited?: number
+    /** 本次运行从执行子进程环境中过滤掉的平台密钥类变量个数（只记个数，不含键名）。 */
+    envFilteredKeys?: number
 }
 
 

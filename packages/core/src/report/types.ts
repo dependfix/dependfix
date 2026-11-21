@@ -277,6 +277,16 @@ export interface SupplyChainWarning {
 }
 
 /**
+ * 执行子进程环境硬化计数（`RunResult.envHardening`；不含键名）。
+ */
+export interface EnvHardeningRecord {
+    /** 本次运行从受管命令环境中移除的变量个数（按去重键计） */
+    filteredKeys: number
+    /** 至少过滤过一次变量的受管命令数 */
+    filteredCommands: number
+}
+
+/**
  * 报告顶层容器。
  */
 export interface RunResult {
@@ -347,6 +357,14 @@ export interface RunResult {
     networkAudit?: NetworkAuditEntry[]
     /** 非白名单外联（`networkAudit` 的子集；非空即不得把该仓库写成「成功」） */
     networkViolations?: NetworkAuditEntry[]
+    /**
+     * 执行子进程环境硬化记录（仅本次运行实际过滤过平台密钥类变量时存在）。
+     *
+     * 只记录**计数**，不记录键名：键名本身会提示平台密钥的命名与存在面。
+     * 工具链变量（PATH / HOME / pnpm_config_* / npm_config_* / 代理 / NODE_EXTRA_CA_CERTS）
+     * 不在过滤面内；口径见 `packages/engine/src/runners/process-control.ts`。
+     */
+    envHardening?: EnvHardeningRecord
     /**
      * 修复交付结果（仅 fix / fix-and-pr 模式记录；report-only 无交付概念，字段缺省）。
      *

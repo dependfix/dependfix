@@ -256,7 +256,7 @@
 - **安装源预检**：沙箱 fix / fix-and-pr 在 clone 前执行 `node bin.mjs --probe-registry <registry>`（TCP 连接级，只读、不发送凭据），超时 `SANDBOX_REGISTRY_PROBE_TIMEOUT_MS`（默认 5s，1s-30s）。失败输出 `__DEPENDFIX_REGISTRY_PROBE_FAILED__ host:port code durationMs` 并退出，平台按**预检退出码 3** + 哨兵归类 **`registry_unreachable`**（`stage=install` / `kind=transient`；错误消息含目标与探测耗时，报告机器可读面 `parseRegistryProbeFailure`）。旧版沙箱镜像不认识该 flag 时输出 `__DEPENDFIX_REGISTRY_PROBE_UNAVAILABLE__`，归类 `sandbox_probe_unavailable`（`runtime` / `deterministic`），提示镜像版本需 ≥ 平台版本。
 - **预算透传**：沙箱 CLI 新增 `--deadline-at <epoch ms>`（仅执行层注入：写入 `RuntimeConfig.deadlineAt`，无 env 通道），由执行器按 `now + timeoutMs` 注入；引擎既有预算检查在预算见底时停止启动新工作，CLI 仍写出已得部分结果（`--result-json`）。container 路径沿用执行器内 `config.deadlineAt`。
 - **外层超时输出回传**：`RuntimeAdapter.run` 支持 `onOutput` 增量回调；`SandboxExecutor` 保留输出尾部，外层 `withTimeout`（adapter 卡死）触发时 `execution_timeout` 消息带 `容器输出末尾：…`。
-- **UI**：运行详情失败码与阶段按既有 `failure_code/stage/kind` 展示，`registry_unreachable` 落 install/transient，可重试。
+- **UI**：运行详情失败码与阶段按既有 `failure_code/stage/kind` 展示：`registry_unreachable` 落 install/transient（可重试）；`sandbox_probe_unavailable` 落 runtime/deterministic（镜像版本不匹配，不可重试，需换镜像）。
 
 ## 6. 验收标准（草案 → 实现结果）
 

@@ -7,39 +7,7 @@ import { SandboxExecutor, resolveDefaultSandboxImage, resolveEgressPolicy, resol
 import type { ScanExecutorContext } from './types'
 import { SpyRuntimeAdapter, type ContainerRunResult, type ContainerSpec, type RuntimeAdapter } from './runtime-adapter'
 
-const defaultRuntimeConfig = {
-    mode: 'report-only' as const,
-    severityThreshold: 'high' as const,
-    repositories: ['owner-a/repo-b'],
-    dryRun: false,
-    createPullRequest: false,
-    commit: false,
-    cleanupBranches: false,
-    cleanupBranchesAuto: false,
-    githubToken: 'ghp_test',
-    alertSource: 'github-dependabot' as const,
-    codeScanningEnabled: false,
-    codeQualityEnabled: false,
-    allowMajorUpgrade: false,
-    maxAlertsPerRepository: 20,
-    maxConcurrency: 1,
-    maxRetries: 3,
-    maxBackoffMs: 30_000,
-    maxRepos: 100,
-}
-
-const makeCtx = (overrides: Partial<ScanExecutorContext> = {}): ScanExecutorContext => ({
-    runId: 'run-sandbox-1',
-    repository: {
-        owner: 'owner-a',
-        name: 'repo-b',
-        defaultBranch: 'main',
-    },
-    config: defaultRuntimeConfig,
-    credential: { token: 'ghp_test' },
-    workDir: '/tmp/runs/run-sandbox-1',
-    ...overrides,
-})
+import { defaultRuntimeConfig, makeCtx } from './sandbox-test-fixtures'
 
 /** 构造合法 RunResult（供结果哨兵使用，使 parseRunResult 走完整成功路径） */
 const makeLegalRunResult = (ctx: ScanExecutorContext) => {
@@ -380,6 +348,16 @@ describe('SandboxExecutor', () => {
             expect(result.error?.code).toBe('registry_unreachable')
             expect(result.error?.message).toContain('registry.npmjs.org:443')
             expect(result.error?.message).toContain('ETIMEDOUT')
+        })
+
+        it('classifies probe command unavailable only with exit 3', async () => {
+            const sentinel = '__DEPENDFIX_REGISTRY_PROBE_UNAVAILABLE__'
+            const run = (transportExitCode: number) => new SandboxExecutor({
+                runtimeAdapter: new SimulatedSandboxAdapter({ stdout: sentinel, transportExitCode }),
+            }).execute(makeCtx({ config: { ...defaultRuntimeConfig, mode: 'fix' } }))
+            expect((await run(3)).error?.code).toBe('sandbox_probe_unavailable')
+            // 同一文本出现在非预检退出码下不得抢占分类（仓库日志可原样打印哨兵）
+            expect((await run(1)).error?.code).toBe('execution_failed')
         })
 
         it('does not request push for non-GitHub clone sources (no push credential)', () => {

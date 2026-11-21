@@ -4,8 +4,8 @@
 // 超时，最终整仓 `execution_timeout` 且结果缺失。沙箱 fix 路径在 clone / 安装前做一次短超时
 // TCP 预检，不可达即快速失败并给出可读原因。
 //
-// 哨兵放在 stdout（容器日志同流）：平台按哨兵识别失败原因，不依赖退出码的语义（docker
-// 退出码会被包装层改写）。
+// 哨兵放在 stdout（容器日志同流）：平台按「预检退出码 3 + 哨兵」双条件识别失败原因——
+// 目标仓库日志可能原样打印哨兵文本，单看哨兵会抢占其它失败分类。
 
 /** 预检成功哨兵。 */
 export const REGISTRY_PROBE_OK_SENTINEL = '__DEPENDFIX_REGISTRY_PROBE_OK__'

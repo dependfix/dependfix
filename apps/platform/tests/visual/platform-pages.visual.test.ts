@@ -187,6 +187,17 @@ test.describe('平台页面视觉基线', () => {
         })
     }
 
+    test('batch-runs 续跑入口（light）', async ({ page }) => {
+        await page.goto('/batch-runs')
+        await waitForHydration(page)
+        // 断言数据前提：fixtures 注入了 1 个含 transient 失败子项的批次 → 续跑入口可用
+        const resume = page.locator('button:has-text("继续执行未完成项")')
+        await expect(resume).toBeVisible({ timeout: 15000 })
+        await expect(resume).toBeEnabled()
+        await waitForVisualStable(page)
+        await expectPageScreenshot(page, 'batch-runs-resume-light.png')
+    })
+
     test('pr-checks 表格密度例外（light）', async ({ page }) => {
         await applyTheme(page, 'light')
         await page.goto('/pr-checks')

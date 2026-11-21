@@ -84,13 +84,15 @@ test.describe('批量扫描（sync 降级模式）', () => {
         await expect(page.locator('.batch-runs__detail .caomei-data-table__row')).toHaveCount(2)
         await expect(page.locator('.batch-runs__detail')).toContainText(owner)
 
-        // 批次级续跑入口：失败子项存在时可见；确定性失败（无凭据交付失败）→ 服务端 409 无可续跑项，
-        // 页面给出可读错误而不是静默无响应（AC3：无可继续子项时给出原因）
-        const resumeButton = firstRow.locator('button:has-text("继续执行未完成项")')
-        await expect(resumeButton).toBeVisible()
-        await resumeButton.click()
-        await page.locator('.caomei-dialog__content button').last().click()
-        await expect(page.locator('.caomei-message')).toContainText('没有可继续执行的子项', { timeout: 15000 })
+        // 批次级续跑入口：详情 GET 已把聚合计数写回 BatchRun，重载列表取最新计数。
+        // 本批两个子项都是确定性失败（无凭据交付失败）→ resumableCount=0：入口可见但禁用并给原因（AC3）
+        await page.reload()
+        await waitForHydration(page)
+        const refreshedRow = page.locator('.caomei-data-table__row').first()
+        const resumeButton = refreshedRow.locator('button:has-text("继续执行未完成项")')
+        await expect(resumeButton).toBeVisible({ timeout: 15000 })
+        await expect(resumeButton).toBeDisabled()
+        await expect(resumeButton).toHaveAttribute('title', /没有可继续执行的子项/)
     })
 
     test('导航栏包含批量运行入口', async ({ page }) => {

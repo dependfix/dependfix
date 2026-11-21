@@ -32,6 +32,23 @@ export const VISUAL_FIXTURES: FixturesPayload = {
         { owner: 'acme', name: 'api-gateway', tags: ['backend'] },
         { owner: 'acme', name: 'unlabeled-tool' },
     ],
+    batchRuns: [
+        // 批量运行页基线：1 个 completed（含 1 个 transient 失败子项）→ 续跑入口可用。
+        // id / createdAt 钉死，计数与 run 3 对齐（避免列表 reconciled 后抖动）。
+        {
+            id: '19b1c2d3e4f5b001',
+            createdAt: '2026-08-23T05:00:00.000Z',
+            source: 'manual',
+            mode: 'fix-and-pr',
+            severityThreshold: 'high',
+            status: 'completed',
+            repositoryCount: 1,
+            finishedCount: 1,
+            completedCount: 0,
+            failedCount: 1,
+            pendingCount: 0,
+        },
+    ],
     scanRuns: [
         {
             id: '19b1c2d3e4f5a001',
@@ -90,6 +107,7 @@ export const VISUAL_FIXTURES: FixturesPayload = {
         // 覆盖运行详情弹窗的失败归因块（阶段 / 处置建议 / 失败码 / 执行级错误）与重试二次确认
         {
             id: '19b1c2d3e4f5a004',
+            batchRunId: '19b1c2d3e4f5b001',
             repositoryOwner: 'acme',
             repositoryName: 'web-app',
             mode: 'fix-and-pr',

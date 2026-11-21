@@ -5,12 +5,7 @@ import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 import { SandboxExecutor, resolveDefaultSandboxImage, resolveEgressPolicy, resolveSandboxImageCandidates, shouldInjectCloneCredential } from './sandbox-executor'
 import type { ScanExecutorContext } from './types'
-import {
-    SpyRuntimeAdapter,
-    type ContainerRunResult,
-    type ContainerSpec,
-    type RuntimeAdapter,
-} from './runtime-adapter'
+import { SpyRuntimeAdapter, type ContainerRunResult, type ContainerSpec, type RuntimeAdapter } from './runtime-adapter'
 
 const defaultRuntimeConfig = {
     mode: 'report-only' as const,
@@ -363,6 +358,30 @@ describe('SandboxExecutor', () => {
             expect(script).toContain('$GITHUB_TOKEN')
         })
 
+        it('probes the registry and passes the absolute deadline before install', () => {
+            const script = new SandboxExecutor({ runtimeAdapter: new SpyRuntimeAdapter() })
+                .buildCmd(makeCtx({ config: { ...defaultRuntimeConfig, mode: 'fix' } })).join(' ')
+            expect(script).toContain('--probe-registry')
+            expect(script).toContain('--deadline-at')
+            const reportOnly = new SandboxExecutor({ runtimeAdapter: new SpyRuntimeAdapter() })
+                .buildCmd(makeCtx()).join(' ')
+            expect(reportOnly).not.toContain('--probe-registry')
+            expect(reportOnly).not.toContain('--deadline-at')
+        })
+
+        it('classifies an unreachable registry preflight with a readable reason', async () => {
+            const adapter = new SimulatedSandboxAdapter({
+                stdout: '__DEPENDFIX_REGISTRY_PROBE_FAILED__ registry.npmjs.org:443 ETIMEDOUT 5003ms',
+                transportExitCode: 3,
+            })
+            const result = await new SandboxExecutor({ runtimeAdapter: adapter })
+                .execute(makeCtx({ config: { ...defaultRuntimeConfig, mode: 'fix' } }))
+            expect(result.exitCode).toBe(2)
+            expect(result.error?.code).toBe('registry_unreachable')
+            expect(result.error?.message).toContain('registry.npmjs.org:443')
+            expect(result.error?.message).toContain('ETIMEDOUT')
+        })
+
         it('does not request push for non-GitHub clone sources (no push credential)', () => {
             const script = new SandboxExecutor({
                 runtimeAdapter: new SpyRuntimeAdapter(),
@@ -464,7 +483,6 @@ describe('SandboxExecutor', () => {
             const spec = executor.buildSpec(makeCtx({ config: { ...defaultRuntimeConfig, mode: 'fix' } }))
             expect(spec.env?.DEPENDFIX_ALLOWED_DOMAINS).toContain('github.com')
             expect(spec.env?.DEPENDFIX_ALLOWED_DOMAINS).toContain('registry.example.com')
-            // Node 内置 fetch 默认不读代理 env：fix 类显式启用（Node 22/24/26 支持）
             expect(spec.env?.NODE_USE_ENV_PROXY).toBe('1')
         })
 

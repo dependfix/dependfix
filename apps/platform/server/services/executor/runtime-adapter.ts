@@ -1,4 +1,4 @@
-import { execFile } from 'node:child_process'
+import { execFile, spawn } from 'node:child_process'
 import { promisify } from 'node:util'
 import { sanitizeString } from '../../utils/sanitize'
 
@@ -52,6 +52,13 @@ export interface ContainerSpec {
 export interface StdioOpt {
     /** 最大捕获字节数（默认 10 MiB——防恶意脚本输出轰炸；超出截断 + exitCode 标 partial） */
     maxBuffer?: number
+    /**
+     * 增量输出回调（stdout + stderr 合并）。
+     *
+     * 用途：adapter 卡死触发外层 `withTimeout` 时，调用方仍能带回已捕获的输出尾部
+     * （`ContainerRunResult` 只会在正常返回时给出完整输出）。回调必须同步且不抛错。
+     */
+    onOutput?: (chunk: string) => void
 }
 
 /** RuntimeAdapter 统一返回（结构化，便于 sandbox-executor 组装 ScanExecutorResult） */
@@ -217,41 +224,71 @@ export class DockerAdapter implements RuntimeAdapter {
     async run(spec: ContainerSpec, cmd: string[], stdio?: StdioOpt): Promise<ContainerRunResult> {
         const args = this.buildRunArgs(spec, cmd)
         const maxBuffer = stdio?.maxBuffer ?? SANDBOX_DEFAULTS.maxBuffer
-        try {
-            const { stdout, stderr } = await execFileAsync(this.options.dockerBin ?? 'docker', args, {
-                timeout: spec.timeoutMs ?? SANDBOX_DEFAULTS.timeoutMs,
-                maxBuffer,
+        const timeoutMs = spec.timeoutMs ?? SANDBOX_DEFAULTS.timeoutMs
+        return await new Promise<ContainerRunResult>((resolve, reject) => {
+            const cp = spawn(this.options.dockerBin ?? 'docker', args, { stdio: ['ignore', 'pipe', 'pipe'] })
+            const stdoutChunks: string[] = []
+            const stderrChunks: string[] = []
+            let stdoutBytes = 0
+            let stderrBytes = 0
+            let truncated = false
+            let timedOut = false
+            let settled = false
+
+            const emit = (chunk: string) => {
+                try {
+                    stdio?.onOutput?.(chunk)
+                } catch {
+                    // 回调问题不影响执行结果
+                }
+            }
+            const capture = (chunks: string[], bytes: number, data: Buffer): number => {
+                const text = data.toString('utf-8')
+                emit(text)
+                const next = bytes + data.byteLength
+                if (bytes < maxBuffer) {
+                    chunks.push(text)
+                } else if (!truncated) {
+                    truncated = true
+                }
+                return next
+            }
+
+            cp.stdout?.on('data', (data: Buffer) => {
+                stdoutBytes = capture(stdoutChunks, stdoutBytes, data)
             })
-            return { stdout, stderr, exitCode: 0 }
-        } catch (error) {
-            // execFile 失败：exit code 非 0 或 ENOENT/超时
-            const err = error as NodeJS.ErrnoException & {
-                code?: string | number
-                stdout?: string
-                stderr?: string
-                killed?: boolean
-                signal?: string
-            }
-            // 超时（killed=true + signal SIGTERM）：包装为退出码 124（与 timeout(1) 命令一致语义）
-            if (err.killed && err.signal === 'SIGTERM') {
-                return {
-                    stdout: err.stdout ?? '',
-                    stderr: `${err.stderr ?? ''}\n[docker] execution timeout`,
-                    exitCode: 124,
-                    truncated: true,
+            cp.stderr?.on('data', (data: Buffer) => {
+                stderrBytes = capture(stderrChunks, stderrBytes, data)
+            })
+
+            const timer = setTimeout(() => {
+                timedOut = true
+                cp.kill('SIGKILL')
+            }, timeoutMs)
+
+            cp.on('error', (error) => {
+                if (settled) {
+                    return
                 }
-            }
-            // 命令自身退出码非 0：execFile 抛错时 stdout/stderr/code 都附在 error 上
-            if (typeof err.code === 'number') {
-                return {
-                    stdout: err.stdout ?? '',
-                    stderr: err.stderr ?? '',
-                    exitCode: err.code,
+                settled = true
+                clearTimeout(timer)
+                reject(error)
+            })
+            cp.on('close', (code) => {
+                if (settled) {
+                    return
                 }
-            }
-            // 其他（ENOENT/EPIPE 等真异常）——caller 处理降级
-            throw error
-        }
+                settled = true
+                clearTimeout(timer)
+                resolve({
+                    stdout: stdoutChunks.join(''),
+                    stderr: `${stderrChunks.join('')}${timedOut ? '\n[docker] execution timeout' : ''}`,
+                    // 超时包装为退出码 124（与 timeout(1) 命令一致语义）
+                    exitCode: timedOut ? 124 : (code ?? 1),
+                    ...(truncated ? { truncated: true } : {}),
+                })
+            })
+        })
     }
 
     /**

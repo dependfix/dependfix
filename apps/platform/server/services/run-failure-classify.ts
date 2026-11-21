@@ -141,6 +141,8 @@ const FAILURE_CODE_MAP: Readonly<Record<string, FailureCodeMapping>> = {
     sandbox_clone_host_not_allowed: { stage: 'runtime', kind: 'deterministic' },
     // 沙箱镜像缺失 / 不可拉取：配置 / 环境问题，确定性失败（此前落未知阶段）
     sandbox_image_unavailable: { stage: 'runtime', kind: 'deterministic' },
+    // 安装源连通性预检失败（registry 被阻断 / 地址错误）：网络 / 环境问题，可重试
+    registry_unreachable: { stage: 'install', kind: 'transient' },
 
     // 运行预算不足：主动跳过未开始的工作（引擎侧属跳过类白名单，正常路径不可达；防御性映射）
     BUDGET_EXHAUSTED: { stage: 'runtime', kind: 'transient' },

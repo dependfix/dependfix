@@ -1,3 +1,6 @@
+import { chmodSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { DockerAdapter, SANDBOX_DEFAULTS, SpyRuntimeAdapter, type ContainerSpec, type RuntimeAdapter } from './runtime-adapter'
 
@@ -223,4 +226,27 @@ describe('DockerAdapter', () => {
             expect(call?.spec.runtime).toBe('sysbox-runc')
         })
     })
+})
+
+describe('DockerAdapter.run 流式输出（POSIX 假 docker 脚本）', () => {
+    it.skipIf(process.platform === 'win32')('超时返回 124，同时保留已捕获输出与增量回调', async () => {
+        const dir = mkdtempSync(join(tmpdir(), 'dfx-adapter-'))
+        const bin = join(dir, 'fake-docker.sh')
+        writeFileSync(bin, '#!/bin/sh\necho "step:install"\necho "warn:slow" >&2\nsleep 5\n')
+        chmodSync(bin, 0o755)
+        const chunks: string[] = []
+        try {
+            const adapter = new DockerAdapter({ dockerBin: bin })
+            const result = await adapter.run({ image: 'x', workDir: '/tmp', timeoutMs: 200 }, [], {
+                onOutput: (chunk) => chunks.push(chunk),
+            })
+            expect(result.exitCode).toBe(124)
+            expect(result.stdout).toContain('step:install')
+            expect(result.stderr).toContain('warn:slow')
+            expect(result.stderr).toContain('[docker] execution timeout')
+            expect(chunks.join('')).toContain('step:install')
+        } finally {
+            rmSync(dir, { recursive: true, force: true })
+        }
+    }, 15_000)
 })

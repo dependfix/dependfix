@@ -1,8 +1,8 @@
-import type { RunResult } from '@dependfix/core'
+import { parseRegistryProbeFailure, resolveRegistryProbeTimeoutMs, type RunResult } from '@dependfix/core'
 import type { ExecutorResourceUsage, ScanExecutor, ScanExecutorContext, ScanExecutorResult } from './types'
 import { resolveDefaultSandboxImage, resolveSandboxImageCandidates, resolveImagePullTimeoutMs } from './sandbox-image'
-import { buildLogsJson, lastLines, registryHostname } from './sandbox-diagnostics'
-import { classifyError, withTimeout } from './sandbox-errors'
+import { buildLogsJson, buildResourceSamplerScript, lastLines, registryHostname } from './sandbox-diagnostics'
+import { classifyError, registryUnreachableResult, withTimeout } from './sandbox-errors'
 
 export { deriveSandboxRepoFromPlatformImage, resolveDefaultSandboxImage, resolveSandboxImageCandidates } from './sandbox-image'
 import { DockerAdapter, SANDBOX_DEFAULTS, type ContainerRunResult, type ContainerSpec, type RuntimeAdapter, type RuntimeProbe } from './runtime-adapter'
@@ -331,14 +331,23 @@ export class SandboxExecutor implements ScanExecutor {
                 finishedAt: new Date().toISOString(),
             }
         }
+        let outputTail = ''
         try {
             const spec = this.buildSpec(ctx, image)
             const cmd = this.buildCmd(ctx)
-            // adapter 侧按 spec.timeoutMs 先触发（返回 124 + 已捕获输出），外层多给宽限做兜底
-            const runResult = await withTimeout(this.adapter.run(spec, cmd), this.timeoutMs + this.timeoutGraceMs)
+            // adapter 侧按 spec.timeoutMs 先触发（返回 124 + 已捕获输出），外层多给宽限做兜底；
+            // onOutput 保留增量尾部，外层兜底触发时仍能带回「卡在哪一步」。
+            const runResult = await withTimeout(
+                this.adapter.run(spec, cmd, {
+                    onOutput: (chunk) => {
+                        outputTail = (outputTail + chunk).slice(-4000)
+                    },
+                }),
+                this.timeoutMs + this.timeoutGraceMs,
+            )
             return this.parseRunResult(runResult, startedAt, ctx)
         } catch (error) {
-            const result = classifyError(error, this.timeoutMs, startedAt)
+            const result = classifyError(error, this.timeoutMs, startedAt, outputTail)
             // 异常 / 超时无法取回容器内读数：显式 unavailable，不写 0
             result.resource = unavailableResourceUsage('沙箱执行异常或超时，资源读数未回传')
             return result
@@ -379,6 +388,10 @@ export class SandboxExecutor implements ScanExecutor {
                 GITHUB_REPOSITORY: `${ctx.repository.owner}/${ctx.repository.name}`,
                 // 自包含产物不依赖 node_modules：skills 静态目录随 bundle 复制
                 DEPENDFIX_SKILLS_DIR: this.skillsDir,
+                // 预检超时（CLI 读取；非法 / 越界由 core 解析器回退 5s）
+                SANDBOX_REGISTRY_PROBE_TIMEOUT_MS: String(
+                    resolveRegistryProbeTimeoutMs(process.env.SANDBOX_REGISTRY_PROBE_TIMEOUT_MS),
+                ),
                 // registry 覆盖（含镜像站）：pnpm 只认 pnpm_config_*，npm / yarn 认 npm_config_*
                 ...(this.npmRegistry && {
                     pnpm_config_registry: this.npmRegistry,
@@ -448,6 +461,10 @@ export class SandboxExecutor implements ScanExecutor {
                 cliArgs.push('--push')
             }
         }
+        if (ctx.config.mode !== SANDBOX_REPORT_ONLY) {
+            // 预算透传：上层计算绝对截止时间，容器内 CLI 见底时停止启动新工作并回传部分结果
+            cliArgs.push('--deadline-at', String(Date.now() + this.timeoutMs))
+        }
         if (ctx.config.codeScanningEnabled) {
             cliArgs.push('--code-scanning')
         }
@@ -475,10 +492,15 @@ export class SandboxExecutor implements ScanExecutor {
         const credentialHelper = shouldInjectCloneCredential(this.cloneBaseUrl)
             ? `git config --local credential.https://github.com.helper '!f() { echo username=x-access-token; echo "password=$GITHUB_TOKEN"; }; f'`
             : null
+        const probeTarget = this.npmRegistry || 'https://registry.npmjs.org'
+        // 安装源连通性预检：5s（可配）TCP 连接，失败即输出哨兵并退出，平台归类 registry_unreachable；
+        // 放在 clone 之前，避免 registry 被阻断时逐条命令吃满超时。
+        const registryProbe = `node ${this.entry} --probe-registry ${shQuote(probeTarget)} || { ${flushResource}; exit 3; }`
         const bootstrap = ctx.config.mode === SANDBOX_REPORT_ONLY
             ? []
             : [
                 `rm -rf ${CONTAINER_REPO_PATH}`,
+                registryProbe,
                 cloneCommand,
                 `cd ${CONTAINER_REPO_PATH} || { ${flushResource}; exit 1; }`,
                 ...(credentialHelper ? [credentialHelper] : []),
@@ -486,7 +508,7 @@ export class SandboxExecutor implements ScanExecutor {
         const script = [
             // 采样先于 bootstrap：覆盖容器内 clone + 安装 + 修复（与 container 路径窗口对齐）
             this.buildResourceSamplerInit(),
-            this.buildResourceSampler(),
+            buildResourceSamplerScript(),
             ...bootstrap,
             cli,
             'code=$?',
@@ -520,35 +542,6 @@ export class SandboxExecutor implements ScanExecutor {
             + 'CG=v1; LIMIT_FILE=/sys/fs/cgroup/memory/memory.limit_in_bytes; '
             + 'USAGE_FILE=/sys/fs/cgroup/memory/memory.usage_in_bytes; OOM_FILE=/sys/fs/cgroup/memory/memory.oom_control; '
             + 'else LIMIT_FILE=; USAGE_FILE=; OOM_FILE=; fi'
-    }
-
-    /**
-     * 后台低频采样容器自身 cgroup（200ms）：记录峰值用量、内存上限与 oom_kill 增量，
-     * 停止时写一份 JSON。任一文件不可读 → 对应字段 null，由平台补 `degradedReason`。
-     */
-    private buildResourceSampler(): string {
-        return ' ( src=none; base_oom=; final_oom=; '
-            + 'if [ -n "$OOM_FILE" ]; then base_oom=$(sed -n "s/^oom_kill //p" "$OOM_FILE" 2>/dev/null | head -1); fi; '
-            + 'peak=0; samples=0; '
-            + 'while [ ! -f "$STOP_FILE" ]; do '
-            + 'cur=$(cat "$USAGE_FILE" 2>/dev/null); '
-            + 'if [ -n "$cur" ]; then samples=$((samples+1)); if [ "$cur" -gt "$peak" ] 2>/dev/null; then peak=$cur; fi; fi; '
-            + 'sleep 0.2 2>/dev/null || sleep 1; '
-            + 'done; '
-            + 'limit=$(cat "$LIMIT_FILE" 2>/dev/null); limit_json=null; limit_reason=; '
-            // v1 unlimited 哨兵 ≈ 2^60（与 resource-usage 同源）；v2 为字符串 max（非数字）→ 同样落 null + unlimited。
-            // 文件缺失 / 空 → null 且不带原因（未知 ≠ 无上限）
-            + 'if [ -n "$limit" ]; then '
-            + 'if [ "$limit" -lt 9223372036854771712 ] 2>/dev/null; then limit_json=$limit; else limit_reason=unlimited; fi; '
-            + 'fi; '
-            + 'peak_json=null; if [ "$samples" -gt 0 ] 2>/dev/null; then peak_json=$peak; fi; '
-            + 'if [ -n "$OOM_FILE" ]; then final_oom=$(sed -n "s/^oom_kill //p" "$OOM_FILE" 2>/dev/null | head -1); fi; '
-            + 'oom=null; if [ -n "$base_oom" ] && [ -n "$final_oom" ]; then '
-            + 'if [ "$final_oom" -gt "$base_oom" ] 2>/dev/null; then oom=true; else oom=false; fi; fi; '
-            + 'if [ "$samples" -gt 0 ] 2>/dev/null; then '
-            + 'if [ "$CG" = v2 ]; then src=cgroup-v2; elif [ "$CG" = v1 ]; then src=cgroup-v1; fi; fi; '
-            + `printf '{"memoryMaxBytes":%s,"peakRssBytes":%s,"oomKilled":%s,"samples":%s,"source":"%s","limitReason":"%s"}' `
-            + '"$limit_json" "$peak_json" "$oom" "$samples" "$src" "$limit_reason" > "$RESOURCE_FILE" ) &'
     }
 
     /**
@@ -616,6 +609,12 @@ export class SandboxExecutor implements ScanExecutor {
         const extracted = this.extractSandboxResource(runResult.stdout)
         const stdout = extracted.stdout
         const resource = extracted.resource
+
+        // 安装源连通性预检失败：先于通用失败分类识别哨兵，给出可读原因与目标
+        const probeFailure = parseRegistryProbeFailure(`${stdout}\n${runResult.stderr}`)
+        if (probeFailure) {
+            return registryUnreachableResult(probeFailure, resource, startedAt)
+        }
 
         // transport 超时分支:RuntimeAdapter 返回 exitCode 124(与 timeout(1) 命令一致语义)
         if (transportExitCode === 124) {

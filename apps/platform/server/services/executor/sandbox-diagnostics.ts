@@ -62,3 +62,35 @@ export function buildLogsJson(stdout: string, stderr: string, maxLines = 100): {
     return { logsJson: JSON.stringify(entries), dropped }
 }
 
+
+/**
+ * 后台低频采样容器自身 cgroup（200ms）的 shell 片段：记录峰值用量、内存上限与 oom_kill 增量，
+ * 停止时写一份 JSON。任一文件不可读 → 对应字段 null，由平台补 `degradedReason`。
+ *
+ * 依赖同一条 `sh -c` 脚本中由 `buildResourceSamplerInit` 设置的变量
+ * （`RESOURCE_FILE` / `STOP_FILE` / `CG` / `LIMIT_FILE` / `USAGE_FILE` / `OOM_FILE`）。
+ */
+export function buildResourceSamplerScript(): string {
+    return ' ( src=none; base_oom=; final_oom=; '
+        + 'if [ -n "$OOM_FILE" ]; then base_oom=$(sed -n "s/^oom_kill //p" "$OOM_FILE" 2>/dev/null | head -1); fi; '
+        + 'peak=0; samples=0; '
+        + 'while [ ! -f "$STOP_FILE" ]; do '
+        + 'cur=$(cat "$USAGE_FILE" 2>/dev/null); '
+        + 'if [ -n "$cur" ]; then samples=$((samples+1)); if [ "$cur" -gt "$peak" ] 2>/dev/null; then peak=$cur; fi; fi; '
+        + 'sleep 0.2 2>/dev/null || sleep 1; '
+        + 'done; '
+        + 'limit=$(cat "$LIMIT_FILE" 2>/dev/null); limit_json=null; limit_reason=; '
+        // v1 unlimited 哨兵 ≈ 2^60（与 resource-usage 同源）；v2 为字符串 max（非数字）→ 同样落 null + unlimited。
+        // 文件缺失 / 空 → null 且不带原因（未知 ≠ 无上限）
+        + 'if [ -n "$limit" ]; then '
+        + 'if [ "$limit" -lt 9223372036854771712 ] 2>/dev/null; then limit_json=$limit; else limit_reason=unlimited; fi; '
+        + 'fi; '
+        + 'peak_json=null; if [ "$samples" -gt 0 ] 2>/dev/null; then peak_json=$peak; fi; '
+        + 'if [ -n "$OOM_FILE" ]; then final_oom=$(sed -n "s/^oom_kill //p" "$OOM_FILE" 2>/dev/null | head -1); fi; '
+        + 'oom=null; if [ -n "$base_oom" ] && [ -n "$final_oom" ]; then '
+        + 'if [ "$final_oom" -gt "$base_oom" ] 2>/dev/null; then oom=true; else oom=false; fi; fi; '
+        + 'if [ "$samples" -gt 0 ] 2>/dev/null; then '
+        + 'if [ "$CG" = v2 ]; then src=cgroup-v2; elif [ "$CG" = v1 ]; then src=cgroup-v1; fi; fi; '
+        + `printf '{"memoryMaxBytes":%s,"peakRssBytes":%s,"oomKilled":%s,"samples":%s,"source":"%s","limitReason":"%s"}' `
+        + '"$limit_json" "$peak_json" "$oom" "$samples" "$src" "$limit_reason" > "$RESOURCE_FILE" ) &'
+}

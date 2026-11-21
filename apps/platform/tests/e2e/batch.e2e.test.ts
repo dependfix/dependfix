@@ -95,6 +95,65 @@ test.describe('批量扫描（sync 降级模式）', () => {
         await expect(resumeButton).toHaveAttribute('title', /没有可继续执行的子项/)
     })
 
+    test('可续跑批次：继续 → 派生新批次 → 终态', async ({ page }) => {
+        await page.goto('/repos')
+        await waitForHydration(page)
+        const cookieHeader = (await page.context().cookies())
+            .map((c) => `${c.name}=${c.value}`)
+            .join('; ')
+
+        const stamp = Date.now()
+        const owner = `e2e-resume-${stamp}`
+        const batchId = `resume-batch-${stamp}`
+        // 造一个「中断」批次：唯一子项 transient 失败（clone 超时）→ 可续跑
+        const seed = await page.request.post('/api/e2e/fixtures', {
+            headers: { cookie: cookieHeader },
+            data: {
+                repos: [{ owner, name: 'repo-a' }],
+                batchRuns: [{
+                    id: batchId,
+                    createdAt: new Date().toISOString(),
+                    source: 'manual',
+                    mode: 'report-only',
+                    severityThreshold: 'high',
+                    status: 'completed',
+                    repositoryCount: 1,
+                    finishedCount: 1,
+                    completedCount: 0,
+                    failedCount: 1,
+                    pendingCount: 0,
+                }],
+                scanRuns: [{
+                    repositoryOwner: owner,
+                    repositoryName: 'repo-a',
+                    batchRunId: batchId,
+                    mode: 'report-only',
+                    severityThreshold: 'high',
+                    status: 'failed',
+                    failureCode: 'ETIMEDOUT',
+                    failureStage: 'clone',
+                    failureKind: 'transient',
+                    startedAt: new Date().toISOString(),
+                    finishedAt: new Date().toISOString(),
+                }],
+            },
+        })
+        expect(seed.status()).toBe(200)
+
+        await page.goto(`/batch-runs?r=${stamp}`)
+        await waitForHydration(page)
+        const row = page.locator('.caomei-data-table__row').first()
+        const resume = row.locator('button:has-text("继续执行未完成项")')
+        await expect(resume).toBeEnabled({ timeout: 15000 })
+        await resume.click()
+        await page.locator('.caomei-confirm-dialog__footer button').last().click()
+        await expect(page.locator('.caomei-message')).toContainText('已创建续跑批次', { timeout: 15000 })
+        // 派生批次按 createdAt DESC 排最前，sync 模式下 run 终态后批次收敛为已完成
+        await expect(page.locator('.caomei-data-table__row').first()).toContainText('已完成', { timeout: 60000 })
+        // 来源链路：派生行带「续跑批次」标签
+        await expect(page.locator('.caomei-data-table__row').first()).toContainText('续跑批次')
+    })
+
     test('导航栏包含批量运行入口', async ({ page }) => {
         await page.goto('/dashboard')
         await waitForHydration(page)

@@ -70,6 +70,28 @@ describe('commitlint plugin: no-diff-stats', () => {
         expect(message).toBe('')
     })
 
+    it('footer 中 ISO 日期（尾部 `-21`）不应被误判为 diff 行数', async () => {
+        const parsed = {
+            ...parse('feat(core): 破坏性提交记录'),
+            body: '- 说明一次不兼容变更',
+            footer: 'Breaking-Review: owner 2026-11-21 approved\nBREAKING CHANGE: 移除旧接口',
+        }
+        const [valid, message] = await rule(parsed, 'always')
+        expect(valid).toBe(true)
+        expect(message).toBe('')
+    })
+
+    it('ISO 日期与 diff 行数并存时仍拦截 diff 行数', async () => {
+        const parsed = {
+            ...parse('feat(core): 破坏性提交记录'),
+            body: '2026-11-21 本次改动 +189/-3',
+            footer: null,
+        }
+        const [valid, message] = await rule(parsed, 'always')
+        expect(valid).toBe(false)
+        expect(message).toContain('+189/-3')
+    })
+
     it('when=never 时插件不生效', async () => {
         const parsed = parse(
             'chore(ci): 含 +N/-M 但禁用规则',

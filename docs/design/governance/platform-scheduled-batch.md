@@ -346,10 +346,13 @@ export const resolveRepositoryIds = async (input: SelectorInput): Promise<string
 ### 5.4 批次级「继续执行未完成项」（2026-11-21，M64.4）
 
 - **入口**：`POST /api/batch-runs/{id}/resume`（admin / org_admin）。承载形态 = **派生新批次**：`BatchRun.resumedFromBatchRunId` 记录来源，原批次历史终态不变；同时落 `AuditEvent(type='batch_run_resumed')`（payload 含来源批次 / 新批次 / 仓库集 / 跳过数）。
-- **候选**：原批次下 `status='failed'` 且 `failure_kind='transient'` 的子项，按仓库去重；确定性失败不重试。
+- **候选**：`(status='failed' && failure_kind='transient') || status='dispatched'`，按仓库去重；确定性失败不重试。迁移前存量 `failure_kind=null` 的子项不参与（需先跑 `db:backfill:run-failure`）；仓库需仍属当前组织，否则计入 skipped。
+- **来源语义**：派生批次继承原批次 `source` / `scheduleId`（定时批次续跑不降级为手动、不与 schedule 断链）；仅 `resumedFromBatchRunId` 指向原批次。
 - **互斥**：原批次仍有 `pending` / `running` 子项 → 409（仍在进行中）；已有 `resumedFromBatchRunId=原批次 && status='running'` 的派生批次 → 409（批次级互斥，防连点）；无候选 → 409 并给出原因（UI 可读）。
 - **通用单条重试** 仍由 `POST /api/runs/{id}/retry` 承担，两者共享 `BatchRun` 终态 / `ScanRun` 分类口径，不改变批次终态语义。
-- **UI**：批次列表行内「继续执行未完成项」（非进行中且有失败子项时可见）+ 二次确认 + 结果提示（中英 i18n）。
+- **UI**：批次列表行内「继续执行未完成项」（非进行中且有失败子项时可见；`resumableCount=0` 时**禁用**并给原因）+ 二次确认 + 结果提示（中英 i18n）；列表/详情返回 `resumedFromBatchRunId` 与 `resumableCount`。
+- **并发边界（best-effort）**：互斥检查为读后写，无事务 / 唯一约束；async 模式由队列 jobId 去重兜底（第二批次落 `SCAN_PENDING_MERGED`），sync 模式由仓库锁串行但会重复执行一轮。生产默认单批次操作，重复点击由前端 loading 与服务端检查挡住；彻底原子化登记 backlog。
+- **审计**：`batch_run_resumed` 落库失败仅 warn、不阻断（批次与来源字段已同批写入，链路不丢）。
 
 ## 6. API 契约
 
@@ -372,6 +375,7 @@ export const resolveRepositoryIds = async (input: SelectorInput): Promise<string
 | GET | `/api/batch-runs` | admin/org_admin/viewer | 列表（分页，按时间倒序） |
 | GET | `/api/batch-runs/[id]` | admin/org_admin/viewer | 详情（含聚合统计 + 下属 ScanRun 列表） |
 | POST | `/api/repos/batch-scan` | admin/org_admin | 手动批量扫描（body: `{ repositoryIds: string[], mode, severityThreshold }`） |
+| POST | `/api/batch-runs/[id]/resume` | admin/org_admin | 继续执行未完成项：只派发 failed+transient / dispatched 子项，派生新批次并返回 `{ batchRunId, repositoryCount, skippedCount }`；原批次进行中 / 已有续跑批次 / 无候选时 409 |
 
 ### 6.3 仓库标签
 

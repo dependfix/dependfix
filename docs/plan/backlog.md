@@ -156,6 +156,9 @@
   - **启用前置**：先闭环「发布工作流无变更周的空跑短路」候选；1.1.0 发布后观察 2 周；`on.push` 继续保留注释，待 schedule 稳定后再评估。
   - **回填要求**：首个定时窗口 run id、auto-version 提交 hash、三项未证实项结论写入本条目后再关闭。
 
+- **破坏性提交机检落地（`commit-msg` + CI 共用脚本，P2 🛡️ 治理，2026-11-21 评估完成）** —— 规范与项目 skill 已落地（[git.md §3.9](../standards/git.md#_3-9-破坏性提交人工审查)），机检尚未实现，当前由人工核对。**范围**：单脚本双入口——`--message-file <path>`（`.husky/commit-msg` 在 commitlint 之后调用）与 `--range <a..b>`（`test.yml`：push 用 `github.event.before..HEAD`，PR 用 `pull_request.base.sha..HEAD`，`workflow_dispatch` 跳过）。**判定**（任一命中即 exit≠0）：破坏性但缺 `Breaking-Review:`；记录位于 `BREAKING CHANGE:` 之后；只写 `!` 无 footer；出现连字符 `BREAKING-CHANGE:`；标识非单 token / 日期非法 / 结论不在枚举内；`approved-with-migration` 正文无迁移路径。merge 提交与空消息跳过。**前置已完成**：`no-diff-stats` 已剥离 ISO 日期（否则 `2026-11-21` 的 `-21` 会拦下合规消息）。**已定口径（2026-11-21 用户选择）**：默认标识 `owner`，授权人写 GitHub 用户名；两处落点共用同一脚本；结论枚举保持 `approved` / `approved-with-migration` 两值，不加「延后」。**历史不回补**：CI 只校验本次范围，不追溯既有 4 笔 footer 提交。**触发**：下一笔破坏性提交前，或下次改动 `.husky` / 提交门禁时。
+  - **按 [规划规范 §3.1](../standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement) 不带 `M\d+` 阶段编号**：等待上收决策。
+
 ### 延期 / 暂缓项
 
 - **管理端代他人重发验证邮件（admin-only + 操作者审计）**（P2 🛠️，**2026-11-13 用户决定延后**）—— 背景：better-auth `/send-verification-email` 在有会话时要求 `session.user.email === body.email`（否则 400 `EMAIL_MISMATCH`），管理端代发无法复用原生端点；当前用户列表只展示未验证标签，用户到登录页自助重发。**延后原因**：用户判断「代他人触发邮件」的逻辑仍需重新推敲（权限、滥用面、与自助恢复的边界）。恢复条件：用户完成方案思考并明确授权；届时按「admin-only 端点 + 操作者审计 + 双维度限流」评估。手动置位 `email_verified` 已另行决定**不提供**（2026-11-13）。
@@ -412,7 +415,7 @@
 | 内容类型 | 位置 |
 |:--|:--|
 | 当前阶段活跃任务 | M65 平台可观测性与健康（2026-11-21 规划，5 原子，见 [todo.md](todo.md)）；插队容量治理见 [planning.md §3.1.1](../standards/planning.md#_3-1-1-插队后的阶段容量再平衡-hard-requirement-2026-10-19) |
-| 下一阶段（未规划） | 按本文件候选池重新评估（28 条候选 + 2 条待上收）；M59 / M60 / M63 残余留在本文件；**1.1.0 已于 2026-11-15 发布**，定时发布启用仍在「待上收候选」段等待观察窗口 |
+| 下一阶段（未规划） | 按本文件候选池重新评估（28 条候选 + 3 条待上收）；M59 / M60 / M63 残余留在本文件；**1.1.0 已于 2026-11-15 发布**，定时发布启用仍在「待上收候选」段等待观察窗口 |
 | 已完成阶段归档 | [todo-archive.md](todo-archive.md)（阶段索引 + [archive/](archive/) 分片） |
 | 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M0-M64 已归档，M65 规划中） |
 | 长期主线 / 候选 / 待人工验收 / 已知边界 | 本文档（按四象限结构） |

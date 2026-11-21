@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process'
+import { sanitizeCommandEnv } from './env-hardening'
 import { extractHostname } from './network-audit'
 
 /**
@@ -138,6 +139,7 @@ function defaultRunCommand(
         timeout: options.timeoutMs,
         stdio: ['ignore', 'pipe', 'pipe'],
         encoding: 'utf-8',
+        env: sanitizeCommandEnv(process.env).env,
     })
 }
 

@@ -10,6 +10,7 @@ import { join } from 'node:path'
 import { describe, expect, it, beforeEach, vi } from 'vitest'
 import {
     getAbortReason,
+    getEnvHardeningSnapshot,
     resolveTrackedCommandEnv,
     getAbortSnapshot,
     getLastTrackedCommand,
@@ -404,10 +405,82 @@ describe('resolveTrackedCommandEnv', () => {
         expect(env?.HTTPS_PROXY).toBe('http://127.0.0.1:1')
     })
 
-    it('leaves the environment untouched when no proxy is active', () => {
-        expect(resolveTrackedCommandEnv(undefined, undefined)).toBeUndefined()
+    it('returns a filtered environment when no proxy is active (never inherits raw process.env)', () => {
+        const env = resolveTrackedCommandEnv(undefined, undefined)
+        // 继承路径也必须过过滤：返回值恒为对象，避免 spawn 回落到未过滤的 process.env
+        expect(env).toBeTypeOf('object')
+        expect(env.PATH).toBe(process.env.PATH)
         const explicit = { PATH: '/usr/bin' }
-        expect(resolveTrackedCommandEnv(explicit, undefined)).toBe(explicit)
+        expect(resolveTrackedCommandEnv(explicit, undefined)).toEqual({ PATH: '/usr/bin' })
+        expect(resolveTrackedCommandEnv(explicit, undefined)).not.toBe(explicit)
+    })
+
+    it('removes platform secret prefixes while preserving toolchain variables', () => {
+        const env = resolveTrackedCommandEnv({
+            PATH: '/usr/bin',
+            HOME: '/home/dev',
+            pnpm_config_registry: 'https://registry.npmjs.org',
+            npm_config_store_dir: '/store',
+            HTTP_PROXY: 'http://proxy:8080',
+            NO_PROXY: 'localhost',
+            NODE_EXTRA_CA_CERTS: '/ca.pem',
+            NUXT_ENCRYPTION_KEY: 'nux-secret',
+            NUXT_PUBLIC_FOO: 'public',
+            BETTER_AUTH_SECRET: 'auth-secret',
+            AUTH_SECRET: 'legacy-secret',
+            DATABASE_URL: 'sqlite:./db.sqlite',
+            SMTP_PASS: 'smtp-secret',
+            DEPENDFIX_AI_API_KEY: 'ai-secret',
+            UNRELATED: 'kept',
+        }, undefined)
+        expect(env).toMatchObject({
+            PATH: '/usr/bin',
+            HOME: '/home/dev',
+            pnpm_config_registry: 'https://registry.npmjs.org',
+            npm_config_store_dir: '/store',
+            HTTP_PROXY: 'http://proxy:8080',
+            NO_PROXY: 'localhost',
+            NODE_EXTRA_CA_CERTS: '/ca.pem',
+            UNRELATED: 'kept',
+        })
+        for (const key of ['NUXT_ENCRYPTION_KEY', 'NUXT_PUBLIC_FOO', 'BETTER_AUTH_SECRET', 'AUTH_SECRET', 'DATABASE_URL', 'SMTP_PASS', 'DEPENDFIX_AI_API_KEY']) {
+            expect(env[key]).toBeUndefined()
+        }
+    })
+
+    it('preserves explicitly allowlisted keys even when they match a denied prefix', () => {
+        const env = resolveTrackedCommandEnv({ AUTH_SOMETHING: 'x', NPM_CONFIG_REGISTRY: 'https://r' }, undefined)
+        expect(env.AUTH_SOMETHING).toBeUndefined()
+        expect(env.NPM_CONFIG_REGISTRY).toBe('https://r')
+    })
+
+    it('aggregates a run-level hardening snapshot with counts only', async () => {
+        const saved = { NUXT_ENCRYPTION_KEY: process.env.NUXT_ENCRYPTION_KEY, AUTH_SECRET: process.env.AUTH_SECRET }
+        process.env.NUXT_ENCRYPTION_KEY = 'nux-secret'
+        process.env.AUTH_SECRET = 'auth-secret'
+        try {
+            const result = await runTrackedCommand({
+                binary: process.execPath,
+                args: ['-e', 'process.stdout.write(JSON.stringify(Object.keys(process.env)))'],
+                cwd: process.cwd(),
+                timeoutMs: 30_000,
+            })
+            expect(result.exitCode).toBe(0)
+            expect(result.envFilteredKeys).toBeGreaterThanOrEqual(2)
+            expect(result.stdout).not.toContain('NUXT_ENCRYPTION_KEY')
+            expect(result.stdout).not.toContain('AUTH_SECRET')
+            const snapshot = getEnvHardeningSnapshot()
+            expect(snapshot?.filteredKeys).toBeGreaterThanOrEqual(2)
+            expect(snapshot?.filteredCommands).toBe(1)
+        } finally {
+            for (const [key, value] of Object.entries(saved)) {
+                if (value === undefined) {
+                    delete process.env[key]
+                } else {
+                    process.env[key] = value
+                }
+            }
+        }
     })
 })
 

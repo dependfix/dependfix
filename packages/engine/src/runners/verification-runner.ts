@@ -15,6 +15,7 @@ import {
     trackChildProcess,
     untrackChildProcess,
 } from './process-control'
+import { sanitizeCommandEnv } from './env-hardening'
 import { sanitizeOutput } from './output-sanitizer'
 import { discoverRegistryHosts } from './registry-discovery'
 
@@ -392,14 +393,15 @@ export async function runVerification(params: VerificationParams): Promise<Verif
 
 /**
  * 构造 verification 子进程环境变量：
- * - **基础**：`process.env` 全量复制（含 PATH 等系统变量），不丢失用户 shell 环境
+ * - **基础**：`process.env` 复制后**过滤平台密钥类变量**（与 `runTrackedCommand` 同一事实源）——
+ *   验证链执行的是目标仓库自带脚本（lint / build / test 与 postinstall），属最危险的暴露面
  * - **telemetry 默认禁用**：注入 `NUXT_TELEMETRY_DISABLED=1` 等（父进程未设置时）；
- *   已设置时不覆盖，保留用户显式选择
+ *   已设置时不覆盖，保留用户显式选择（telemetry 键在过滤后注入，不受 `NUXT_` 拒绝前缀影响）
  * - **审计代理**：`proxyUrl` 提供时附加 HTTP_PROXY/HTTPS_PROXY/ALL_PROXY/NO_PROXY
  *   重写；`proxyUrl` 为 undefined 时不动 HTTP_PROXY（用户既有代理不覆盖）
  */
 function buildSpawnEnv(proxyUrl?: string): NodeJS.ProcessEnv {
-    const env: NodeJS.ProcessEnv = { ...process.env }
+    const env: NodeJS.ProcessEnv = sanitizeCommandEnv(process.env).env
     for (const [name, value] of TELEMETRY_DISABLED_VARS) {
         if (env[name] === undefined || env[name] === '') {
             env[name] = value

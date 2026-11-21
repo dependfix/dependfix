@@ -25,24 +25,60 @@
 import { spawn, spawnSync } from 'node:child_process'
 import { StringDecoder } from 'node:string_decoder'
 import { getEgressProxyEnv } from './egress-audit'
+import { resetEnvHardeningState, sanitizeCommandEnv } from './env-hardening'
 
 
 /**
- * 计算受管命令的环境变量：**保留基础环境**（父进程或调用方显式 env），再按需叠加审计代理。
+ * 环境过滤的对外导出：实现与常量见 `./env-hardening`（独立模块，避免本文件被测试整体
+ * mock 时丢掉过滤能力）。受管命令 / 验证链 / 平台 git 共用同一实现。
+ */
+export {
+    DEFAULT_DENIED_ENV_KEYS,
+    DEFAULT_DENIED_ENV_PREFIXES,
+    DEFAULT_PRESERVED_ENV_KEYS,
+    DEFAULT_PRESERVED_ENV_PREFIXES,
+    getEnvHardeningSnapshot,
+    isDeniedEnvKey,
+    resetEnvHardeningState,
+    sanitizeCommandEnv,
+} from './env-hardening'
+
+/**
+ * 计算受管命令的环境变量：**保留基础环境**（父进程或调用方显式 env）并叠加按需审计代理，
+ * 最后统一过滤平台密钥类变量。
  *
  * 早期实现把代理 env 直接当作完整 env（`{HTTP_PROXY...}`），子进程因此丢失 `PATH` / `HOME`
  * 等基础变量：经 shell 包装的启动器（pnpm 自管理 shim 等）会以
  * `sed: not found` / `node: not found` 失败，锁文件修复因此静默降级。
  * 调用方显式带了代理时不覆盖（稳定性优先，与运行级审计口径一致）。
+ *
+ * 返回值**恒为对象**（不再是 `undefined` = 继承父进程）：继承路径同样必须过滤，
+ * 否则平台密钥会随安装 / 验证脚本进入目标仓库可见面。
  */
 export function resolveTrackedCommandEnv(
     paramsEnv: NodeJS.ProcessEnv | undefined,
     proxyEnv: NodeJS.ProcessEnv | undefined,
-): NodeJS.ProcessEnv | undefined {
-    if (!proxyEnv) {
-        return paramsEnv
-    }
+): NodeJS.ProcessEnv {
+    return resolveSanitizedCommandEnv(paramsEnv, proxyEnv).env
+}
+
+/** 合并 + 过滤的单一实现（计数由 `sanitizeCommandEnv` 统一记录）。 */
+function resolveSanitizedCommandEnv(
+    paramsEnv: NodeJS.ProcessEnv | undefined,
+    proxyEnv: NodeJS.ProcessEnv | undefined,
+): { env: NodeJS.ProcessEnv, filteredKeys: number } {
+    return sanitizeCommandEnv(mergeTrackedCommandEnv(paramsEnv, proxyEnv))
+}
+
+/** 合并基础环境与审计代理（不含过滤，口径见 {@link resolveTrackedCommandEnv}）。 */
+function mergeTrackedCommandEnv(
+    paramsEnv: NodeJS.ProcessEnv | undefined,
+    proxyEnv: NodeJS.ProcessEnv | undefined,
+): NodeJS.ProcessEnv {
     const base = paramsEnv ?? process.env
+    if (!proxyEnv) {
+        return { ...base }
+    }
     const callerHasProxy = Boolean(
         base.HTTP_PROXY || base.HTTPS_PROXY || base.ALL_PROXY
         || base.http_proxy || base.https_proxy || base.all_proxy,
@@ -104,6 +140,7 @@ export function resetProcessControlState(): void {
     trackedPids.clear()
     lastTrackedCommandLine = undefined
     abortSnapshot = undefined
+    resetEnvHardeningState()
 }
 
 /**
@@ -243,6 +280,8 @@ export interface TrackedCommandResult {
     aborted: boolean
     /** spawn 级 errno（如 `ENOENT`——工具链缺失）；无时为 null */
     errno: string | null
+    /** 本条命令从环境中移除的平台密钥类变量个数（只记个数，不含键名；0 时缺省） */
+    envFilteredKeys?: number
     /**
      * 捕获是否触顶（超过 {@link MAX_STREAM_CAPTURE_BYTES} 后只 drain 不累积）。
      *
@@ -276,6 +315,9 @@ export interface TrackedCommandParams {
      *
      * 传入即视为**完整环境**，不会自动并入父进程变量：只补个别变量时须自行展开 `process.env`，
      * 否则子进程会丢失 `PATH` / `HOME` 等基础变量。
+     *
+     * 无论显式还是继承路径，都会经过平台密钥过滤（见 {@link DEFAULT_DENIED_ENV_PREFIXES}）；
+     * 目标仓库自带同名变量的清洗不在本层（本层只约束平台进程的继承面）。
      */
     env?: NodeJS.ProcessEnv
     /** 显式覆盖 shell 行为（缺省按平台：Windows 经 shell，其余平台直接 spawn） */
@@ -315,7 +357,11 @@ export function runTrackedCommand(params: TrackedCommandParams): Promise<Tracked
 
     // 运行级外联审计：默认把代理注入所有受管命令（安装链 / 验证链 / 交付 git）。
     // 显式 env 里已带代理时不覆盖（调用方自知其网络路径）。
-    const mergedEnv = resolveTrackedCommandEnv(params.env, getEgressProxyEnv())
+    // 同一入口完成平台密钥过滤：继承路径（params.env 缺省）也不再是「原样继承 process.env」。
+    const { env: mergedEnv, filteredKeys: envFilteredKeys } = resolveSanitizedCommandEnv(
+        params.env,
+        getEgressProxyEnv(),
+    )
 
     return new Promise((resolve) => {
         const startedAt = Date.now()
@@ -336,7 +382,7 @@ export function runTrackedCommand(params: TrackedCommandParams): Promise<Tracked
             shell: params.shell ?? resolveShellOption(),
             // POSIX 下创建独立进程组，超时 / abort 时可终止整个进程树
             detached: process.platform !== 'win32',
-            ...(mergedEnv ? { env: mergedEnv } : {}),
+            env: mergedEnv,
         })
 
         trackChildProcess(cp.pid)
@@ -380,6 +426,7 @@ export function runTrackedCommand(params: TrackedCommandParams): Promise<Tracked
                 terminationUnconfirmed: timedOut && !exited ? true : undefined,
                 aborted: isAbortRequested(),
                 errno: result.errno ?? null,
+                ...(envFilteredKeys > 0 ? { envFilteredKeys } : {}),
                 stdout: stdoutChunks.join(''),
                 stderr: stderrChunks.join(''),
                 ...(outputTruncated ? { outputTruncated: true } : {}),

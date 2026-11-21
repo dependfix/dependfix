@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { AppError, normalizeAuditSeverity, normalizeUpstreamId, type NormalizedSecurityAlert } from '@dependfix/core'
+import { sanitizeCommandEnv } from '../runners/env-hardening'
 
 /**
  * pnpm audit 本地回退数据源（无 GitHub token 场景）。
@@ -61,6 +62,8 @@ function runPnpmAudit(workDir: string): Promise<unknown> {
             cwd: workDir,
             shell: true,
             stdio: ['ignore', 'pipe', 'pipe'],
+            // pnpm 会加载目标仓库的 .pnpmfile.cjs（任意 JS hooks）：环境必须过滤平台密钥
+            env: sanitizeCommandEnv(process.env).env,
         })
 
         const stdoutChunks: string[] = []

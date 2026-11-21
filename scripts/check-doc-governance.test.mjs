@@ -18,6 +18,7 @@ import {
     resolveBudgetTargets,
     validateArchiveGovernance,
     validateArchiveIndex,
+    validatePhaseProgressTable,
 } from './check-doc-governance.mjs'
 
 const BUDGET_FIXTURE = `# 文档治理
@@ -385,6 +386,71 @@ describe('validateArchiveIndex 无标题分片', () => {
 `
         const result = validateArchiveIndex(markdown, ['todo-archive-phases-m48.md'], () => '# 空分片\n')
         expect(result.errors).toContain('归档分片缺少阶段正文标题：todo-archive-phases-m48.md')
+    })
+})
+
+describe('归档分片命名式', () => {
+    it('不符合命名式且不在遗留白名单时报错', () => {
+        const markdown = `## 阶段索引
+
+| 阶段 | 主题 | 归档文件 | 归档日期 |
+|:--|:--|:--|:--|
+| M48 | 甲 | [M48](archive/todo-archive-phases-m48-extra.md) | 2026-10-25 |
+`
+        const result = validateArchiveIndex(markdown, ['todo-archive-phases-m48-extra.md'], () => '## M48: 甲\n')
+        expect(result.errors.some((error) => error.includes('不符合命名式'))).toBe(true)
+    })
+
+    it('遗留白名单名（含任务号段）不报命名错', () => {
+        const markdown = `## 阶段索引
+
+| 阶段 | 主题 | 归档文件 | 归档日期 |
+|:--|:--|:--|:--|
+| M7 | 甲 | [M7](archive/todo-archive-phases-m6-m7-t711.md) | 2026-10-25 |
+`
+        const result = validateArchiveIndex(markdown, ['todo-archive-phases-m6-m7-t711.md'], () => '## M7: 甲\n')
+        expect(result.errors).toEqual([])
+    })
+})
+
+describe('validatePhaseProgressTable', () => {
+    it('行集合与正文条目一致时通过', () => {
+        const markdown = `## 当前阶段
+
+| 大条目 | 小条目 | 状态 | 提交 | 审计 | 容量 |
+|:--|:--|:--|:--|:--|:--|
+| M64.1 甲 | — | ✅ | — | — | 1 commit |
+| M64.2 乙 | — | 🚧 | — | — | 1 commit |
+
+### M64.1 甲
+### M64.2 乙
+`
+        const result = validatePhaseProgressTable(markdown)
+        expect(result.errors).toEqual([])
+        expect(result.rowCount).toBe(2)
+    })
+
+    it('缺表 / 行数不一致 / 孤儿行时报错', () => {
+        expect(validatePhaseProgressTable('### M64.1 甲\n').errors).toContain('当前阶段缺少 6 列进度表（大条目 / 小条目 / 状态 / 提交 / 审计 / 容量）')
+        const markdown = `| 大条目 | 小条目 | 状态 | 提交 | 审计 | 容量 |
+|:--|:--|:--|:--|:--|:--|
+| M64.1 甲 | — | ✅ | — | — | 1 commit |
+| M64.9 幽灵 | — | ✅ | — | — | 1 commit |
+
+### M64.1 甲
+### M64.2 乙
+`
+        const result = validatePhaseProgressTable(markdown)
+        expect(result.errors).toEqual(expect.arrayContaining([
+            '进度表缺少条目行：M64.2',
+            '进度表存在无正文的条目行：M64.9',
+        ]))
+    })
+
+    it('无活跃阶段时 no-op', () => {
+        const result = validatePhaseProgressTable('## 当前阶段\n\n无活跃阶段\n')
+        expect(result.errors).toEqual([])
+        expect(result.noop).toBe(true)
     })
 })
 

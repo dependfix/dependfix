@@ -26,6 +26,7 @@ const REPO_ROOT = join(fileURLToPath(import.meta.url), '..', '..')
 export const BUDGET_DOC = 'docs/design/governance/doc-governance.md'
 export const BUDGET_HEADING = '### 4.2 字符与密度预算'
 export const ARCHIVE_INDEX = 'docs/plan/archive/index.md'
+export const TODO = 'docs/plan/todo.md'
 export const TODO_ARCHIVE = 'docs/plan/todo-archive.md'
 export const ARCHIVE_LOG = 'docs/plan/archive/archive-log.md'
 export const PHASE_FILE_PATTERN = /^todo-archive-phases-.*\.md$/
@@ -291,6 +292,20 @@ export const PHASE_SORT_OVERRIDES = {
     'todo-archive-phases-m39-m40.md': 40,
 }
 
+/** 归档分片命名式：`todo-archive-phases-<起>[-<止>].md`（起止均为 m<数字>）。 */
+export const ARCHIVE_FILENAME_PATTERN = /^todo-archive-phases-m\d+(?:-m\d+)?\.md$/
+
+/**
+ * 命名式遗留白名单（既有文件不改名，仅登记）：
+ * - `todo-archive-phases-m2-m55.md`：名实歧义（实际覆盖多段，靠 PHASE_SORT_OVERRIDES 排序）
+ * - `todo-archive-phases-m6-m7-t711.md` / `todo-archive-phases-m10-c53-c59c61.md`：不合式（含任务号段）
+ */
+export const ARCHIVE_FILENAME_LEGACY = new Set([
+    'todo-archive-phases-m2-m55.md',
+    'todo-archive-phases-m6-m7-t711.md',
+    'todo-archive-phases-m10-c53-c59c61.md',
+])
+
 /** 从分片文件名提取最大阶段号；无法提取返回 null。 */
 export function extractPhaseNumber(filename) {
     if (filename in PHASE_SORT_OVERRIDES) {
@@ -375,6 +390,9 @@ export function validateArchiveIndex(todoArchiveMarkdown, archiveFiles, readFile
             }
             previousPhase = phase
         }
+        if (!ARCHIVE_FILENAME_PATTERN.test(basename) && !ARCHIVE_FILENAME_LEGACY.has(basename)) {
+            errors.push(`归档分片名不符合命名式（todo-archive-phases-<起>[-<止>].md）：${basename}`)
+        }
         const content = readFile(`docs/plan/archive/${basename}`)
         if (!/^#{1,2} M\d+/m.test(content)) {
             errors.push(`归档分片缺少阶段正文标题：${basename}`)
@@ -386,6 +404,56 @@ export function validateArchiveIndex(todoArchiveMarkdown, archiveFiles, readFile
         }
     }
     return { errors, referencedCount: referenced.size, rowCount: rows.length }
+}
+
+/**
+ * 校验当前阶段进度表（规划文档模型 v1）：
+ * - 有活跃阶段（`^### M\d+\.\d+` 标题）时，必须有 6 列进度表（大条目 / 小条目 / 状态 / 提交 / 审计 / 容量）
+ * - 表行集合必须与正文小标题集合逐一相等（行数 = 标题数，无缺漏 / 孤儿行）
+ * - 无活跃阶段（骨架化 todo）时 no-op
+ */
+export function validatePhaseProgressTable(markdown) {
+    const errors = []
+    const headingIds = [...markdown.matchAll(/^### (M\d+\.\d+)/gm)].map((match) => match[1])
+    if (headingIds.length === 0) {
+        return { errors, rowCount: 0, noop: true }
+    }
+    const lines = markdown.split(/\r?\n/)
+    const headerIndex = lines.findIndex((line) => line.trim().startsWith('|')
+        && ['大条目', '小条目', '状态', '提交', '审计', '容量'].every((name) => line.includes(name)))
+    if (headerIndex === -1) {
+        errors.push('当前阶段缺少 6 列进度表（大条目 / 小条目 / 状态 / 提交 / 审计 / 容量）')
+        return { errors, rowCount: 0, noop: false }
+    }
+    const rowIds = []
+    for (let i = headerIndex + 1; i < lines.length; i += 1) {
+        const line = lines[i]
+        if (!line.trim().startsWith('|')) {
+            break
+        }
+        const cells = line.split('|').slice(1, -1).map((cell) => cell.trim())
+        if (cells.length < 6 || /^:?-+:?$/.test(cells[0])) {
+            continue
+        }
+        const id = cells[0].match(/M\d+\.\d+/)?.[0]
+        if (id) {
+            rowIds.push(id)
+        }
+    }
+    for (const id of headingIds) {
+        if (!rowIds.includes(id)) {
+            errors.push(`进度表缺少条目行：${id}`)
+        }
+    }
+    for (const id of rowIds) {
+        if (!headingIds.includes(id)) {
+            errors.push(`进度表存在无正文的条目行：${id}`)
+        }
+    }
+    if (rowIds.length !== headingIds.length) {
+        errors.push(`进度表行数（${rowIds.length}）≠ 正文条目数（${headingIds.length}）`)
+    }
+    return { errors, rowCount: rowIds.length, noop: false }
 }
 
 /** 校验 archive/index.md 不承载阶段正文，并指向批次日志。 */
@@ -499,6 +567,7 @@ export function checkDocGovernance(root = REPO_ROOT) {
         (relativePath) => readFileSync(join(root, relativePath), 'utf8'),
     )
     const governanceErrors = [
+        ...validatePhaseProgressTable(readFileSync(join(root, TODO), 'utf8')).errors,
         ...validateArchiveGovernance(readFileSync(join(root, ARCHIVE_INDEX), 'utf8')),
         ...(statSync(join(root, ARCHIVE_LOG)).isFile() ? [] : ['archive-log.md 不是文件']),
     ]

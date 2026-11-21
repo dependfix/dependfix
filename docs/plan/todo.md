@@ -169,3 +169,7 @@
 - **依赖**：M65.1 / M65.4 接口落地（顺序在最后）。
 - **交付物**：2-3 commits / 5-7 files（用例 + 规范条款 + 检查点矩阵）/ 180-260 行。
 - **风险与缓解**：测试注入过度 → 用依赖注入的 stub transport，不用全局 mock；门禁误伤正常请求 → 断言只在 test env 生效；矩阵与条款双写漂移 → 矩阵行引用条款锚点，不复制正文。
+
+### 追加临时待办（不占阶段条目编号）
+
+- **发布口径修正：engines-only breaking 按 minor（2026-11-21 用户授权）** —— 目标：`release:plan` 不再把「仅抬 `package.json` 的 `engines.node` 补丁 / 支持下限」的 breaking 推导为 major；保留历史，不改写 `b33746f4`。范围：`scripts/create-release-plan.mjs`（engines-only 判定 + 删除大版本线回退 major + 计划正文注明）、`scripts/create-release-plan.test.mjs`、`docs/guide/release.md`、`docs/design/governance/release-pipeline.md`、`docs/design/governance/release-1.0-readiness.md §2.4`、`docs/guide/contract-freeze.md §7`。验收：① 真实历史 `pnpm release:plan` 输出六个包均 minor；② 定向用例覆盖「抬补丁 / 新增版本线 → minor」「删除大版本线 → major」；③ `pnpm run gates:docs` 通过；④ `pnpm run lint:check` 0 error。风险与依赖：判定依赖 diff 形态（仅 `"node":` 行）与文件集合，其它形态保守回退 major；历史提交不改写，`@v1` 引用策略不变。

@@ -6,6 +6,8 @@
  * - feat → minor
  * - fix / perf / revert → patch
  * - BREAKING（subject `!` 后缀或 `BREAKING CHANGE:` footer）→ 0.x 阶段 minor（preMajor），1.0.0+ 阶段 major
+ * - 例外：breaking 只改 `package.json` 的 `engines.node`（抬补丁 / 支持下限）→ minor
+ *   （不改变 1.x 对外契约，只收窄受支持运行时；发布说明必须披露支持面变更）
  * - refactor / docs / chore / build / ci / test / style → 不 bump（随同轮其他发布附带进入 CHANGELOG）
  *
  * 包影响面按 commit 改动路径映射：packages/core → @dependfix/core、packages/cli → dependfix、
@@ -48,9 +50,76 @@ export function parseCommit(subject, body = '') {
 /** 按 semantic-release 规则推导 bump 级别；preMajor（0.x）时 breaking 只提升 minor */
 export function toBump(commit, preMajor) {
     if (commit.breaking) {
-        return preMajor ? 'minor' : 'major'
+        // engines-only breaking（只抬 package.json engines.node 下限）按 minor：
+        // 不触碰 1.x 对外契约，仅收窄受支持运行时；需要 major 语义时人工修正计划文件
+        return commit.enginesOnly || preMajor ? 'minor' : 'major'
     }
     return TYPE_BUMP[commit.type] ?? null
+}
+
+/** engines.node 变更行：只允许 diff 中出现该形态，避免把整份 package.json 改动误判为仅 engines */
+const ENGINES_DIFF_LINE_RE = /^[+-]\s*"node"\s*:\s*"[^"]*"\s*,?$/
+
+/** 从 engines 取值中解析受支持的 Node 大版本集合（`^22.23.4 || >=24` → {22, 24}） */
+function parseNodeMajors(range) {
+    const majors = new Set()
+    for (const match of range.matchAll(/\d+(?:\.\d+){0,2}/g)) {
+        majors.add(Number(match[0].split('.')[0]))
+    }
+    return majors
+}
+
+/**
+ * 判断 breaking 提交是否只改 `engines.node`：文件名全为 package.json，且 diff 的增删行只有 node 字段。
+ * 前置条件：`files` 与 `diffText` 必须来自同一提交（调用方分别用 `git show --name-only` / `--unified=0` 获取）。
+ * 依据 `git show --format= --unified=0` 的正文（无提交信息），`---` / `+++` 文件头已排除。
+ *
+ * 例外边界（任一不满足即回退 major）：
+ * - 必须存在被替换的旧 node 行（仅新增 `engines` 约束属于收窄支持面，不是补丁下限抬升）；
+ * - 按文件分别比对：每个文件删除的大版本线必须仍出现在该文件的新取值中（删任一大版本线 → major）；
+ * - 任何非 `"node":` 的增删行（含其它字段、源码）→ 不视为 engines-only。
+ */
+export function isEnginesOnlyBreaking(files, diffText) {
+    if (files.length === 0) {
+        return false
+    }
+    if (!files.every((file) => file === 'package.json' || file.endsWith('/package.json'))) {
+        return false
+    }
+    let sawEnginesChange = false
+    for (const chunk of diffText.split(/^diff --git /m).filter(Boolean)) {
+        const changedLines = chunk
+            .split('\n')
+            .filter((line) => /^[+-]/.test(line) && !/^(?:\+\+\+|---)/.test(line))
+            .map((line) => line.trim())
+        if (changedLines.length === 0) {
+            // 只有重命名 / 权限位的块不构成 engines 变更；与 engines 抬升同提交时保守回退 major
+            return false
+        }
+        if (!changedLines.every((line) => ENGINES_DIFF_LINE_RE.test(line))) {
+            return false
+        }
+        const removedMajors = new Set()
+        const addedMajors = new Set()
+        for (const line of changedLines) {
+            const range = /"node"\s*:\s*"([^"]*)"/.exec(line)?.[1]
+            if (range === undefined) {
+                continue
+            }
+            const target = line.startsWith('-') ? removedMajors : addedMajors
+            for (const major of parseNodeMajors(range)) {
+                target.add(major)
+            }
+        }
+        if (removedMajors.size === 0) {
+            return false
+        }
+        if (![...removedMajors].every((major) => addedMajors.has(major))) {
+            return false
+        }
+        sawEnginesChange = true
+    }
+    return sawEnginesChange
 }
 
 /** commit 改动路径 → 发布包名；无映射返回 null */
@@ -65,7 +134,7 @@ export function pathToPkg(file) {
 
 /**
  * 汇总 commits 生成每包 bump 计划（取各包遇到的最高级别）。
- * commits 元素：{ subject, packages: string[], breaking: boolean }
+ * commits 元素：{ subject, packages: string[], breaking: boolean, enginesOnly?: boolean }
  */
 export function buildReleasePlan(commits, preMajor) {
     const plan = new Map()
@@ -146,7 +215,14 @@ function collectCommits(base) {
             const [hash, subject] = line.split('\x1f')
             const parsed = parseCommit(subject)
             current = parsed
-                ? { hash, subject, type: parsed.type, breaking: parsed.breaking || breakingHashes.has(hash), packages: [] }
+                ? {
+                    hash,
+                    subject,
+                    type: parsed.type,
+                    breaking: parsed.breaking || breakingHashes.has(hash),
+                    enginesOnly: false,
+                    packages: [],
+                }
                 : null
             if (current) {
                 commits.push(current)
@@ -159,6 +235,15 @@ function collectCommits(base) {
                 current.packages.push(pkg)
             }
         }
+    }
+    // engines-only 判定需要 diff 正文：只在 breaking 提交上执行，避免每轮为全量历史多跑 git
+    for (const commit of commits) {
+        if (!commit.breaking) {
+            continue
+        }
+        const files = git(`show --pretty=format: --name-only ${commit.hash}`).split('\n').filter(Boolean)
+        const diff = git(`show --pretty=format: --unified=0 ${commit.hash}`)
+        commit.enginesOnly = isEnginesOnlyBreaking(files, diff)
     }
     return commits
 }
@@ -190,11 +275,21 @@ export function main() {
         .filter((c) => c.packages.length > 0 && toBump(c, preMajor))
         .map((c) => stripDevTags(c.subject))
         .join('；')
-    const content = renderPlan(plan, summary.length > SUMMARY_MAX_LEN ? `${summary.slice(0, SUMMARY_MAX_LEN)}……` : summary)
+    const clipped = summary.length > SUMMARY_MAX_LEN ? `${summary.slice(0, SUMMARY_MAX_LEN)}……` : summary
+    const enginesOnly = commits.filter((c) => c.breaking && c.enginesOnly && c.packages.length > 0)
+    const enginesNote = enginesOnly.length > 0
+        ? `\n\nengines-only breaking 按 minor 处理（发布说明须披露支持面变更）：${enginesOnly
+            .map((c) => c.hash.slice(0, 7))
+            .join('、')}`
+        : ''
+    const content = renderPlan(plan, `${clipped}${enginesNote}`)
     writeFileSync(PLAN_FILE, content, 'utf8')
     console.log(`generated ${PLAN_FILE}`)
     for (const [pkg, bump] of plan) {
         console.log(`- ${pkg}: ${bump}`)
+    }
+    for (const commit of enginesOnly) {
+        console.log(`engines-only breaking 按 minor 处理：${commit.hash.slice(0, 7)} ${stripDevTags(commit.subject)}`)
     }
     console.log('请人工 review：检查是否存在未标注 `!` / BREAKING CHANGE 的破坏性变更，如有请手动修正 bump 级别')
 }

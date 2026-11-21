@@ -77,7 +77,7 @@ CI（schedule）：release:plan → release:version → pnpm changelog
 - 位置：仓库根目录；**进 `.gitignore`**（临时产物：生成 → review → 消费删除，同现状 `.changeset/release.md` 生命周期）
 - 格式：沿用现有 frontmatter（`'pkg': bump`）+ summary 正文；**可人工编辑修正**（B 模式 CI 无人工步骤，直接消费）
 - `release:version` 消费后删除；解析失败（非法 bump / 未知包名 / 语法错误）明确报错退出
-- A 模式人工兜底保留：breaking 判定仅识别显式 `!` / `BREAKING CHANGE:` footer，未标注的破坏性变更在 review 时手动修正计划文件
+- A 模式人工兜底保留：breaking 判定仅识别显式 `!` / `BREAKING CHANGE:` footer，未标注的破坏性变更在 review 时手动修正计划文件；仅改 `engines.node` 的 breaking 由脚本按 minor 处理并在计划正文注明（发布说明披露支持面变更），需要 major 时人工修正
 
 ---
 
@@ -129,7 +129,7 @@ CI（schedule）：release:plan → release:version → pnpm changelog
 
 手写纯函数 `incVersion('0.2.0', 'minor') → '0.3.0'`（patch/minor/major 三态），不引入 semver 依赖（pnpm 严格模式无法直接 import 传递依赖）。
 
-**版本口径以 `release:plan` 推导为准（严格约束）**：中间版本若只为验证发布链，仍按脚本的真实 bump 发布（0.6.0 → 0.7.0），不得人工把 0.x 的 feat / 破坏性变更降成 patch——降级会让 CHANGELOG 与语义脱节，并稀释后续 1.0.0 的 major 语义。裁定变更须同时落 todo 决策条与就绪度台账，并全仓改净旧版本号（含脚本提示串与用例注释）。
+**版本口径以 `release:plan` 推导为准（严格约束）**：中间版本若只为验证发布链，仍按脚本的真实 bump 发布（0.6.0 → 0.7.0），不得人工把 0.x 的 feat / 破坏性变更降成 patch——降级会让 CHANGELOG 与语义脱节，并稀释后续 1.0.0 的 major 语义。裁定变更须同时落 todo 决策条与就绪度台账，并全仓改净旧版本号（含脚本提示串与用例注释）。**唯一例外**：仅抬 `engines.node` 补丁 / 支持下限的 breaking 由脚本按 minor 处理（不触碰 1.x 对外契约，只收窄受支持运行时），须在发布说明披露支持面变更；删除 Node 大版本线或新增原本不存在的 engines 约束仍按 major。
 
 ### 4.4 GitHub Release 自动化（聚合 Release + 项目 changelog notes）
 

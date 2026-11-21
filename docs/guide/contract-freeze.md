@@ -321,7 +321,7 @@ verification: id, created_at, updated_at, identifier, value, expires_at
 
 ## 7. 弃用策略
 
-1.0 起破坏性变更只随 `2.0.0`（与[就绪度台账 §1 semver 承诺](../design/governance/release-1.0-readiness.md)一致）。弃用一个键位的完整流程：
+1.0 起破坏性变更只随 `2.0.0`（与[就绪度台账 §1 semver 承诺](../design/governance/release-1.0-readiness.md)一致）。**例外**：`engines.node` 支持面不属于本节键位契约；仅抬补丁 / 支持下限的变更按 minor 发布并在发布说明披露（见台账 §2.4），删除任一 Node 大版本线仍按 major。弃用一个键位的完整流程：
 
 | 步骤 | 要求 |
 |:--|:--|

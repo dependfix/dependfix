@@ -198,13 +198,14 @@ gh release create v0.1.0 --generate-notes
 |---|---|---|
 | `feat` | minor | |
 | `fix` / `perf` / `revert` | patch | |
-| BREAKING（`!` 后缀或 `BREAKING CHANGE:` footer） | 0.x → minor；1.0.0+ → major | 0.x 阶段不直接跳到 1.0.0（0.x 语义中 minor 即可表达破坏性变更） |
+| BREAKING（`!` 后缀或 `BREAKING CHANGE:` footer） | 0.x → minor；1.0.0+ → major | 0.x 阶段不直接跳到 1.0.0（0.x 语义中 minor 即可表达破坏性变更）；**例外**：只改 `package.json` 的 `engines.node`（抬补丁 / 支持下限）按 minor，发布说明须披露支持面变更 |
 | `refactor` / `docs` / `chore` / `build` / `ci` / `test` / `style` | 不 bump | 变更仍会进入 CHANGELOG，随同轮其他发布附带 |
 
 - **包影响面**：按 commit 改动路径映射（`packages/core` → `@dependfix/core`、`packages/cli` → `dependfix`、`packages/skills` → `@dependfix/skills`）；依赖传导（如 core 升级后 cli 的依赖范围更新）由 `release:version` 的传导闭包自动处理，无需手动声明；
 - **每轮只保留一个计划文件**：固定文件名为根目录 `release-plan.md`（gitignore 临时产物：生成 → 人工 review → `release:version` 消费后删除）；脚本检测到该文件已存在时会拒绝覆盖（防止丢失人工修正），需先删除或人工合并；
 - **人工兜底（生成后必须 review）**：
   - breaking 判定只识别 commit 中显式标注的 `!` / `BREAKING CHANGE:` footer，未标注的破坏性变更（如以 `build:` 类型提交的纯 ESM 改造）需手动修正计划文件的 bump 级别；
+  - **engines-only 例外**：breaking 提交若只改 `package.json` 的 `engines.node`（文件名全为 `package.json`，diff 增删行只有 `"node": ...`，且按文件比对未删除旧的大版本线）按 minor 处理，并在计划正文注明「engines-only breaking 按 minor 处理」；发布说明必须披露支持面变更。**删除任一 Node 大版本线、新增原本不存在的 `engines` 约束、或改动非 `package.json` 的运行时声明**均由脚本保守判 major（前两者已自动识别，第三类需人工修正计划文件）；
   - 推导基线为最新 git tag，但**排除滚动别名 tag `v1` / `v2`**：别名是可变引用（`git tag -f` 可移动），`creatordate`（annotated tag）反映创建 / 移动时间而非发布顺序，被 `--sort=-creatordate` 选中后落点不可预期（可能漏算后续提交，也可能重复计入已发布内容）；若滚动别名是**仅存**的 tag，脚本回退全量历史并输出 `::warning::`，此时推导可能重复计入已发布提交，须人工核对；若存在"手动发布但未打 tag"的版本（如 `@dependfix/skills` 0.1.0 手动发布晚于 `v0.1.0` tag），推导会包含已发布内容——按实际发布决策剔除本轮不发布的包；
   - summary 仅为 git 追踪可读说明，不进 CHANGELOG（见"CHANGELOG 策略"），无需精心撰写。
 
@@ -227,6 +228,8 @@ pnpm release:version             # 确认后执行
 
 # 4. 生成 CHANGELOG（基于 conventional commits 重新生成七份日志，见"CHANGELOG 策略"）
 pnpm changelog
+#    若 release-plan.md 正文出现「engines-only breaking 按 minor 处理」，本轮版本段必须补
+#    「支持面变更」（旧 Node 范围 → 新范围）与迁移提示；GitHub Release 正文同步。
 
 # 5. 审查并提交（含包级 CHANGELOG.md 与 package.json 版本变更）
 git add -A && git commit -m "chore(release): 版本提升至 x.y.z"

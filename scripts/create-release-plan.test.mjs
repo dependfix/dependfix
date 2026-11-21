@@ -1,7 +1,7 @@
 import { execSync } from 'node:child_process'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { buildReleasePlan, isPreMajor, main, parseCommit, pathToPkg, renderPlan, stripDevTags, toBump } from './create-release-plan.mjs'
+import { buildReleasePlan, isEnginesOnlyBreaking, isPreMajor, main, parseCommit, pathToPkg, renderPlan, stripDevTags, toBump } from './create-release-plan.mjs'
 
 // main()/getLatestTag/collectCommits 依赖真实 git 与文件写入（写 repoRoot/release-plan.md），统一 mock；
 // readFileSync 保留真实实现（isPreMajor 读 core package.json）
@@ -61,6 +61,134 @@ describe('toBump', () => {
         expect(toBump({ type: 'fix', breaking: true }, true)).toBe('minor')
         expect(toBump({ type: 'feat', breaking: true }, true)).toBe('minor')
         expect(toBump({ type: 'fix', breaking: true }, false)).toBe('major')
+    })
+
+    it('downgrades engines-only breaking to minor after 1.0.0', () => {
+        expect(toBump({ type: 'build', breaking: true, enginesOnly: true }, false)).toBe('minor')
+    })
+})
+
+describe('isEnginesOnlyBreaking', () => {
+    const enginesDiff = [
+        'diff --git a/package.json b/package.json',
+        'index 1111111..2222222 100644',
+        '--- a/package.json',
+        '+++ b/package.json',
+        '@@ -9 +9 @@',
+        '-    "node": "^22.23.4 || ^24.22.1"',
+        '+    "node": "^22.23.5 || ^24.22.3"',
+    ].join('\n')
+
+    it('accepts manifests whose diff only touches engines.node', () => {
+        expect(isEnginesOnlyBreaking(['package.json', 'packages/core/package.json'], enginesDiff)).toBe(true)
+    })
+
+    it('accepts adding a new major line', () => {
+        const addMajorDiff = [
+            '--- a/package.json',
+            '+++ b/package.json',
+            '@@ -9 +9 @@',
+            '-    "node": "^22.23.5 || ^24.22.3"',
+            '+    "node": "^22.23.5 || ^24.22.3 || ^26.13.1"',
+        ].join('\n')
+        expect(isEnginesOnlyBreaking(['package.json'], addMajorDiff)).toBe(true)
+    })
+
+    it('rejects adding new engines constraints without replacing a range', () => {
+        const newConstraintDiff = [
+            '--- a/package.json',
+            '+++ b/package.json',
+            '@@ -1 +1 @@',
+            '+    "node": "^24.22.3"',
+        ].join('\n')
+        expect(isEnginesOnlyBreaking(['package.json'], newConstraintDiff)).toBe(false)
+    })
+
+    it('parses hyphen ranges and keeps both major lines', () => {
+        const hyphenDiff = [
+            '--- a/package.json',
+            '+++ b/package.json',
+            '@@ -9 +9 @@',
+            '-    "node": "22 - 24.22.1"',
+            '+    "node": "22 - 24.22.3"',
+        ].join('\n')
+        expect(isEnginesOnlyBreaking(['package.json'], hyphenDiff)).toBe(true)
+    })
+
+    it('compares majors per file so one file cannot mask a dropped line', () => {
+        const maskingDiff = [
+            'diff --git a/package.json b/package.json',
+            '--- a/package.json',
+            '+++ b/package.json',
+            '@@ -9 +9 @@',
+            '-    "node": "^22.23.5 || ^24.22.3"',
+            '+    "node": "^24.22.3"',
+            'diff --git a/packages/core/package.json b/packages/core/package.json',
+            '--- a/packages/core/package.json',
+            '+++ b/packages/core/package.json',
+            '@@ -9 +9 @@',
+            '-    "node": "^24.22.3"',
+            '+    "node": "^22.23.5 || ^24.22.3"',
+        ].join('\n')
+        expect(isEnginesOnlyBreaking(['package.json', 'packages/core/package.json'], maskingDiff)).toBe(false)
+    })
+
+    it('rejects rename-only chunks alongside engines bumps', () => {
+        const renameDiff = [
+            'diff --git a/packages/old/package.json b/packages/new/package.json',
+            'similarity index 100%',
+            'rename from packages/old/package.json',
+            'rename to packages/new/package.json',
+            'diff --git a/package.json b/package.json',
+            '--- a/package.json',
+            '+++ b/package.json',
+            '@@ -9 +9 @@',
+            '-    "node": "^22.23.4"',
+            '+    "node": "^22.23.5"',
+        ].join('\n')
+        expect(isEnginesOnlyBreaking(['packages/old/package.json', 'packages/new/package.json'], renameDiff)).toBe(false)
+    })
+
+    it('rejects dropping a supported major line', () => {
+        const dropMajorDiff = [
+            '--- a/package.json',
+            '+++ b/package.json',
+            '@@ -9 +9 @@',
+            '-    "node": "^22.23.5 || ^24.22.3"',
+            '+    "node": "^24.22.3"',
+        ].join('\n')
+        expect(isEnginesOnlyBreaking(['package.json'], dropMajorDiff)).toBe(false)
+    })
+
+    it('handles multi-file diffs with hunk headers', () => {
+        const multiFileDiff = [
+            '--- a/package.json',
+            '+++ b/package.json',
+            '@@ -9 +9 @@',
+            '-    "node": "^22.23.4 || ^24.22.1"',
+            '+    "node": "^22.23.5 || ^24.22.3"',
+            'diff --git a/packages/core/package.json b/packages/core/package.json',
+            '--- a/packages/core/package.json',
+            '+++ b/packages/core/package.json',
+            '@@ -20 +20 @@',
+            '-    "node": "^22.23.4 || ^24.22.1"',
+            '+    "node": "^22.23.5 || ^24.22.3"',
+        ].join('\n')
+        expect(isEnginesOnlyBreaking(['package.json', 'packages/core/package.json'], multiFileDiff)).toBe(true)
+    })
+
+    it('rejects commits that also touch source files', () => {
+        expect(isEnginesOnlyBreaking(['package.json', 'packages/core/src/a.ts'], enginesDiff)).toBe(false)
+    })
+
+    it('rejects manifests carrying non-engines changes', () => {
+        const mixedDiff = `${enginesDiff}\n-    "version": "1.0.0",\n+    "version": "1.0.1",`
+        expect(isEnginesOnlyBreaking(['package.json'], mixedDiff)).toBe(false)
+    })
+
+    it('returns false when no files or no changed lines are present', () => {
+        expect(isEnginesOnlyBreaking([], enginesDiff)).toBe(false)
+        expect(isEnginesOnlyBreaking(['package.json'], 'diff --git a/package.json b/package.json')).toBe(false)
     })
 })
 
@@ -190,6 +318,40 @@ describe('main', () => {
         expect(console.log).toHaveBeenCalledWith(expect.stringContaining('generated'))
         expect(writeFileSync).toHaveBeenCalledOnce()
         expect(console.log).toHaveBeenCalledWith(expect.stringContaining('@dependfix/core: patch'))
+        expect(vi.mocked(writeFileSync).mock.lastCall?.[1]).not.toContain('engines-only breaking')
+    })
+
+    it('treats engines-only breaking as minor and records support-surface note', async () => {
+        vi.mocked(execSync).mockImplementation((cmd) => {
+            const c = String(cmd)
+            if (c.includes('tag --merged')) {
+                return ''
+            }
+            if (c.includes('--grep=')) {
+                return 'abc1234'
+            }
+            if (c.includes('show') && c.includes('--name-only')) {
+                return 'package.json\npackages/core/package.json\n'
+            }
+            if (c.includes('show') && c.includes('--unified=0')) {
+                return [
+                    'diff --git a/package.json b/package.json',
+                    '--- a/package.json',
+                    '+++ b/package.json',
+                    '@@ -9 +9 @@',
+                    '-    "node": "^22.23.4 || ^24.22.1"',
+                    '+    "node": "^22.23.5 || ^24.22.3"',
+                ].join('\n')
+            }
+            if (c.includes('git log')) {
+                return 'abc1234\x1fbuild(deps)!: 提升 Node 基线\npackage.json\npackages/core/package.json\n'
+            }
+            return ''
+        })
+        main()
+        expect(console.log).toHaveBeenCalledWith(expect.stringContaining('@dependfix/core: minor'))
+        expect(console.log).toHaveBeenCalledWith(expect.stringContaining('engines-only breaking 按 minor 处理：abc1234'))
+        expect(vi.mocked(writeFileSync).mock.lastCall?.[1]).toContain('engines-only breaking 按 minor 处理')
     })
 
     it('uses latest merged tag as baseline when present', async () => {

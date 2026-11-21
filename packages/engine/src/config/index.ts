@@ -809,6 +809,7 @@ export function resolveRuntimeConfig(options: ResolveRuntimeConfigOptions = {}):
         prCheckTimeoutMs: cliOverrides.prCheckTimeoutMs ?? envConfig.prCheckTimeoutMs ?? DEFAULT_RUNTIME_CONFIG.prCheckTimeoutMs,
         prCheckRunBudgetMs: cliOverrides.prCheckRunBudgetMs ?? envConfig.prCheckRunBudgetMs ?? DEFAULT_RUNTIME_CONFIG.prCheckRunBudgetMs,
         jobBudgetMs: cliOverrides.jobBudgetMs ?? envConfig.jobBudgetMs,
+        deadlineAt: cliOverrides.deadlineAt, // 执行层注入：上层计算绝对截止时间，无 env 通道
         maxAlertsPerRepository: cliOverrides.maxAlertsPerRepository ?? envConfig.maxAlertsPerRepository ?? DEFAULT_RUNTIME_CONFIG.maxAlertsPerRepository,
         maxConcurrency: cliOverrides.maxConcurrency ?? envConfig.maxConcurrency ?? DEFAULT_RUNTIME_CONFIG.maxConcurrency,
         maxRetries: cliOverrides.maxRetries ?? envConfig.maxRetries ?? DEFAULT_RUNTIME_CONFIG.maxRetries,

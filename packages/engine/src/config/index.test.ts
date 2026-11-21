@@ -471,6 +471,15 @@ describe('resolveRuntimeConfig — commit / push 交付开关', () => {
         expect(cliWins.waitPrChecks).toBe(true)
     })
 
+    it('deadlineAt 仅经 CLI 执行层覆盖透传（无 env 通道）', () => {
+        const base = { GITHUB_TOKEN: 'ghp_test' }
+        expect(resolveRuntimeConfig({ env: base }).deadlineAt).toBeUndefined()
+        const deadlineAt = Date.now() + 60_000
+        expect(resolveRuntimeConfig({ env: base, cliOverrides: { deadlineAt } }).deadlineAt).toBe(deadlineAt)
+        // 环境变量不能改写（避免目标仓库 / 环境意外缩短或延长预算）
+        expect(resolveRuntimeConfig({ env: { ...base, DEPENDFIX_DEADLINE_AT: '1' } }).deadlineAt).toBeUndefined()
+    })
+
     it('jobBudgetMs 缺省 undefined（仅 Actions 兜底），env 可覆盖且越界 fail-fast', () => {
         const base = { GITHUB_TOKEN: 't', DEPENDFIX_REPOSITORIES: 'foo/bar' }
         expect(resolveRuntimeConfig({ env: base }).jobBudgetMs).toBeUndefined()

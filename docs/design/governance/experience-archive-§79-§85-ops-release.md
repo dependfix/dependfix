@@ -374,3 +374,20 @@
   - **落点**：[testing.md §6.13](../../standards/testing.md) + `packages/mcp/src/vitest.setup.ts`。
 - **聚合统计加组织参数时每个子查询都要注入（含 latest 行）**：只给主列表加条件，`repositoryCount` / `alertsTotal` / `topPackages` / `latestRun` 仍全库，跨组织仓库名与运行 id 外泄；浅断言（`>= N`）会把泄漏值当通过。做法：`organizationId` 必填，count / join / groupBy / limit 1 逐一注入，单测断言精确值并排除跨组织样本。
   - **落点**：`apps/platform/server/services/view/dashboard.ts` + v1 契约用例。
+
+## 九十二、M64 归档批次经验沉淀（错误体契约 / e2e 构建产物 / 环境过滤解耦 / 预算三段接线 / 沙箱预检）
+
+> **批次**：M64 执行面安全与交付闭环（2026-11-21 规划 / 2026-11-21 归档）。**准入依据**：③ 同类模式复现（前端错误读取、e2e 与构建产物、单一事实源被 mock 绕过）+ ④ 工具 / 环境陷阱（h3 序列化、caomei 类名）。落点见各条目末行。
+
+- **h3 错误响应体不含 `message`，前端读原因必须走 `data.code` 映射**：`sendError` 只序列化 `{ statusCode, statusMessage, data }`，`createLocalizedError` 的本地化文案进 `message` 不会到客户端；`e.data.message` 恒 undefined，最终显示的是 ofetch 的 `[POST] "…": 409 Conflict`。做法：服务端把机读码放 `data.code`（既有强契约），前端按码映射 i18n；新增 409 原因时同批补码表与双语。
+  - **落点**：[api.md §3](../../standards/api.md) + `apps/platform/app/pages/batch-runs.vue` + `docs/design/governance/platform-scheduled-batch.md §5.4`。
+- **Playwright e2e 断言的是 `.output` 构建产物，改 UI 后必须先 build**：本次「续跑按钮不存在」根因不是选择器，而是 e2e webServer 启动的是旧构建；重复出现的症状是「代码里有、页面上没有」。做法：UI 改动后先 `pnpm --filter @dependfix/platform build` 再跑 e2e；断言失败先查构建时间戳。
+  - **落点**：[testing.md §6.16](../../standards/testing.md)。
+- **确认框类名与普通 Dialog 不同套**：caomei-ui 1.2 的确认框是 `.caomei-confirm-dialog__*`（`__confirm` 仅 danger 态），`.caomei-dialog__content` 匹配不到；e2e 用 `.caomei-confirm-dialog__footer button` 最后一项最稳，并在修复后**实跑**再声称覆盖。
+  - **落点**：[testing.md §6.16](../../standards/testing.md) + `apps/platform/tests/e2e/batch.e2e.test.ts`。
+- **执行环境过滤要独立成模块，否则整体 mock 会静默丢掉它**：把 env 过滤放在 `process-control.ts` 时，多个测试 `vi.mock('…/process-control', () => ({ runTrackedCommand }))` 导致 `sanitizeCommandEnv` 变 undefined、过滤静默失效（表现为断言红但原因隐蔽）。做法：过滤拆到无依赖的 `env-hardening.ts`，受管命令 / 验证链 / 平台 git 都直接引用；`process-control` 只做 merge + 调用。
+  - **落点**：`packages/engine/src/runners/env-hardening.ts` + `docs/design/governance/executor-process-isolation.md §8.7`。
+- **执行层参数必须验证「解析 → RuntimeConfig 接线 → 消费点」三段**：`--deadline-at` 已进 `CliConfigOverrides` 且 `buildCmd` 断言存在，但 `resolveRuntimeConfig` 未透传 → 预算恒为「不限」，只断言 flag 的测试全绿。做法：新增执行层参数时补 `resolveRuntimeConfig` 直连断言 + 消费点测试（如过去时间点 → `BUDGET_EXHAUSTED` 且仍写结果文件）。
+  - **落点**：`packages/engine/src/config/index.ts` + `packages/engine/src/config/index.test.ts`（解析在 `packages/cli/src/cli/index.ts`）。
+- **安装源预检要「退出码 + 哨兵」双条件，且旧镜像要有独立失败码**：只认哨兵会被仓库日志伪造；只认退出码无法区分「registry 不可达」与「预检命令不存在」。做法：预检失败 `exit 3 + FAILED 哨兵` → `registry_unreachable`；旧镜像输出 `UNAVAILABLE 哨兵` → `sandbox_probe_unavailable`（确定性、需换镜像）；哨兵解析限定 `transportExitCode===3`。
+  - **落点**：`packages/core/src/runtime/registry-probe.ts` + `apps/platform/server/services/executor/sandbox-executor.ts` + [run-failure-taxonomy.md §5.13](run-failure-taxonomy.md#_5-13-沙箱安装源快速失败与预算透传-m64-3)。

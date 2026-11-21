@@ -150,6 +150,12 @@
 - **构建期布尔必须在用例侧钉死**：由 `process.env` 在构建期烘焙的 public 布尔（如 `githubAvailable` / `googleAvailable` / `oidcAvailable`）不随测试环境自动归零——开发机存在 `.env` 凭据时，「未配置即隐藏」类用例本地必红，CI 干净检出却绿。e2e / 视觉等共享构建产物的套件必须用运行时 `NUXT_PUBLIC_*` 覆盖把断言前提写到用例侧（如「隐藏」钉 `false`、「已配置展示态」钉 `true`），且**两端都要钉**，只钉一侧会留下同样的环境依赖。
 - **判据**：改受构建期布尔影响的断言时，核对 `nuxt.config.ts` 的 `runtimeConfig.public` 派生条件与测试 env 是否同时覆盖；本地 `.env` 有凭据的场景要显式跑一次「钉 false」验证，不以 CI 绿替代。
 
+### 6.16 e2e 运行构建产物与浮层选择器
+
+- **e2e 断言对象是 `.output` 构建产物**：Playwright `webServer` 启动 `.output/server/index.mjs`，改 Vue / 页面代码后不 build 会跑旧页面（症状：代码里有、页面上没有）。UI 改动后先 `pnpm --filter @dependfix/platform build` 再跑 e2e；断言失败先核对构建时间与产物。
+- **确认框类名独立于普通 Dialog**：caomei-ui 的 `CaomeiConfirmDialog` 渲染 `.caomei-confirm-dialog__*`（`__confirm` 仅 danger 态），`.caomei-dialog__content` 匹配不到；用 `.caomei-confirm-dialog__footer button` 最后一项或角色选择器，并在修复后实跑取证。
+- **成功路径与拒绝路径都要覆盖**：只断言「按钮可见 / 禁用」不足以证明交互闭环；可续跑场景要断言「点击 → 确认 → 派生记录 → 终态」。
+
 ## 7. 测试代码质量
 
 - 测试代码本身也需通过 lint + typecheck；测试描述（`it('does X')`）聚焦业务行为、使用清晰语言；避免过度耦合内部实现细节。

@@ -11,7 +11,7 @@
 // - sortable 字段：sortable + removableSort 三态（asc/desc/none）；与增量 reconcile 并存——
 //   reconcile 只替换 updatedAt 变化行引用，不重排已排序数组；用户手动排序状态保留
 import { severityLabel } from '#shared/severity-labels'
-import { CircleStop, RefreshCw } from '@lucide/vue'
+import { CircleStop, RefreshCw, RotateCcw } from '@lucide/vue'
 import type { DataTableColumn } from 'caomei-ui'
 import type { BatchRunRun, BatchRunSummary, BatchRunView } from '~/types/platform'
 import { useTablePagination } from '~/composables/use-table-pagination'
@@ -199,6 +199,25 @@ const onRowExpand = (event: { data: BatchRunView }) => {
 /** 强制结束卡住的 BatchRun（应急逃生口）
  * 仅 admin 角色可触发；后端幂等（已终态直接返回）；成功后刷新列表 */
 const forceFailing = ref<Record<string, boolean>>({})
+/** 续跑进行中（批次级互斥由服务端兜底，前端只防连点） */
+const resuming = ref<Record<string, boolean>>({})
+const notice = ref('')
+const resumeBatch = async (id: string): Promise<void> => {
+    if (resuming.value[id]) return
+    if (!await confirmDialog.open({ title: t('batchRuns.resumeConfirm') })) return
+    resuming.value[id] = true
+    notice.value = ''
+    try {
+        await $fetch(`/api/batch-runs/${id}/resume`, { method: 'POST' })
+        notice.value = t('batchRuns.resumeStarted')
+        delete detailMap.value[id]
+        await fetchBatchRuns()
+    } catch (e: any) {
+        error.value = t('batchRuns.errors.resumeFailed', { message: e?.data?.message ?? e?.message ?? t('common.errors.unknown') })
+    } finally {
+        resuming.value[id] = false
+    }
+}
 const forceFail = async (id: string): Promise<void> => {
     if (forceFailing.value[id]) return
     if (!await confirmDialog.open({ title: t('batchRuns.forceFailConfirm'), tone: 'danger' })) return
@@ -355,6 +374,14 @@ const nestedColumns = computed<DataTableColumn<BatchRunRun>[]>(() => [
         >
             {{ error }}
         </CaomeiMessage>
+        <CaomeiMessage
+            v-if="notice"
+            tone="success"
+            closable
+            @close="notice = ''"
+        >
+            {{ notice }}
+        </CaomeiMessage>
 
         <!-- 列表筛选（客户端；服务端 `/api/batch-runs` 契约与增量 reconcile 不变） -->
         <filter-bar
@@ -446,6 +473,19 @@ const nestedColumns = computed<DataTableColumn<BatchRunRun>[]>(() => [
                                 <CaomeiIcon :icon="CircleStop" />
                             </template>
                             {{ t('batchRuns.forceFail') }}
+                        </CaomeiButton>
+                        <CaomeiButton
+                            v-if="row.status !== 'running' && row.failedCount > 0"
+                            variant="ghost"
+                            size="sm"
+                            :loading="resuming[row.id]"
+                            :title="t('batchRuns.resumeConfirm')"
+                            @click="resumeBatch(row.id)"
+                        >
+                            <template #icon>
+                                <CaomeiIcon :icon="RotateCcw" />
+                            </template>
+                            {{ t('batchRuns.resume') }}
                         </CaomeiButton>
                     </div>
                 </template>

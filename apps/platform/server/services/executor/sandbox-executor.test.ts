@@ -464,6 +464,8 @@ describe('SandboxExecutor', () => {
             const spec = executor.buildSpec(makeCtx({ config: { ...defaultRuntimeConfig, mode: 'fix' } }))
             expect(spec.env?.DEPENDFIX_ALLOWED_DOMAINS).toContain('github.com')
             expect(spec.env?.DEPENDFIX_ALLOWED_DOMAINS).toContain('registry.example.com')
+            // Node 内置 fetch 默认不读代理 env：fix 类显式启用（Node 22/24/26 支持）
+            expect(spec.env?.NODE_USE_ENV_PROXY).toBe('1')
         })
 
         it('injects npm registry override and auto-allows its host', () => {
@@ -507,6 +509,7 @@ describe('SandboxExecutor', () => {
             const executor = new SandboxExecutor({ runtimeAdapter: new SpyRuntimeAdapter() })
             const spec = executor.buildSpec(makeCtx())
             expect(spec.env?.DEPENDFIX_ALLOWED_DOMAINS).toBeUndefined()
+            expect(spec.env?.NODE_USE_ENV_PROXY).toBeUndefined()
         })
 
         it('clones into the container-private repo dir before running the CLI', () => {

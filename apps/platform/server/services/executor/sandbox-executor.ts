@@ -41,7 +41,12 @@ const SANDBOX_ALLOWED_MODES: ReadonlySet<string> = new Set([SANDBOX_REPORT_ONLY,
  * 沙箱 fix 的必需出站域（平台侧最小集合，与引擎默认白名单一致的相关项）。
  * 操作方可用 DEPENDFIX_ALLOWED_DOMAINS 追加；追加后并集作为容器内审计代理的白名单。
  */
-const SANDBOX_REQUIRED_EGRESS_DOMAINS = ['github.com', 'api.github.com', '*.npmjs.org'] as const
+const SANDBOX_REQUIRED_EGRESS_DOMAINS = [
+    'github.com',
+    'api.github.com',
+    'release-assets.githubusercontent.com',
+    '*.npmjs.org',
+] as const
 
 /** 容器内 clone 目标目录（平台不挂载宿主目录） */
 const CONTAINER_REPO_PATH = '/tmp/repo'
@@ -383,6 +388,12 @@ export class SandboxExecutor implements ScanExecutor {
                 // fix 类：把出站策略交给容器内 CLI（其运行级审计代理按此白名单做 deny-by-default）
                 ...(ctx.config.mode !== SANDBOX_REPORT_ONLY && {
                     DEPENDFIX_ALLOWED_DOMAINS: this.egress.allowlist.join(','),
+                }),
+                // Node 内置 fetch（undici）默认不读代理 env：放行 fix 类时显式启用环境代理，
+                // 使 CLI 内 node fetch 也受 deny-by-default 约束（Node 22/24/26 实测支持，
+                // 结论矩阵见 docs/design/governance/executor-sandbox-implementation.md）。
+                ...(ctx.config.mode !== SANDBOX_REPORT_ONLY && this.egress.enabled && {
+                    NODE_USE_ENV_PROXY: '1',
                 }),
                 // AI 研判 env 注入：report-only 不使用 AI，且只放行 report-only → 当前不注入；
                 // 保留条件供 fix 模式放行后复用（按仓库最小注入，不在 report-only 泄露组织级 Key）。

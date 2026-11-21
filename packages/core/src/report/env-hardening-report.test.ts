@@ -12,7 +12,7 @@ describe('generateMarkdownReport — Environment Hardening', () => {
         const md = generateMarkdownReport(result)
 
         expect(md).toContain('## Environment Hardening')
-        expect(md).toContain('12 条执行子进程（受管命令与验证链）')
+        expect(md).toContain('12 条执行子进程（受管命令 / 验证链 / 平台 git 等）')
         expect(md).toContain('4 个平台密钥类变量')
         // 只记计数：报告属可外发物，不得出现任何键名
         for (const key of ['NUXT_', 'AUTH_SECRET', 'DATABASE_URL', 'SMTP_PASS']) {

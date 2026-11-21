@@ -107,7 +107,7 @@ export function getEgressProxyEnv(): NodeJS.ProcessEnv | undefined {
     if (!proxyUrl) {
         return undefined
     }
-    return buildAuditProxyEnv(proxyUrl)
+    return buildAuditProxyEnv(proxyUrl, process.env.NO_PROXY || process.env.no_proxy)
 }
 
 /** 运行级审计是否处于活动状态（验证链据此复用代理而非自建）。 */

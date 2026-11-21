@@ -17,6 +17,7 @@
   2. 按 SRI 哈希钉资源（推荐域动态发现）
   3. ~~**注册表域预置 + 动态发现生效 registry**（镜像站 / 企业私服被 deny-by-default 拦死 → install 失败 + 全量回滚）~~ —— **已随 2026-10-11 M42 阶段闭环（M42.1：`380e8f4` + `47f7c42` + `39df76d`）**；剩余方向保留待评估。
 - **验收**：默认白名单不再按次新增；verification 阶段合法外联不被误判；剩余候选方向（SRI 哈希钉定等）任一实施或主线整体评估为长期保留后关闭本主线条目
+- **2026-11-21 新增暴露面（M64.2 后）**：`NODE_USE_ENV_PROXY=1` 随审计代理注入后，Node 内置 `http/https/fetch` 也真走代理，工具链二进制 CDN 首次进入拦截面——`nodejs.org`（node-gyp 头文件）、`cdn.playwright.dev` / `playwright.azureedge.net`、`binaries.prisma.sh` 未在默认白名单，目标仓库含这些下载步骤时会 502 并被判 `network_violation`。触发：出现此类合法验证失败，或再次评估白名单治理方向时；处置方向同本主线（按需登记具体域并补测试，或推进 SRI / 配置面发现）。
 
 ## 周期性回归验证层
 

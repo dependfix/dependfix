@@ -125,7 +125,7 @@ function pushEnvHardeningSection(sections: string[], result: RunResult): void {
     sections.push(
         '## Environment Hardening',
         '',
-        `> 本次运行已从 ${envHardening.filteredCommands} 条执行子进程（受管命令与验证链）的环境中过滤 `
+        `> 本次运行已从 ${envHardening.filteredCommands} 条执行子进程（受管命令 / 验证链 / 平台 git 等）的环境中过滤 `
         + `${envHardening.filteredKeys} 个平台密钥类变量（只记个数，不记键名）。`,
         '> 工具链变量（`PATH` / `HOME` / `pnpm_config_*` / `npm_config_*` / 代理 / `NODE_EXTRA_CA_CERTS`）保留。',
         '',

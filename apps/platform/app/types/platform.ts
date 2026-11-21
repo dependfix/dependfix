@@ -159,7 +159,7 @@ export interface BatchRunView {
     updatedAt: string
     /** 续跑来源批次 id（「继续执行未完成项」派生批次；原始批次为 null） */
     resumedFromBatchRunId?: string | null
-    /** 可续跑子项数（failed + transient，按仓库去重）；0 时入口禁用 */
+    /** 可续跑子项数（failed + transient 或 dispatched，按仓库去重且限当前组织）；0 时入口禁用 */
     resumableCount?: number
     _statusRank?: number
 }

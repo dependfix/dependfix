@@ -45,7 +45,7 @@ export default defineEventHandler(async (event) => {
         order: { createdAt: 'DESC', id: 'DESC' },
         take: 50,
     })
-    // 可续跑子项数（failed + transient，按仓库去重）：UI 据此禁用入口并给原因
+    // 可续跑子项数（failed + transient 或 dispatched，按仓库去重且限当前组织）：UI 据此禁用入口并给原因
     const ids = rows.map((row) => row.id)
     const counts = ids.length > 0
         ? await ds.getRepository(ScanRun).createQueryBuilder('run')

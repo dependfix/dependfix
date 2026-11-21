@@ -866,11 +866,15 @@
         "openRunPrFailedHint": "PR creation failed; branch pushed. Click the link above to open PR manually.",
         "openRun": "Open run",
         "subEmpty": "No scan runs",
+        "resume": "Resume unfinished items",
+        "resumeConfirm": "Resume the retryable failed items of this batch? A new resumed batch will be created; the original batch record stays unchanged.",
+        "resumeStarted": "Resumed batch created; progress is shown in the list",
         "forceFail": "Force Fail",
         "forceFailConfirm": "Force fail this batch? All in-flight sub-runs will be marked as failed (cannot be undone).",
         "errors": {
             "loadFailed": "Failed to load: {message}",
             "detailLoadFailed": "Failed to load details: {message}",
+            "resumeFailed": "Resume failed: {message}",
             "forceFailFailed": "Force fail failed: {message}"
         }
     },
@@ -1222,6 +1226,18 @@
         "BATCH_RUN_NOT_FOUND": {
             "zh-CN": "批量运行不存在",
             "en": "Batch run not found"
+        },
+        "BATCH_RUN_RESUME_IN_PROGRESS": {
+            "zh-CN": "批次仍在进行中，不能续跑",
+            "en": "Batch run is still in progress and cannot be resumed"
+        },
+        "BATCH_RUN_RESUME_ALREADY_RESUMING": {
+            "zh-CN": "该批次已有进行中的续跑批次",
+            "en": "A resumed batch run for this batch is already in progress"
+        },
+        "BATCH_RUN_RESUME_NOTHING_TO_RESUME": {
+            "zh-CN": "没有可继续执行的子项（仅 transient 失败可续跑）",
+            "en": "No resumable items (only transient failures can be resumed)"
         },
         "REPOS_BATCH_VALIDATION_FAILED": {
             "zh-CN": "参数校验失败",

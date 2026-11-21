@@ -866,11 +866,15 @@
         "openRunPrFailedHint": "PR 创建失败，分支已推；点击上方链接手动开 PR",
         "openRun": "打开运行",
         "subEmpty": "暂无下属扫描记录",
+        "resume": "继续执行未完成项",
+        "resumeConfirm": "确定要继续执行此批次中可重试的失败子项吗？将创建一个新的续跑批次，原批次记录不变。",
+        "resumeStarted": "已创建续跑批次，进度可在列表查看",
         "forceFail": "强制完成",
         "forceFailConfirm": "确定要强制完成此批次吗？所有运行中的子任务将被标记为失败（无法撤销）。",
         "errors": {
             "loadFailed": "加载失败：{message}",
             "detailLoadFailed": "详情加载失败：{message}",
+            "resumeFailed": "续跑失败：{message}",
             "forceFailFailed": "强制完成失败：{message}"
         }
     },
@@ -1222,6 +1226,18 @@
         "BATCH_RUN_NOT_FOUND": {
             "zh-CN": "批量运行不存在",
             "en": "Batch run not found"
+        },
+        "BATCH_RUN_RESUME_IN_PROGRESS": {
+            "zh-CN": "批次仍在进行中，不能续跑",
+            "en": "Batch run is still in progress and cannot be resumed"
+        },
+        "BATCH_RUN_RESUME_ALREADY_RESUMING": {
+            "zh-CN": "该批次已有进行中的续跑批次",
+            "en": "A resumed batch run for this batch is already in progress"
+        },
+        "BATCH_RUN_RESUME_NOTHING_TO_RESUME": {
+            "zh-CN": "没有可继续执行的子项（仅 transient 失败可续跑）",
+            "en": "No resumable items (only transient failures can be resumed)"
         },
         "REPOS_BATCH_VALIDATION_FAILED": {
             "zh-CN": "参数校验失败",

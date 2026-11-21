@@ -53,7 +53,7 @@
   - AC2：`PATH` / `HOME` / `pnpm_config_registry` / `HTTP_PROXY` 仍可见，`pnpm install` 与 `git push` 冒烟通过；
   - AC3：过滤命中数量落运行结果（不含键名），报告与运行详情可读；
   - AC4：egress-audit 既有代理注入用例零回归；
-  - AC5：sandbox 路径行为不变（已是精选 env）。
+  - AC5：沙箱执行器的容器 env 注入模型不变（已是精选 env）；容器内 CLI 的过滤随 bundle 生效，不新增注入项。
 - **不做什么**：不改代理注入顺序与网关；不引入白名单全量派生（留 D1 评估）；不改平台进程自身环境。
 - **依赖**：M59.1 egress-audit 与 runner 抽象；[安全规范 §5.3](../standards/security.md)。
 - **交付物**：5-6 commits / 10-14 files（engine runners + platform executors + 用例 + security.md / executor-process-isolation.md）/ 350-600 行；单 commit ≤ 10 files，按 AC 分组提交。

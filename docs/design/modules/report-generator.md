@@ -207,9 +207,11 @@ interface FixError {
 
 ## 3. Markdown 报告模板
 
-### 3.1 报告结构（6 节 + 条件性 Skipped & Truncated / Repeated Failure Attempts / Delivery Skipped / Verification Skipped / Baseline Skipped / Command OOM / Family Lockstep）
+### 3.1 报告结构（6 节 + 条件性 Skipped & Truncated / Repeated Failure Attempts / Delivery Skipped / Verification Skipped / Baseline Skipped / Command OOM / Family Lockstep / Environment Hardening）
 
 > 条件性第 7 节 `Skipped & Truncated`（有跳过 / 截断 / 失败残差时渲染）见 [run-failure-taxonomy.md §5.8](../governance/run-failure-taxonomy.md#_5-8-跳过与截断披露)。
+>
+> 条件性 `Environment Hardening` 节仅当 `RunResult.envHardening.filteredKeys > 0` 时渲染：只披露被过滤的变量个数与命中命令数，**不披露键名**（报告属可外发物）。口径见 [安全规范 §5.3](../../standards/security.md) 与 [executor-process-isolation.md §8.7](../governance/executor-process-isolation.md#_8-7-执行子进程环境硬化-2026-11-21-m64-1)。
 
 ```
 # dependfix Report

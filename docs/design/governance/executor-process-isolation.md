@@ -309,6 +309,15 @@ scan-queue.add(jobId = scan-<repositoryId>)   [scan-queue.ts]
 - 预算粒度是「步骤」而非「命令」：`MIN_STEP_BUDGET_MS` 只保证"启动时还有 1 分钟"，单条命令仍可能超出剩余预算并被平台超时中止（此时按 `execution_timeout` 收尾）。
 - 平台侧只注入 `deadlineAt`，未做仓库级 / 分阶段预算（登记为 backlog 候选，避免与执行器超时耦合）。
 
+### 8.7 执行子进程环境硬化（2026-11-21，M64.1）
+
+- **问题**：平台与引擎同进程，受管命令缺省 `spawn` 继承 `process.env`——平台自身的 `NUXT_*` / `BETTER_AUTH_*` / `AUTH_*` / `DATABASE_*` / `SMTP_*` / `DEPENDFIX_AI_*` 会进入目标仓库可见的执行环境（安全规范 §5.3「平台密钥不进执行进程」的既有暴露面）。
+- **单一事实源**：`packages/engine/src/runners/process-control.ts` 的 `sanitizeCommandEnv` / `resolveTrackedCommandEnv`（拒绝前缀 / 保留清单的**唯一权威声明**见 [安全规范 §5.3](../../standards/security.md)，本节不复述清单）。受管命令**恒返回过滤后的 env**（不再以 `undefined` 表示继承），继承路径同样被清洗。
+- **覆盖面**：受管命令（安装 / 修复 / 交付 git）、验证链（`verification-runner` 的 `buildSpawnEnv`）、平台容器执行器与 platform-delivery 自身派生的 `git`，以及 `pnpm audit` / registry 发现 / 短状态查询等直接 `spawn/exec` 调用点，均经同一函数；新增命令应复用该入口，否则会形成绕过面。
+- **证据面**：`TrackedCommandResult.envFilteredKeys`（单命令）、`RunResult.envHardening` / `summary.envFilteredKeys`（运行级增量，只记计数不记键名）；markdown 报告 `## Environment Hardening` 与平台运行详情「环境硬化」均按计数披露。
+- **计数口径**：进程级累计计数器 + `DependfixApp` 构造期基线，运行级取增量；生产默认扫描并发 1，并发 >1 时增量是下界近似（另一次运行的过滤会计入本次）。
+- **边界**：只约束平台进程的继承面，不清洗目标仓库自带的同名变量；`NPM_TOKEN` / `NODE_AUTH_TOKEN` 刻意不过滤（私有 registry 安装所需，取舍见安全规范 §5.3）；沙箱执行器的容器 env 注入模型不变，容器内 CLI 的过滤随 bundle 生效。
+
 ---
 
 ## 9. 队列执行进程隔离（运行时形态）

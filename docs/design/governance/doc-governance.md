@@ -83,7 +83,10 @@
 4. 每个被索引的分片至少包含一个 `## M\d+` 标题。
 5. 批次操作历史写入 `archive/archive-log.md`，不在索引与 `archive/index.md` 中双写。
 
-以上 5 条由 `check-doc-governance` 机检（第 5 条按 bullet / 表格行 / 日期段落三种常见形态；其余形态由 review 复核）。
+6. 分片文件名符合命名式 `todo-archive-phases-<起>[-<止>].md`；遗留名白名单 3 项（`m2-m55` 名实歧义、`m6-m7-t711` / `m10-c53-c59c61` 不合式），新增分片不得进入白名单（声明见 [archive/index.md §2](../../plan/archive/index.md)）。
+7. 当前阶段（存在 `^### M\d+\.\d+` 条目时）段首必须有 6 列进度表（大条目 / 小条目 / 状态 / 提交 / 审计 / 容量），行集合与正文条目逐一相等；无活跃阶段时 no-op（口径见 [planning.md §2.2 / §2.5](../../standards/planning.md)）。
+
+以上 7 条由 `check-doc-governance` 机检（第 5 条按 bullet / 表格行 / 日期段落三种常见形态；其余形态由 review 复核）。
 
 ### 4.4 时效
 

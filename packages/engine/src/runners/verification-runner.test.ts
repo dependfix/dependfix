@@ -392,8 +392,7 @@ describe('runVerification', () => {
     })
 
     it('injects audit proxy env and telemetry-disable env and records command-output urls', async () => {
-        // 治本（候选方向 3）：spawn env 总是构造（不再是 undefined），包含
-        // 审计代理（HTTP_PROXY）+ telemetry 禁用（NUXT_TELEMETRY_DISABLED）
+        // 治本：spawn env 总是构造，包含审计代理（HTTP_PROXY）与 telemetry 禁用
         const originalNuxtTelemetry = process.env.NUXT_TELEMETRY_DISABLED
         delete process.env.NUXT_TELEMETRY_DISABLED
         try {
@@ -407,8 +406,9 @@ describe('runVerification', () => {
             // 代理 env 注入（环境无既有代理时）
             const spawnOptions = mockSpawn.mock.calls[0][1] as { env?: NodeJS.ProcessEnv }
             expect(spawnOptions.env?.HTTP_PROXY).toMatch(/^http:\/\/127\.0\.0\.1:\d+$/)
-            expect(spawnOptions.env?.NO_PROXY).toBe('')
-            expect(spawnOptions.env?.no_proxy).toBe('')
+            // NO_PROXY 与运行级代理同语义：保留用户直连域并并入回环项（不再置空）
+            expect(spawnOptions.env?.NO_PROXY).toBe('127.0.0.1,localhost,::1')
+            expect(spawnOptions.env?.no_proxy).toBe(spawnOptions.env?.NO_PROXY)
             // telemetry 默认禁用（Nuxt CLI 默认 telemetry 上报 → telemetry.nuxt.com:443
             // 真实外联；verification 是离线构建验证，必须禁用）
             expect(spawnOptions.env?.NUXT_TELEMETRY_DISABLED).toBe('1')

@@ -398,10 +398,10 @@ describe('resolveTrackedCommandEnv', () => {
         expect(env?.HTTPS_PROXY).toBe('http://user-proxy:8080')
     })
 
-    it('keeps a caller-provided NO_PROXY when injecting the proxy', () => {
+    it('merges a caller-provided NO_PROXY with the audit loopback baseline', () => {
         const env = resolveTrackedCommandEnv({ PATH: '/usr/bin', NO_PROXY: 'corp.example.com', no_proxy: 'corp.example.com' }, proxyEnv)
-        expect(env?.NO_PROXY).toBe('corp.example.com')
-        expect(env?.no_proxy).toBe('corp.example.com')
+        expect(env?.NO_PROXY).toBe('corp.example.com,127.0.0.1,localhost,::1')
+        expect(env?.no_proxy).toBe(env?.NO_PROXY)
         expect(env?.HTTPS_PROXY).toBe('http://127.0.0.1:1')
     })
 

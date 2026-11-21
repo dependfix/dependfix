@@ -53,6 +53,26 @@ export const DEFAULT_PRESERVED_ENV_KEYS = [
 /** 工具链必需的变量前缀（registry / store 配置等）。 */
 export const DEFAULT_PRESERVED_ENV_PREFIXES = ['PNPM_CONFIG_', 'NPM_CONFIG_'] as const
 
+/** 审计代理的 NO_PROXY 基线：代理自身与本地服务不经二次转发。 */
+export const AUDIT_LOOPBACK_NO_PROXY = '127.0.0.1,localhost,::1'
+
+/**
+ * 合并用户已有 NO_PROXY 与审计回环项（去重、保序：用户项在前）。
+ *
+ * 运行级代理 env（`egress-audit`）与受管命令 / 验证链共用同一实现——此前验证链在
+ * 注入代理时把 `NO_PROXY` 置空，受管命令路径又会整体覆盖审计回环项，两端语义不一致。
+ */
+export function mergeNoProxy(existing?: string): string {
+    const entries = new Set<string>()
+    for (const item of [...(existing ?? '').split(','), ...AUDIT_LOOPBACK_NO_PROXY.split(',')]) {
+        const trimmed = item.trim()
+        if (trimmed) {
+            entries.add(trimmed)
+        }
+    }
+    return [...entries].join(',')
+}
+
 /** 判定某个环境变量键是否应从执行子进程环境中移除。 */
 export function isDeniedEnvKey(key: string): boolean {
     const upper = key.toUpperCase()

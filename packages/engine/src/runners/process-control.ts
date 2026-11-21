@@ -25,7 +25,7 @@
 import { spawn, spawnSync } from 'node:child_process'
 import { StringDecoder } from 'node:string_decoder'
 import { getEgressProxyEnv } from './egress-audit'
-import { resetEnvHardeningState, sanitizeCommandEnv } from './env-hardening'
+import { mergeNoProxy, resetEnvHardeningState, sanitizeCommandEnv } from './env-hardening'
 
 
 /**
@@ -87,11 +87,12 @@ function mergeTrackedCommandEnv(
         return { ...base }
     }
     const merged: NodeJS.ProcessEnv = { ...base, ...proxyEnv }
-    // 调用方自带的 NO_PROXY 优先：审计代理只补回环地址，不应抹掉用户已配置的直连域
-    for (const key of ['NO_PROXY', 'no_proxy'] as const) {
-        if (base[key] !== undefined) {
-            merged[key] = base[key]
-        }
+    // 调用方自带的 NO_PROXY 与回环项合并（用户项在前）：审计代理只补回环地址，
+    // 既不能抹掉用户直连域，也不能让本地回环请求被代理判成违规。
+    if (base.NO_PROXY !== undefined || base.no_proxy !== undefined) {
+        const noProxy = mergeNoProxy(base.NO_PROXY || base.no_proxy)
+        merged.NO_PROXY = noProxy
+        merged.no_proxy = noProxy
     }
     return merged
 }

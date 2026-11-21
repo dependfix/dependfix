@@ -397,8 +397,8 @@ export async function runVerification(params: VerificationParams): Promise<Verif
  *   验证链执行的是目标仓库自带脚本（lint / build / test 与 postinstall），属最危险的暴露面
  * - **telemetry 默认禁用**：注入 `NUXT_TELEMETRY_DISABLED=1` 等（父进程未设置时）；
  *   已设置时不覆盖，保留用户显式选择（telemetry 键在过滤后注入，不受 `NUXT_` 拒绝前缀影响）
- * - **审计代理**：`proxyUrl` 提供时附加 HTTP_PROXY/HTTPS_PROXY/ALL_PROXY/NO_PROXY
- *   重写；`proxyUrl` 为 undefined 时不动 HTTP_PROXY（用户既有代理不覆盖）
+ * - **审计代理**：`proxyUrl` 提供时附加 HTTP_PROXY/HTTPS_PROXY/ALL_PROXY，并把用户
+ *   `NO_PROXY` 与回环项合并（不置空）；`proxyUrl` 为 undefined 时不动 HTTP_PROXY（用户既有代理不覆盖）
  */
 function buildSpawnEnv(proxyUrl?: string): NodeJS.ProcessEnv {
     const env: NodeJS.ProcessEnv = sanitizeCommandEnv(process.env).env
@@ -409,7 +409,7 @@ function buildSpawnEnv(proxyUrl?: string): NodeJS.ProcessEnv {
     }
     if (proxyUrl) {
         // NO_PROXY 与运行级代理同一语义：保留用户直连域并并入回环项（不置空）
-        Object.assign(env, buildAuditProxyEnv(proxyUrl, env.NO_PROXY ?? env.no_proxy))
+        Object.assign(env, buildAuditProxyEnv(proxyUrl, env.NO_PROXY || env.no_proxy))
     }
     return env
 }

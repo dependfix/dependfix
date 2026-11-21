@@ -12,6 +12,9 @@
 
 import type { NetworkAuditEntry } from '@dependfix/core'
 import { startNetworkAudit, type NetworkAudit } from './network-audit'
+import { AUDIT_LOOPBACK_NO_PROXY, mergeNoProxy } from './env-hardening'
+
+export { AUDIT_LOOPBACK_NO_PROXY, mergeNoProxy }
 
 /**
  * 审计代理注入状态（运行结果披露用）：
@@ -33,26 +36,6 @@ interface ActiveEgress {
     injection: EgressInjectionStatus
 }
 
-/** 审计代理的 NO_PROXY 基线：代理自身与本地服务不经二次转发。 */
-export const AUDIT_LOOPBACK_NO_PROXY = '127.0.0.1,localhost,::1'
-
-/**
- * 合并用户已有 NO_PROXY 与审计回环项（去重、保序：用户项在前）。
- *
- * 三个调用点（运行级代理 env / 验证链 / 平台派生子进程）共用同一语义——此前验证链
- * 在注入代理时把 `NO_PROXY` 置空，会抹掉用户配置的直连域。
- */
-export function mergeNoProxy(existing?: string): string {
-    const entries = new Set<string>()
-    for (const item of [...(existing ?? '').split(','), ...AUDIT_LOOPBACK_NO_PROXY.split(',')]) {
-        const trimmed = item.trim()
-        if (trimmed) {
-            entries.add(trimmed)
-        }
-    }
-    return [...entries].join(',')
-}
-
 /**
  * 构造审计代理 env（含大小写两套键）。`existingNoProxy` 为用户已有值，与回环项合并而非覆盖。
  */
@@ -67,6 +50,9 @@ export function buildAuditProxyEnv(proxyUrl: string, existingNoProxy?: string): 
         all_proxy: proxyUrl,
         NO_PROXY: noProxy,
         no_proxy: noProxy,
+        // Node 内置 http/https/fetch（undici）默认不读代理 env：显式启用环境代理，
+        // 使子进程的原生网络请求也受 deny-by-default 约束（Node 22/24/26 实测支持）。
+        NODE_USE_ENV_PROXY: '1',
     }
 }
 

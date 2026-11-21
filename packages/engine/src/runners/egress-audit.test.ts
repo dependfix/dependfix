@@ -1,5 +1,7 @@
 // egress-audit.test.ts — 运行级外联审计（安装链 / 验证链共用的代理与记录）。
+import { execFile } from 'node:child_process'
 import { request } from 'node:http'
+import { promisify } from 'node:util'
 import { describe, expect, it, afterEach, vi } from 'vitest'
 import {
     addEgressEntries,
@@ -15,6 +17,8 @@ import {
 } from './egress-audit'
 import { runTrackedCommand } from './process-control'
 import { runVerification } from './verification-runner'
+
+const execFileAsync = promisify(execFile)
 
 /** 经代理请求一个非白名单目标，返回状态码。 */
 function requestViaProxy(proxyUrl: string, target: string): Promise<number> {
@@ -84,6 +88,27 @@ describe('startRunEgressAudit', () => {
         expect(hasActiveEgressAudit()).toBe(false)
         expect(await stopRunEgressAudit()).toBeUndefined()
     })
+})
+
+describe('NODE_USE_ENV_PROXY 覆盖（真实子进程）', () => {
+    it('子进程 fetch 也经审计代理，非白名单目标落违规', async () => {
+        vi.stubEnv('HTTP_PROXY', '')
+        vi.stubEnv('HTTPS_PROXY', '')
+        vi.stubEnv('ALL_PROXY', '')
+        await startRunEgressAudit()
+        const proxyUrl = getEgressProxyUrl()
+        expect(proxyUrl).toBeTruthy()
+        const env = { ...buildAuditProxyEnv(proxyUrl!), PATH: process.env.PATH }
+        const script = 'fetch(\'http://blocked.invalid/x\').then((r) => console.log(String(r.status))).catch((e) => console.log(\'ERR\', e.cause?.code ?? e.message))'
+
+        const { stdout } = await execFileAsync(process.execPath, ['--no-warnings', '-e', script], {
+            env,
+            timeout: 15_000,
+        })
+        // 代理 deny-by-default 直接 502（不建上游连接）；若开关失效则会尝试直连（DNS 失败）
+        expect(stdout.trim()).toBe('502')
+        expect(getRunEgressSnapshot()?.violations.some((entry) => entry.target.includes('blocked.invalid'))).toBe(true)
+    }, 20_000)
 })
 
 describe('NO_PROXY 语义', () => {

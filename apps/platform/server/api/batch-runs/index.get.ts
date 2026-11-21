@@ -1,6 +1,7 @@
 import { In } from 'typeorm'
 import { BatchRun } from '#server/entities/batch-run'
 import { ScanRun } from '#server/entities/scan-run'
+import { Repository } from '#server/entities/repository'
 import { ensureDatabaseInitialized } from '#server/database'
 import { requireAuth } from '#server/utils/guard'
 import { resolveOrganizationId } from '#server/utils/organization'
@@ -50,9 +51,15 @@ export default defineEventHandler(async (event) => {
         ? await ds.getRepository(ScanRun).createQueryBuilder('run')
             .select('run.batchRunId', 'batchRunId')
             .addSelect('COUNT(DISTINCT run.repositoryId)', 'count')
+            // 与批量续跑服务同口径：failed+transient 或 dispatched；仓库须仍属当前组织
+            .innerJoin(Repository, 'repo', 'repo.id = run.repositoryId')
             .where('run.batchRunId IN (:...ids)', { ids })
-            .andWhere('run.status = :failed', { failed: 'failed' })
-            .andWhere('run.failureKind = :transient', { transient: 'transient' })
+            .andWhere('repo.organizationId = :organizationId', { organizationId })
+            .andWhere('(run.status = :dispatched OR (run.status = :failed AND run.failureKind = :transient))', {
+                dispatched: 'dispatched',
+                failed: 'failed',
+                transient: 'transient',
+            })
             .groupBy('run.batchRunId')
             .getRawMany<{ batchRunId: string, count: string }>()
         : []

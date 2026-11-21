@@ -58,7 +58,7 @@ export function selectResumableRuns(
 }
 
 /**
- * 执行批次续跑：校验互斥条件 → 派生新批次（source=manual，resumedFromBatchRunId=原批次）。
+ * 执行批次续跑：校验互斥条件 → 派生新批次（继承原批次 source / scheduleId，resumedFromBatchRunId=原批次）。
  */
 export async function resumeBatchRun(params: {
     batchRunId: string

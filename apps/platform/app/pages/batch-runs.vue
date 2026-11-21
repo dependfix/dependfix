@@ -173,6 +173,8 @@ const fetchDetail = async (id: string) => {
             failedCount: number
             pendingCount: number
             finishedAt: string | null
+            resumedFromBatchRunId?: string | null
+            resumableCount?: number
             runs: BatchRunRun[]
         }>(`/api/batch-runs/${id}`)
         detailMap.value[id] = detail
@@ -186,6 +188,8 @@ const fetchDetail = async (id: string) => {
             row.pendingCount = detail.pendingCount
             row.finishedAt = detail.finishedAt
             row.summary = detail.summary
+            row.resumableCount = detail.resumableCount
+            row.resumedFromBatchRunId = detail.resumedFromBatchRunId ?? row.resumedFromBatchRunId
         }
     } catch (e: any) {
         error.value = t('batchRuns.errors.detailLoadFailed', { message: e?.data?.message ?? e?.message ?? t('common.errors.unknown') })

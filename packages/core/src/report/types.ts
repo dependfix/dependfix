@@ -362,7 +362,7 @@ export interface RunResult {
      *
      * 只记录**计数**，不记录键名：键名本身会提示平台密钥的命名与存在面。
      * 工具链变量（PATH / HOME / pnpm_config_* / npm_config_* / 代理 / NODE_EXTRA_CA_CERTS）
-     * 不在过滤面内；口径见 `packages/engine/src/runners/process-control.ts`。
+     * 不在过滤面内；口径见 `packages/engine/src/runners/env-hardening.ts`。
      */
     envHardening?: EnvHardeningRecord
     /**

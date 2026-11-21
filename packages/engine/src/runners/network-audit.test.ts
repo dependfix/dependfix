@@ -36,6 +36,9 @@ describe('isDomainAllowed', () => {
         // rolldown.rs = vite 6/7 Rust 实现官方文档站；vite 跨 major 升级 verification
         // 命令输出会出现该 URL，verification-runner 提取后需放行避免误判 network_violation
         expect(isDomainAllowed('rolldown.rs', DEFAULT_ALLOWED_DOMAINS)).toBe(true)
+        // Release 资产重定向落地域：只登记 objects 会把合法下载判成违规
+        expect(isDomainAllowed('release-assets.githubusercontent.com', DEFAULT_ALLOWED_DOMAINS)).toBe(true)
+        expect(isDomainAllowed('evil.githubusercontent.com', DEFAULT_ALLOWED_DOMAINS)).toBe(false)
     })
 
     it('matches wildcard subdomains of *.npmjs.org', () => {

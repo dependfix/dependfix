@@ -95,7 +95,10 @@ export function closeServerBounded(
  *   `*.npmmirror.com` 用通配是必需而非偷懒（registry 与 CDN 同属该域）；企业私服自带的独立 CDN 域
  *   需显式补 `DEPENDFIX_ALLOWED_DOMAINS`（动态发现只覆盖配置面 registry 键的 host）。
  * - GitHub 相关：REST API（api.github.com）、git clone/网页（github.com）、
- *   release 资产（objects.githubusercontent.com）、raw 文件（raw.githubusercontent.com）
+ *   release 资产（objects.githubusercontent.com / release-assets.githubusercontent.com）、
+ *   raw 文件（raw.githubusercontent.com）。`release-assets.githubusercontent.com` 是 2025 年起
+ *   Release 资产下载的重定向落地域（实测运行日志：`github.com/.../releases/download/...` 302 到该域），
+ *   只登记 `objects.githubusercontent.com` 会把合法资产下载判成 network_violation
  * - `rolldown.rs` = vite 6/7 Rust 实现官方文档站；vite 跨 major 升级 verification 阶段命令输出
  *   会出现 `https://rolldown.rs/reference/...` 链接（verification-runner 命令输出 URL 提取会捕获），
  *   不放行则合法 verification 被误判 network_violation → run exitCode=1
@@ -112,6 +115,7 @@ export const DEFAULT_ALLOWED_DOMAINS = [
     'api.github.com',
     'github.com',
     'objects.githubusercontent.com',
+    'release-assets.githubusercontent.com',
     'raw.githubusercontent.com',
     'rolldown.rs',
 ] as const

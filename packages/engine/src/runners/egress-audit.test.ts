@@ -3,10 +3,12 @@ import { request } from 'node:http'
 import { describe, expect, it, afterEach, vi } from 'vitest'
 import {
     addEgressEntries,
+    buildAuditProxyEnv,
     getEgressProxyEnv,
     getEgressProxyUrl,
     getRunEgressSnapshot,
     hasActiveEgressAudit,
+    mergeNoProxy,
     resetRunEgressAuditStateForTest,
     startRunEgressAudit,
     stopRunEgressAudit,
@@ -55,6 +57,8 @@ describe('startRunEgressAudit', () => {
 
         const snapshot = getRunEgressSnapshot()
         expect(snapshot?.violations.some((entry) => entry.target.includes('blocked.invalid'))).toBe(true)
+        expect(snapshot?.injection).toBe('injected')
+        expect((await stopRunEgressAudit())?.injection).toBe('injected')
     })
 
     it('does not override an existing user proxy but still collects command-output entries', async () => {
@@ -70,6 +74,8 @@ describe('startRunEgressAudit', () => {
             target: 'https://example.com/x',
         }])
         expect(getRunEgressSnapshot()?.entries).toHaveLength(1)
+        // 既有代理 → 未注入：结果必须可披露（deny-by-default 实际不生效）
+        expect(getRunEgressSnapshot()?.injection).toBe('existing-proxy')
     })
 
     it('is disabled by DEPENDFIX_NETWORK_AUDIT=false', async () => {
@@ -77,6 +83,22 @@ describe('startRunEgressAudit', () => {
         await startRunEgressAudit()
         expect(hasActiveEgressAudit()).toBe(false)
         expect(await stopRunEgressAudit()).toBeUndefined()
+    })
+})
+
+describe('NO_PROXY 语义', () => {
+    it('merges user entries with the audit loopback baseline (user first, deduped)', () => {
+        expect(mergeNoProxy('corp.example.com, registry.internal')).toBe('corp.example.com,registry.internal,127.0.0.1,localhost,::1')
+        expect(mergeNoProxy('127.0.0.1, localhost')).toBe('127.0.0.1,localhost,::1')
+        expect(mergeNoProxy('')).toBe('127.0.0.1,localhost,::1')
+        expect(mergeNoProxy(undefined)).toBe('127.0.0.1,localhost,::1')
+    })
+
+    it('buildAuditProxyEnv keeps the user NO_PROXY when injecting the audit proxy', () => {
+        const env = buildAuditProxyEnv('http://127.0.0.1:9999', 'corp.example.com')
+        expect(env.HTTPS_PROXY).toBe('http://127.0.0.1:9999')
+        expect(env.NO_PROXY).toBe('corp.example.com,127.0.0.1,localhost,::1')
+        expect(env.no_proxy).toBe(env.NO_PROXY)
     })
 })
 

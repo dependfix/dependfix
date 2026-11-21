@@ -13,15 +13,61 @@
 import type { NetworkAuditEntry } from '@dependfix/core'
 import { startNetworkAudit, type NetworkAudit } from './network-audit'
 
+/**
+ * 审计代理注入状态（运行结果披露用）：
+ * - `injected`：已把审计代理注入子进程环境
+ * - `existing-proxy`：环境已有代理，未注入（审计仅保留命令输出 URL 提取，deny-by-default 不生效）
+ */
+export type EgressInjectionStatus = 'injected' | 'existing-proxy'
+
 export interface RunEgressSnapshot {
     entries: NetworkAuditEntry[]
     violations: NetworkAuditEntry[]
+    injection: EgressInjectionStatus
 }
 
 interface ActiveEgress {
     audit: NetworkAudit
     /** 注入给子进程的代理地址（未注入时为 undefined：环境已有代理） */
     proxyUrl?: string
+    injection: EgressInjectionStatus
+}
+
+/** 审计代理的 NO_PROXY 基线：代理自身与本地服务不经二次转发。 */
+export const AUDIT_LOOPBACK_NO_PROXY = '127.0.0.1,localhost,::1'
+
+/**
+ * 合并用户已有 NO_PROXY 与审计回环项（去重、保序：用户项在前）。
+ *
+ * 三个调用点（运行级代理 env / 验证链 / 平台派生子进程）共用同一语义——此前验证链
+ * 在注入代理时把 `NO_PROXY` 置空，会抹掉用户配置的直连域。
+ */
+export function mergeNoProxy(existing?: string): string {
+    const entries = new Set<string>()
+    for (const item of [...(existing ?? '').split(','), ...AUDIT_LOOPBACK_NO_PROXY.split(',')]) {
+        const trimmed = item.trim()
+        if (trimmed) {
+            entries.add(trimmed)
+        }
+    }
+    return [...entries].join(',')
+}
+
+/**
+ * 构造审计代理 env（含大小写两套键）。`existingNoProxy` 为用户已有值，与回环项合并而非覆盖。
+ */
+export function buildAuditProxyEnv(proxyUrl: string, existingNoProxy?: string): NodeJS.ProcessEnv {
+    const noProxy = mergeNoProxy(existingNoProxy)
+    return {
+        HTTP_PROXY: proxyUrl,
+        HTTPS_PROXY: proxyUrl,
+        ALL_PROXY: proxyUrl,
+        http_proxy: proxyUrl,
+        https_proxy: proxyUrl,
+        all_proxy: proxyUrl,
+        NO_PROXY: noProxy,
+        no_proxy: noProxy,
+    }
 }
 
 let active: ActiveEgress | undefined
@@ -52,9 +98,11 @@ export async function startRunEgressAudit(options: { extraAllowedDomains?: strin
     if (!audit) {
         return
     }
+    const useExistingProxy = hasExistingProxy()
     active = {
         audit,
-        ...(hasExistingProxy() ? {} : { proxyUrl: audit.proxyUrl }),
+        ...(useExistingProxy ? {} : { proxyUrl: audit.proxyUrl }),
+        injection: useExistingProxy ? 'existing-proxy' : 'injected',
     }
 }
 
@@ -73,16 +121,7 @@ export function getEgressProxyEnv(): NodeJS.ProcessEnv | undefined {
     if (!proxyUrl) {
         return undefined
     }
-    return {
-        HTTP_PROXY: proxyUrl,
-        HTTPS_PROXY: proxyUrl,
-        ALL_PROXY: proxyUrl,
-        http_proxy: proxyUrl,
-        https_proxy: proxyUrl,
-        all_proxy: proxyUrl,
-        NO_PROXY: '127.0.0.1,localhost,::1',
-        no_proxy: '127.0.0.1,localhost,::1',
-    }
+    return buildAuditProxyEnv(proxyUrl)
 }
 
 /** 运行级审计是否处于活动状态（验证链据此复用代理而非自建）。 */
@@ -110,7 +149,11 @@ export function getRunEgressSnapshot(): RunEgressSnapshot | undefined {
     if (!active) {
         return undefined
     }
-    return { entries: [...active.audit.entries], violations: [...active.audit.violations] }
+    return {
+        entries: [...active.audit.entries],
+        violations: [...active.audit.violations],
+        injection: active.injection,
+    }
 }
 
 /** 停止审计并返回最终快照（幂等；未启动时返回 undefined）。 */
@@ -121,6 +164,7 @@ export async function stopRunEgressAudit(): Promise<RunEgressSnapshot | undefine
     const snapshot: RunEgressSnapshot = {
         entries: [...active.audit.entries],
         violations: [...active.audit.violations],
+        injection: active.injection,
     }
     const { audit } = active
     active = undefined

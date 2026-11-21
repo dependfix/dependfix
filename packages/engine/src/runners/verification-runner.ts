@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process'
 import { parseDurationMs } from '@dependfix/core'
-import { getActiveEgressAudit, getEgressProxyUrl } from './egress-audit'
+import { buildAuditProxyEnv, getActiveEgressAudit, getEgressProxyUrl } from './egress-audit'
 import {
     startNetworkAudit,
     extractUrlsFromOutput,
@@ -408,11 +408,8 @@ function buildSpawnEnv(proxyUrl?: string): NodeJS.ProcessEnv {
         }
     }
     if (proxyUrl) {
-        env.HTTP_PROXY = proxyUrl
-        env.HTTPS_PROXY = proxyUrl
-        env.ALL_PROXY = proxyUrl
-        env.NO_PROXY = ''
-        env.no_proxy = ''
+        // NO_PROXY 与运行级代理同一语义：保留用户直连域并并入回环项（不置空）
+        Object.assign(env, buildAuditProxyEnv(proxyUrl, env.NO_PROXY ?? env.no_proxy))
     }
     return env
 }

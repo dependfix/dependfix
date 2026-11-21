@@ -5,7 +5,7 @@
 
 import { redactNetworkTarget, type FixError, type RunResult } from '@dependfix/core'
 import { discoverRegistryHosts } from '../runners/registry-discovery'
-import { startRunEgressAudit, stopRunEgressAudit, type RunEgressSnapshot } from '../runners/egress-audit'
+import { isRunEgressAuditDisabled, startRunEgressAudit, stopRunEgressAudit, type RunEgressSnapshot } from '../runners/egress-audit'
 
 /** 启动运行级审计（allowlist 含 workDir 配置面动态发现的 registry host）。 */
 export async function beginRunEgressAudit(workDir: string): Promise<void> {
@@ -26,6 +26,17 @@ export function attachRunEgressResult(
     snapshot: RunEgressSnapshot | undefined,
     errors?: FixError[],
 ): boolean {
+    // 注入状态与记录条数解耦：没有外联记录也要披露「代理是否生效」——
+    // 「未拦截」不等于「没有外联」，既有 HTTP(S)_PROXY 环境下 deny-by-default 实际不生效。
+    const status = snapshot?.injection
+        ?? (isRunEgressAuditDisabled() ? 'disabled' : 'unavailable')
+    runResult.networkAuditInjection = {
+        status,
+        ...(status === 'existing-proxy'
+            ? { note: '环境已有 HTTP(S)_PROXY，审计代理未注入：deny-by-default 未生效，仅记录命令输出 URL' }
+            : {}),
+    }
+    runResult.summary.networkAuditInjection = status
     if (!snapshot || snapshot.entries.length === 0) {
         return false
     }

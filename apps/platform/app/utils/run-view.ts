@@ -172,6 +172,12 @@ export const networkAudited = (summary: Record<string, unknown> | null) => summa
 /** 本次运行从执行子进程环境中过滤掉的平台密钥类变量个数（`summary.envFilteredKeys`）。 */
 export const envFilteredKeys = (summary: Record<string, unknown> | null) => summaryNumber(summary, 'envFilteredKeys')
 
+/** 审计代理注入状态（`summary.networkAuditInjection`；旧 summary 缺字段时为空串）。 */
+export const networkAuditInjection = (summary: Record<string, unknown> | null): string => {
+    const value = summary?.networkAuditInjection
+    return typeof value === 'string' ? value : ''
+}
+
 /** 落库的最小化外联目标（最多 20 条；旧 summaryJson 缺该字段时为空）。 */
 export const networkViolationTargets = (summary: Record<string, unknown> | null) => {
     const value = summary?.networkViolationTargets

@@ -3,6 +3,7 @@ import {
     alertsFound,
     buildExportScopeItems,
     envFilteredKeys,
+    networkAuditInjection,
     EXPORT_RUNS_LIMIT,
     failureKindLabel,
     failureStageLabel,
@@ -59,6 +60,15 @@ describe('utils/run-view', () => {
         it('旧 summary 缺字段 / 非数字按 0', () => {
             expect(envFilteredKeys(null)).toBe(0)
             expect(envFilteredKeys({ envFilteredKeys: 'x' })).toBe(0)
+        })
+    })
+
+    describe('networkAuditInjection', () => {
+        it('读取注入状态；缺字段 / 非字符串按空串', () => {
+            expect(networkAuditInjection({ networkAuditInjection: 'existing-proxy' })).toBe('existing-proxy')
+            expect(networkAuditInjection({})).toBe('')
+            expect(networkAuditInjection(null)).toBe('')
+            expect(networkAuditInjection({ networkAuditInjection: 1 })).toBe('')
         })
     })
 

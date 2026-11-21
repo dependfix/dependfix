@@ -21,6 +21,7 @@ import {
     verificationSkipSummary,
     networkViolations,
     networkViolationSummary,
+    networkAuditInjection,
     envFilteredKeys,
     runDelivery,
     verificationsSkipped,
@@ -388,6 +389,15 @@ watch(() => props.runId, (runId) => {
                     <span class="run-detail__meta-label">{{ t('runs.networkViolationsLabel') }}</span>
                     <strong :title="networkViolationText || t('runs.networkViolationsHint')">
                         {{ t('runs.networkViolations', {count: networkViolations(detail.summary)}) }}
+                    </strong>
+                </div>
+                <div
+                    v-if="!isRunResultMissing(detail) && networkAuditInjection(detail.summary) && networkAuditInjection(detail.summary) !== 'injected'"
+                    class="run-detail__meta-item"
+                >
+                    <span class="run-detail__meta-label">{{ t('runs.networkAuditInjectionLabel') }}</span>
+                    <strong :title="t('runs.networkAuditInjectionHint')">
+                        {{ t('runs.networkAuditInjectionOff', {status: networkAuditInjection(detail.summary)}) }}
                     </strong>
                 </div>
                 <div v-if="!isRunResultMissing(detail) && envFilteredKeys(detail.summary) > 0" class="run-detail__meta-item">

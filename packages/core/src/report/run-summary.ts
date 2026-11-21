@@ -117,6 +117,8 @@ export interface RunSummary {
     networkAudited?: number
     /** 本次运行从执行子进程环境中过滤掉的平台密钥类变量个数（只记个数，不含键名）。 */
     envFilteredKeys?: number
+    /** 审计代理注入状态（`injected` / `existing-proxy` / `disabled` / `unavailable`）。 */
+    networkAuditInjection?: string
 }
 
 

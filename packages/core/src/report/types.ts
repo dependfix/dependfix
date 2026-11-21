@@ -2,7 +2,7 @@ import type { NormalizedSecurityAlert, AlertSeverity } from '../alerts'
 import type { CiAlignmentRecord } from './ci-alignment'
 import type { CheckAttribution } from './check-attribution'
 import type { AlertFixOutcome } from './alert-outcomes'
-import type { NetworkAuditEntry } from './network-audit'
+import type { NetworkAuditEntry, NetworkAuditInjectionRecord } from './network-audit'
 import type { RunDelivery } from './run-delivery'
 import type { BaselineSkippedCommand } from './baseline-skip'
 import type { RunSummary } from './run-summary'
@@ -357,6 +357,12 @@ export interface RunResult {
     networkAudit?: NetworkAuditEntry[]
     /** 非白名单外联（`networkAudit` 的子集；非空即不得把该仓库写成「成功」） */
     networkViolations?: NetworkAuditEntry[]
+    /**
+     * 审计代理注入状态（既有 `HTTP(S)_PROXY` 环境下不会注入，deny-by-default 不生效）。
+     *
+     * 消费方：报告与平台运行详情据此显示「审计注入未生效」提示，避免把「未拦截」误读为「无外联」。
+     */
+    networkAuditInjection?: NetworkAuditInjectionRecord
     /**
      * 执行子进程环境硬化记录（仅本次运行实际过滤过平台密钥类变量时存在）。
      *

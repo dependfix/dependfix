@@ -85,6 +85,39 @@ function appendBaselineSkippedSection(sections: string[], repositories: Reposito
  * 与「运行被 OOM 终止」不是同一事实；命令级 OOM 常出现在 `completed` 运行里，
  * 写成「OOM 终止」会让离线复盘误判交付结论。命令级 OOM 不改变运行失败率。
  */
+/** 注入状态的中文说明（`injected` 时不渲染小节）。 */
+function egressInjectionLabel(status: NonNullable<RunResult['networkAuditInjection']>['status']): string {
+    switch (status) {
+        case 'existing-proxy':
+            return '环境已有 HTTP(S)_PROXY，审计代理未注入：deny-by-default 未生效，仅记录命令输出 URL'
+        case 'disabled':
+            return '外联审计已被 `DEPENDFIX_NETWORK_AUDIT=false` 显式关闭'
+        case 'unavailable':
+            return '审计代理未能启动或运行未经过审计初始化'
+        default:
+            return '审计代理已注入'
+    }
+}
+
+/**
+ * Egress Audit 条件性小节：仅当代理未处于 `injected` 状态时渲染。
+ *
+ * 「未拦截」不等于「没有外联」——既有代理 / 关闭 / 启动失败三种情况下 deny-by-default
+ * 不生效，必须在可外发报告中披露，避免读者把空 violations 读成安全结论。
+ */
+function pushEgressAuditSection(sections: string[], result: RunResult): void {
+    const injection = result.networkAuditInjection
+    if (!injection || injection.status === 'injected') {
+        return
+    }
+    sections.push(
+        '## Egress Audit',
+        '',
+        `> 审计注入状态：\`${injection.status}\` —— ${egressInjectionLabel(injection.status)}。`,
+        '',
+    )
+}
+
 /**
  * Environment Hardening 条件性小节（仅当运行级过滤计数 > 0 时渲染）。
  *
@@ -242,6 +275,9 @@ export function generateMarkdownReport(result: RunResult): string {
         }
         sections.push('')
     }
+
+    // ---- 2.5.2b Egress Audit（代理未生效时必须显式披露，避免「未拦截」被读成「无外联」）----
+    pushEgressAuditSection(sections, result)
 
     // ---- 2.5.3 Environment Hardening（执行子进程环境已过滤平台密钥类变量）----
     pushEnvHardeningSection(sections, result)

@@ -767,6 +767,7 @@
         "typeNotificationSettingsUpdate": "Notification settings updated",
         "typePrFeedbackCommented": "PR feedback comment posted",
         "typePrFeedbackClosed": "PR auto-closed by feedback loop",
+        "typeBatchRunResumed": "Batch resumed",
         "expand": "Expand",
         "collapse": "Collapse",
         "errors": {
@@ -866,6 +867,12 @@
         "openRunPrFailedHint": "PR creation failed; branch pushed. Click the link above to open PR manually.",
         "openRun": "Open run",
         "subEmpty": "No scan runs",
+        "resumeDisabledHint": "No resumable items (only transient failures can be resumed)",
+        "resumedFrom": "Resumed batch",
+        "resumeInProgress": "Batch run is still in progress and cannot be resumed",
+        "resumeAlready": "A resumed batch run for this batch is already in progress",
+        "resumeNothing": "No resumable items (only transient failures can be resumed)",
+        "resumeInvalidParams": "Source batch parameters are invalid and cannot be resumed",
         "resume": "Resume unfinished items",
         "resumeConfirm": "Resume the retryable failed items of this batch? A new resumed batch will be created; the original batch record stays unchanged.",
         "resumeStarted": "Resumed batch created; progress is shown in the list",
@@ -874,6 +881,10 @@
         "errors": {
             "loadFailed": "Failed to load: {message}",
             "detailLoadFailed": "Failed to load details: {message}",
+            "resumeInProgress": "Batch run is still in progress and cannot be resumed",
+            "resumeAlready": "A resumed batch run for this batch is already in progress",
+            "resumeNothing": "No resumable items (only transient failures can be resumed)",
+            "resumeInvalidParams": "Source batch parameters are invalid and cannot be resumed",
             "resumeFailed": "Resume failed: {message}",
             "forceFailFailed": "Force fail failed: {message}"
         }
@@ -1238,6 +1249,10 @@
         "BATCH_RUN_RESUME_NOTHING_TO_RESUME": {
             "zh-CN": "没有可继续执行的子项（仅 transient 失败可续跑）",
             "en": "No resumable items (only transient failures can be resumed)"
+        },
+        "BATCH_RUN_RESUME_INVALID_PARAMS": {
+            "zh-CN": "来源批次参数非法，无法续跑",
+            "en": "Source batch parameters are invalid and cannot be resumed"
         },
         "REPOS_BATCH_VALIDATION_FAILED": {
             "zh-CN": "参数校验失败",

@@ -202,6 +202,13 @@ const forceFailing = ref<Record<string, boolean>>({})
 /** 续跑进行中（批次级互斥由服务端兜底，前端只防连点） */
 const resuming = ref<Record<string, boolean>>({})
 const notice = ref('')
+/** 续跑 409 原因：h3 错误体只序列化 data.code（message 不进响应体），按码映射 i18n */
+const RESUME_ERROR_KEYS: Record<string, string> = {
+    BATCH_RUN_RESUME_IN_PROGRESS: 'batchRuns.errors.resumeInProgress',
+    BATCH_RUN_RESUME_ALREADY_RESUMING: 'batchRuns.errors.resumeAlready',
+    BATCH_RUN_RESUME_NOTHING_TO_RESUME: 'batchRuns.errors.resumeNothing',
+    BATCH_RUN_RESUME_INVALID_PARAMS: 'batchRuns.errors.resumeInvalidParams',
+}
 const resumeBatch = async (id: string): Promise<void> => {
     if (resuming.value[id]) return
     if (!await confirmDialog.open({ title: t('batchRuns.resumeConfirm') })) return
@@ -213,7 +220,11 @@ const resumeBatch = async (id: string): Promise<void> => {
         delete detailMap.value[id]
         await fetchBatchRuns()
     } catch (e: any) {
-        error.value = t('batchRuns.errors.resumeFailed', { message: e?.data?.message ?? e?.message ?? t('common.errors.unknown') })
+        const code = e?.data?.data?.code as string | undefined
+        const key = code ? RESUME_ERROR_KEYS[code] : undefined
+        error.value = key
+            ? t(key)
+            : t('batchRuns.errors.resumeFailed', { message: e?.data?.data?.code ?? e?.message ?? t('common.errors.unknown') })
     } finally {
         resuming.value[id] = false
     }
@@ -461,6 +472,9 @@ const nestedColumns = computed<DataTableColumn<BatchRunRun>[]>(() => [
                         <CaomeiTag :tone="statusTag(row.status).tone">
                             {{ statusTag(row.status).label }}
                         </CaomeiTag>
+                        <CaomeiTag v-if="row.resumedFromBatchRunId" tone="neutral">
+                            {{ t('batchRuns.resumedFrom') }}
+                        </CaomeiTag>
                         <CaomeiButton
                             v-if="row.status === 'running'"
                             tone="danger"
@@ -479,7 +493,8 @@ const nestedColumns = computed<DataTableColumn<BatchRunRun>[]>(() => [
                             variant="ghost"
                             size="sm"
                             :loading="resuming[row.id]"
-                            :title="t('batchRuns.resumeConfirm')"
+                            :disabled="(row.resumableCount ?? 0) === 0"
+                            :title="(row.resumableCount ?? 0) === 0 ? t('batchRuns.resumeDisabledHint') : t('batchRuns.resumeConfirm')"
                             @click="resumeBatch(row.id)"
                         >
                             <template #icon>

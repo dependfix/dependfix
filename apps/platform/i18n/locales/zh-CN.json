@@ -767,6 +767,7 @@
         "typeNotificationSettingsUpdate": "通知设置更新",
         "typePrFeedbackCommented": "PR 回环评论",
         "typePrFeedbackClosed": "PR 回环自动关闭",
+        "typeBatchRunResumed": "批次续跑",
         "expand": "展开",
         "collapse": "收起",
         "errors": {
@@ -866,6 +867,12 @@
         "openRunPrFailedHint": "PR 创建失败，分支已推；点击上方链接手动开 PR",
         "openRun": "打开运行",
         "subEmpty": "暂无下属扫描记录",
+        "resumeDisabledHint": "没有可继续执行的子项（仅 transient 失败可续跑）",
+        "resumedFrom": "续跑批次",
+        "resumeInProgress": "批次仍在进行中，不能续跑",
+        "resumeAlready": "该批次已有进行中的续跑批次",
+        "resumeNothing": "没有可继续执行的子项（仅 transient 失败可续跑）",
+        "resumeInvalidParams": "来源批次参数非法，无法续跑",
         "resume": "继续执行未完成项",
         "resumeConfirm": "确定要继续执行此批次中可重试的失败子项吗？将创建一个新的续跑批次，原批次记录不变。",
         "resumeStarted": "已创建续跑批次，进度可在列表查看",
@@ -874,6 +881,10 @@
         "errors": {
             "loadFailed": "加载失败：{message}",
             "detailLoadFailed": "详情加载失败：{message}",
+            "resumeInProgress": "批次仍在进行中，不能续跑",
+            "resumeAlready": "该批次已有进行中的续跑批次",
+            "resumeNothing": "没有可继续执行的子项（仅 transient 失败可续跑）",
+            "resumeInvalidParams": "来源批次参数非法，无法续跑",
             "resumeFailed": "续跑失败：{message}",
             "forceFailFailed": "强制完成失败：{message}"
         }
@@ -1238,6 +1249,10 @@
         "BATCH_RUN_RESUME_NOTHING_TO_RESUME": {
             "zh-CN": "没有可继续执行的子项（仅 transient 失败可续跑）",
             "en": "No resumable items (only transient failures can be resumed)"
+        },
+        "BATCH_RUN_RESUME_INVALID_PARAMS": {
+            "zh-CN": "来源批次参数非法，无法续跑",
+            "en": "Source batch parameters are invalid and cannot be resumed"
         },
         "REPOS_BATCH_VALIDATION_FAILED": {
             "zh-CN": "参数校验失败",

@@ -67,6 +67,7 @@ const typeOptions = computed(() => [
     { label: t('envEvents.typeNotificationSettingsUpdate'), value: 'notification_settings_update' },
     { label: t('envEvents.typePrFeedbackCommented'), value: 'pr_feedback_commented' },
     { label: t('envEvents.typePrFeedbackClosed'), value: 'pr_feedback_closed' },
+    { label: t('envEvents.typeBatchRunResumed'), value: 'batch_run_resumed' },
 ])
 
 const severityOptions = computed(() => [
@@ -124,6 +125,8 @@ const typeLabel = (type: string) => {
             return t('envEvents.typePrFeedbackCommented')
         case 'pr_feedback_closed':
             return t('envEvents.typePrFeedbackClosed')
+        case 'batch_run_resumed':
+            return t('envEvents.typeBatchRunResumed')
         default:
             return type
     }

@@ -78,13 +78,6 @@ function appendBaselineSkippedSection(sections: string[], repositories: Reposito
     sections.push('')
 }
 
-/**
- * 追加 `## Command OOM` 段：被 OOM 杀死的**命令**（命令级，非运行级 cgroup OOM）。
- *
- * 分层理由：运行级 `oomKilled` 由执行器 cgroup 计数得出（执行窗口内有进程被 OOM 杀），
- * 与「运行被 OOM 终止」不是同一事实；命令级 OOM 常出现在 `completed` 运行里，
- * 写成「OOM 终止」会让离线复盘误判交付结论。命令级 OOM 不改变运行失败率。
- */
 /** 注入状态的中文说明（`injected` 时不渲染小节）。 */
 function egressInjectionLabel(status: NonNullable<RunResult['networkAuditInjection']>['status']): string {
     switch (status) {
@@ -113,7 +106,7 @@ function pushEgressAuditSection(sections: string[], result: RunResult): void {
     sections.push(
         '## Egress Audit',
         '',
-        `> 审计注入状态：\`${injection.status}\` —— ${egressInjectionLabel(injection.status)}。`,
+        `> 审计注入状态：\`${injection.status}\` —— ${injection.note ?? egressInjectionLabel(injection.status)}。`,
         '',
     )
 }
@@ -139,6 +132,13 @@ function pushEnvHardeningSection(sections: string[], result: RunResult): void {
     )
 }
 
+/**
+ * 追加 `## Command OOM` 段：被 OOM 杀死的**命令**（命令级，非运行级 cgroup OOM）。
+ *
+ * 分层理由：运行级 `oomKilled` 由执行器 cgroup 计数得出（执行窗口内有进程被 OOM 杀），
+ * 与「运行被 OOM 终止」不是同一事实；命令级 OOM 常出现在 `completed` 运行里，
+ * 写成「OOM 终止」会让离线复盘误判交付结论。命令级 OOM 不改变运行失败率。
+ */
 function appendCommandOomSection(sections: string[], actions: FixAction[]): void {
     const oomActions = actions.filter((action) => action.oomKilled === true)
     if (oomActions.length === 0) {

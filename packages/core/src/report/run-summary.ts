@@ -2,6 +2,7 @@
 //
 // 从 `types.ts` 迁出：该文件已贴 max-lines 上限（新增基线短路 / 命令级 OOM 字段时触顶），
 // 汇总类型与工厂同批增长没有收益；消费者仍经 `@dependfix/core` 同名导出，导入面不变。
+import type { NetworkAuditInjectionStatus } from './network-audit'
 import type { AlertsSkippedByReason, AlertsTruncatedBySeverity, VerificationsSkippedByReason } from './types'
 
 /**
@@ -118,7 +119,7 @@ export interface RunSummary {
     /** 本次运行从执行子进程环境中过滤掉的平台密钥类变量个数（只记个数，不含键名）。 */
     envFilteredKeys?: number
     /** 审计代理注入状态（`injected` / `existing-proxy` / `disabled` / `unavailable`）。 */
-    networkAuditInjection?: string
+    networkAuditInjection?: NetworkAuditInjectionStatus
 }
 
 

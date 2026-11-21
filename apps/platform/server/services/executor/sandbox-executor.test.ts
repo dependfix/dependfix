@@ -680,7 +680,11 @@ describe('SandboxExecutor', () => {
             try {
                 const policy = resolveEgressPolicy()
                 expect(policy.allowlist).toEqual(expect.arrayContaining([
-                    'github.com', 'api.github.com', '*.npmjs.org', 'registry.example.com',
+                    'github.com',
+                    'api.github.com',
+                    'release-assets.githubusercontent.com',
+                    '*.npmjs.org',
+                    'registry.example.com',
                 ]))
             } finally {
                 vi.unstubAllEnvs()

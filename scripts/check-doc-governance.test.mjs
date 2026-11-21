@@ -522,6 +522,11 @@ describe('validatePhaseProgressTable', () => {
         expect(validatePhaseProgressTable('### M64.1 甲\n').errors).toContain('未找到「## 当前阶段」章节（进度表必须位于该段）')
     })
 
+    it('骨架化 todo（无当前阶段段且无条目）no-op；段改名 + 小写条目仍报错', () => {
+        expect(validatePhaseProgressTable('# todo\n\n## 文档位置速查\n\n| a | b |\n')).toMatchObject({ errors: [], noop: true })
+        expect(validatePhaseProgressTable('## 本阶段\n\n### m65.1 甲\n').errors).toContain('未找到「## 当前阶段」章节（进度表必须位于该段）')
+    })
+
     it('归档命名遗留白名单锁定为 3 项', () => {
         expect(ARCHIVE_FILENAME_LEGACY.size).toBe(3)
     })

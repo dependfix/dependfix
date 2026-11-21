@@ -417,8 +417,12 @@ export function validatePhaseProgressTable(markdown) {
     const lines = markdown.split(/\r?\n/)
     const phaseStart = lines.findIndex((line) => /^## 当前阶段/.test(line.trim()))
     if (phaseStart === -1) {
-        errors.push('未找到「## 当前阶段」章节（进度表必须位于该段）')
-        return { errors, rowCount: 0, noop: false }
+        // 骨架化 todo（无活跃阶段）不要求进度表；仅在存在阶段条目标题时才报错
+        if (/^### M\d+\.\d+/im.test(markdown)) {
+            errors.push('未找到「## 当前阶段」章节（进度表必须位于该段）')
+            return { errors, rowCount: 0, noop: false }
+        }
+        return { errors, rowCount: 0, noop: true }
     }
     const phaseEnd = lines.findIndex((line, index) => index > phaseStart && /^## /.test(line.trim()))
     const scopeEnd = phaseEnd === -1 ? lines.length : phaseEnd

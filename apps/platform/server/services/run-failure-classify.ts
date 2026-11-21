@@ -143,6 +143,8 @@ const FAILURE_CODE_MAP: Readonly<Record<string, FailureCodeMapping>> = {
     sandbox_image_unavailable: { stage: 'runtime', kind: 'deterministic' },
     // 安装源连通性预检失败（registry 被阻断 / 地址错误）：网络 / 环境问题，可重试
     registry_unreachable: { stage: 'install', kind: 'transient' },
+    // 沙箱镜像版本低于平台（预检命令不可用）：确定性配置错误
+    sandbox_probe_unavailable: { stage: 'runtime', kind: 'deterministic' },
 
     // 运行预算不足：主动跳过未开始的工作（引擎侧属跳过类白名单，正常路径不可达；防御性映射）
     BUDGET_EXHAUSTED: { stage: 'runtime', kind: 'transient' },

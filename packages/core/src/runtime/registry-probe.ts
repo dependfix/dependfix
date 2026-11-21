@@ -13,6 +13,9 @@ export const REGISTRY_PROBE_OK_SENTINEL = '__DEPENDFIX_REGISTRY_PROBE_OK__'
 /** 预检失败哨兵（其后跟 host:port code durationMs）。 */
 export const REGISTRY_PROBE_FAILED_SENTINEL = '__DEPENDFIX_REGISTRY_PROBE_FAILED__'
 
+/** 预检命令不可用哨兵（旧版沙箱镜像不认识 `--probe-registry` 时输出）。 */
+export const REGISTRY_PROBE_UNAVAILABLE_SENTINEL = '__DEPENDFIX_REGISTRY_PROBE_UNAVAILABLE__'
+
 /** 默认预检超时（毫秒）。 */
 export const REGISTRY_PROBE_DEFAULT_TIMEOUT_MS = 5_000
 

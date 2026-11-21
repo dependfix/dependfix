@@ -110,6 +110,9 @@ export interface RuntimeAdapter {
     run(spec: ContainerSpec, cmd: string[], stdio?: StdioOpt): Promise<ContainerRunResult>
 }
 
+/** 超时后 SIGTERM → SIGKILL 的宽限期（让 docker CLI 把信号代理给容器）。 */
+const KILL_GRACE_MS = 5_000
+
 /** 默认配置常量（模块级读取 SANDBOX_RUNTIME env；env 变更需重启进程） */
 export const SANDBOX_DEFAULTS = {
     user: '100:100',
@@ -261,17 +264,26 @@ export class DockerAdapter implements RuntimeAdapter {
                 stderrBytes = capture(stderrChunks, stderrBytes, data)
             })
 
+            let forceKillTimer: NodeJS.Timeout | undefined
             const timer = setTimeout(() => {
                 timedOut = true
-                cp.kill('SIGKILL')
+                // SIGTERM 先给 docker CLI 代理信号的机会（容器随之中止）；宽限后 SIGKILL 兜底
+                cp.kill('SIGTERM')
+                forceKillTimer = setTimeout(() => cp.kill('SIGKILL'), KILL_GRACE_MS)
             }, timeoutMs)
+            const clearTimers = () => {
+                clearTimeout(timer)
+                if (forceKillTimer) {
+                    clearTimeout(forceKillTimer)
+                }
+            }
 
             cp.on('error', (error) => {
                 if (settled) {
                     return
                 }
                 settled = true
-                clearTimeout(timer)
+                clearTimers()
                 reject(error)
             })
             cp.on('close', (code) => {
@@ -279,7 +291,7 @@ export class DockerAdapter implements RuntimeAdapter {
                     return
                 }
                 settled = true
-                clearTimeout(timer)
+                clearTimers()
                 resolve({
                     stdout: stdoutChunks.join(''),
                     stderr: `${stderrChunks.join('')}${timedOut ? '\n[docker] execution timeout' : ''}`,

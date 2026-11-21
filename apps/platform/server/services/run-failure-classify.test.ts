@@ -55,6 +55,7 @@ const EXPECTED_MAPPINGS: Record<string, { stage: RunFailureStage, kind: RunFailu
     sandbox_clone_host_not_allowed: { stage: 'runtime', kind: 'deterministic' },
     sandbox_image_unavailable: { stage: 'runtime', kind: 'deterministic' },
     registry_unreachable: { stage: 'install', kind: 'transient' },
+    sandbox_probe_unavailable: { stage: 'runtime', kind: 'deterministic' },
     // deliver
     COMMIT_FAILED: { stage: 'deliver', kind: 'deterministic' },
     PUSH_FAILED: { stage: 'deliver', kind: 'deterministic' },

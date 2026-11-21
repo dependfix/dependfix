@@ -1,8 +1,13 @@
-import { parseRegistryProbeFailure, resolveRegistryProbeTimeoutMs, type RunResult } from '@dependfix/core'
+import {
+    parseRegistryProbeFailure,
+    REGISTRY_PROBE_UNAVAILABLE_SENTINEL,
+    resolveRegistryProbeTimeoutMs,
+    type RunResult,
+} from '@dependfix/core'
 import type { ExecutorResourceUsage, ScanExecutor, ScanExecutorContext, ScanExecutorResult } from './types'
 import { resolveDefaultSandboxImage, resolveSandboxImageCandidates, resolveImagePullTimeoutMs } from './sandbox-image'
 import { buildLogsJson, buildResourceSamplerScript, lastLines, registryHostname } from './sandbox-diagnostics'
-import { classifyError, registryUnreachableResult, withTimeout } from './sandbox-errors'
+import { classifyError, probeUnavailableResult, registryUnreachableResult, withTimeout } from './sandbox-errors'
 
 export { deriveSandboxRepoFromPlatformImage, resolveDefaultSandboxImage, resolveSandboxImageCandidates } from './sandbox-image'
 import { DockerAdapter, SANDBOX_DEFAULTS, type ContainerRunResult, type ContainerSpec, type RuntimeAdapter, type RuntimeProbe } from './runtime-adapter'
@@ -495,7 +500,11 @@ export class SandboxExecutor implements ScanExecutor {
         const probeTarget = this.npmRegistry || 'https://registry.npmjs.org'
         // 安装源连通性预检：5s（可配）TCP 连接，失败即输出哨兵并退出，平台归类 registry_unreachable；
         // 放在 clone 之前，避免 registry 被阻断时逐条命令吃满超时。
-        const registryProbe = `node ${this.entry} --probe-registry ${shQuote(probeTarget)} || { ${flushResource}; exit 3; }`
+        const probeCmd = `node ${shQuote(this.entry)} --probe-registry ${shQuote(probeTarget)}`
+        // 预检命令本身不可用（旧镜像不认识该 flag）时输出独立哨兵，避免退化为笼统 execution_failed
+        const registryProbe = `${probeCmd}; probe=$?; if [ $probe -ne 0 ]; then `
+            + `if [ $probe -ne 3 ]; then echo ${REGISTRY_PROBE_UNAVAILABLE_SENTINEL}; fi; `
+            + `${flushResource}; exit 3; fi`
         const bootstrap = ctx.config.mode === SANDBOX_REPORT_ONLY
             ? []
             : [
@@ -610,10 +619,16 @@ export class SandboxExecutor implements ScanExecutor {
         const stdout = extracted.stdout
         const resource = extracted.resource
 
-        // 安装源连通性预检失败：先于通用失败分类识别哨兵，给出可读原因与目标
-        const probeFailure = parseRegistryProbeFailure(`${stdout}\n${runResult.stderr}`)
-        if (probeFailure) {
-            return registryUnreachableResult(probeFailure, resource, startedAt)
+        // 安装源连通性预检失败：先于通用失败分类识别哨兵，给出可读原因与目标。
+        // 仅认预检退出码 3：目标仓库日志可能原样打印哨兵文本，不得抢占其它失败分类。
+        if (transportExitCode === 3) {
+            const probeFailure = parseRegistryProbeFailure(`${stdout}\n${runResult.stderr}`)
+            if (probeFailure) {
+                return registryUnreachableResult(probeFailure, resource, startedAt)
+            }
+            if (`${stdout}\n${runResult.stderr}`.includes(REGISTRY_PROBE_UNAVAILABLE_SENTINEL)) {
+                return probeUnavailableResult(resource, startedAt)
+            }
         }
 
         // transport 超时分支:RuntimeAdapter 返回 exitCode 124(与 timeout(1) 命令一致语义)

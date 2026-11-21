@@ -71,7 +71,24 @@ export function registryUnreachableResult(
         error: {
             code: 'registry_unreachable',
             message: `安装源不可达（${failure.host}:${failure.port}，${failure.code}，${failure.durationMs}ms）：`
-                + '请检查目标 daemon 的出站策略、SANDBOX_NPM_REGISTRY 或仓库级 registry 配置',
+                + '请检查目标 daemon 的出站策略或 SANDBOX_NPM_REGISTRY',
+        },
+        ...(resource ? { resource } : {}),
+        startedAt,
+        finishedAt: new Date().toISOString(),
+    }
+}
+
+/** 预检命令不可用（旧版沙箱镜像不认识 `--probe-registry`）：镜像版本低于平台。 */
+export function probeUnavailableResult(
+    resource: ExecutorResourceUsage | undefined,
+    startedAt: string,
+): ScanExecutorResult {
+    return {
+        exitCode: 2,
+        error: {
+            code: 'sandbox_probe_unavailable',
+            message: '安装源预检命令不可用（沙箱镜像可能低于平台版本）：请使用与平台同版本或更新的沙箱镜像',
         },
         ...(resource ? { resource } : {}),
         startedAt,

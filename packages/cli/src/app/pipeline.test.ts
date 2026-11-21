@@ -1,4 +1,5 @@
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
@@ -142,5 +143,35 @@ describe('createPipeline', () => {
         expect(exitCode).toBe(1)
         expect(mockExit).toHaveBeenCalledWith(1)
         expect(logger.error).toHaveBeenCalledWith(expect.stringContaining('Failed to write result JSON'))
+    })
+
+    it('probes registry connectivity without running a scan', async () => {
+        mockRun.mockClear()
+        const server = createServer()
+        await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
+        const port = (server.address() as { port: number }).port
+        const logger = { info: vi.fn(), error: vi.fn() }
+        const exit = vi.fn()
+        try {
+            const pipeline = createPipeline({ env: {}, logger, exit })
+            const code = await pipeline.run(['--probe-registry', `http://127.0.0.1:${port}`])
+            expect(code).toBe(0)
+            expect(logger.info).toHaveBeenCalledWith(expect.stringContaining('REGISTRY_PROBE_OK'))
+            expect(mockRun).not.toHaveBeenCalled()
+        } finally {
+            await new Promise<void>((resolve) => server.close(() => resolve()))
+        }
+    })
+
+    it('fails fast with a sentinel when the registry is unreachable', async () => {
+        mockRun.mockClear()
+        const logger = { info: vi.fn(), error: vi.fn() }
+        const exit = vi.fn()
+        const pipeline = createPipeline({ env: { SANDBOX_REGISTRY_PROBE_TIMEOUT_MS: '1000' }, logger, exit })
+        const code = await pipeline.run(['--probe-registry', 'http://127.0.0.1:1'])
+        expect(code).toBe(3)
+        expect(exit).toHaveBeenCalledWith(3)
+        expect(logger.error).toHaveBeenCalledWith(expect.stringContaining('REGISTRY_PROBE_FAILED'))
+        expect(mockRun).not.toHaveBeenCalled()
     })
 })

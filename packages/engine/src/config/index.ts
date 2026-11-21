@@ -322,6 +322,8 @@ export interface CliConfigOverrides {
     prCheckTimeoutMs?: number
     /** 运行级 check 等待总预算（毫秒） */
     prCheckRunBudgetMs?: number
+    /** 运行截止时间（epoch 毫秒；平台 / 沙箱子进程注入，引擎只消费） */
+    deadlineAt?: number
     /** job 总预算基线（毫秒；缺省按 Actions 25 分钟兜底） */
     jobBudgetMs?: number
     /** Dependabot alerts 专用 token（可选，最小权限；缺省回退 githubToken） */

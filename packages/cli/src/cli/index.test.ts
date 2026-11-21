@@ -339,4 +339,15 @@ describe('parseCliArgs', () => {
 
         expect(parseCliArgs(['report-only']).resultJsonPath).toBeUndefined()
     })
+
+    it('parses --deadline-at into config overrides and --probe-registry as execution layer', () => {
+        const invocation = parseCliArgs(['fix', '--repo', 'owner/repo', '--deadline-at', '1893456000000', '--probe-registry', 'https://registry.npmjs.org'])
+        expect(invocation.configOverrides.deadlineAt).toBe(1893456000000)
+        expect(invocation.registryProbeTarget).toBe('https://registry.npmjs.org')
+        expect(invocation.configOverrides).not.toHaveProperty('registryProbeTarget')
+
+        // 非法 / 缺省：不写进配置
+        expect(parseCliArgs(['report-only', '--deadline-at', 'abc']).configOverrides.deadlineAt).toBeUndefined()
+        expect(parseCliArgs(['report-only']).registryProbeTarget).toBeUndefined()
+    })
 })

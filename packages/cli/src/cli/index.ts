@@ -24,6 +24,8 @@ export interface CliInvocation {
     rawArgs: string[]
     /** `--result-json` 目标文件（仅执行层消费，不进入 RuntimeConfig） */
     resultJsonPath?: string
+    /** `--probe-registry` 预检目标（仅执行层消费：只读探测，不执行扫描） */
+    registryProbeTarget?: string
 }
 
 // ---------------------------------------------------------------------------
@@ -168,6 +170,14 @@ export const argsDef = {
     'result-json': {
         type: 'string' as const,
         description: '把运行结果写入指定 JSON 文件（{exitCode, result}）；沙箱执行器据此读取结果，不复用报告副产物',
+    },
+    'deadline-at': {
+        type: 'string' as const,
+        description: '运行截止时间（epoch 毫秒；平台 / 沙箱执行器注入，预算见底时停止启动新工作并回传部分结果）',
+    },
+    'probe-registry': {
+        type: 'string' as const,
+        description: '安装源连通性预检（registry URL 或 host[:port]；成功 exit 0，失败输出哨兵并 exit 3；不执行扫描）',
     },
     'upgrade-groups': {
         type: 'string' as const,
@@ -363,6 +373,12 @@ function parsedArgsToCliOverrides(parsed: ParsedArgs<typeof argsDef>): CliConfig
     const severityThreshold = parsed['severity-threshold']
     if (isSeverityThreshold(severityThreshold)) {
         overrides.severityThreshold = severityThreshold
+    }
+
+    // deadline-at（执行层预算：上层计算绝对截止时间，引擎只消费）
+    const deadlineAt = Number.parseInt(parsed['deadline-at'] ?? '', 10)
+    if (Number.isFinite(deadlineAt) && deadlineAt > 0) {
+        overrides.deadlineAt = deadlineAt
     }
 
     // dry-run (three-state: true / false / undefined)
@@ -621,11 +637,13 @@ export function parseCliArgs(rawArgs: string[]): CliInvocation {
     const parsed = parseArgs<typeof argsDef>(rawArgs, argsDef)
     const configOverrides = parsedArgsToCliOverrides(parsed)
     const resultJsonPath = parsed['result-json']?.trim() || undefined
+    const registryProbeTarget = parsed['probe-registry']?.trim() || undefined
 
     return {
         mode: configOverrides.mode,
         configOverrides,
         rawArgs: [...rawArgs],
         ...(resultJsonPath ? { resultJsonPath } : {}),
+        ...(registryProbeTarget ? { registryProbeTarget } : {}),
     }
 }

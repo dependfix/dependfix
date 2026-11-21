@@ -225,6 +225,10 @@ interface RunResult {
   actions: FixAction[]
   errors: FixError[]
   alertOutcomes?: AlertFixOutcome[]   // 告警级处置结果（M51.1）；只列有结论的告警
-  // 其余可选段：ciAlignment / attemptTracking / prCheckWatch / supplyChainWarnings / alertsDisabled
+  networkAudit?: NetworkAuditEntry[]  // 执行期外联记录（只含方法 + 目标）
+  networkViolations?: NetworkAuditEntry[] // 非白名单拦截（networkAudit 子集）
+  networkAuditInjection?: NetworkAuditInjectionRecord // 代理注入状态（injected / existing-proxy / disabled / unavailable）
+  envHardening?: EnvHardeningRecord   // 执行子进程环境过滤计数（不记键名）
+  // 其余可选段：ciAlignment / attemptTracking / prCheckWatch / supplyChainWarnings / alertsDisabled / delivery
 }
 ```

@@ -398,7 +398,7 @@ C53 引入 A 模式 `fix-and-pr` 链路完成的关键代价是 **凭据权限�
 
 ### 8.7 Node 内置 fetch 的代理覆盖（2026-11-21，M64.2）
 
-背景：沙箱 fix 路径的 deny-by-default 依赖运行级审计代理注入 `HTTP(S)_PROXY`；但 Node 内置 `fetch`（undici）**默认不读代理 env**，容器内 CLI 的子命令用 `fetch` 直连时会绕开拦截。
+背景：沙箱 fix 路径的 deny-by-default 依赖运行级审计代理注入 `HTTP(S)_PROXY`；但 Node 内置的 `fetch`（undici）与 `http` / `https` 请求**默认不读代理 env**，容器内 CLI 的子命令直连时会绕开拦截。
 
 实测矩阵（本机 Node 三版本，本地 HTTP 目标 + 不可达代理对照：`unset` 直连成功 / `=1` 走代理报 `ECONNREFUSED`）：
 
@@ -408,6 +408,6 @@ C53 引入 A 模式 `fix-and-pr` 链路完成的关键代价是 **凭据权限�
 | 24.22.1 | 直连（200） | 走 env 代理（ECONNREFUSED） | 支持 |
 | 26.13.1 | 直连（200） | 走 env 代理（ECONNREFUSED） | 支持 |
 
-决策：**仅沙箱 fix / fix-and-pr 路径注入 `NODE_USE_ENV_PROXY=1`**（`SandboxExecutor.buildSpec`），report-only 不注入（不执行仓库代码、无代理可走）。覆盖范围是容器内 CLI 派生的子进程（`runTrackedCommand` 注入代理 env 后继承）；CLI 自身进程内的 fetch 没有代理地址，仍为直连，该边界如实记录。
+决策：`NODE_USE_ENV_PROXY=1` 并入审计代理 env 的单一构造点（`buildAuditProxyEnv`），随代理一起注入受管命令 / 验证链 / 沙箱子进程；`SandboxExecutor.buildSpec` 对 fix 类另行注入同一开关，供不经 `runTrackedCommand` 的容器内派生进程继承。report-only 不注入（不执行仓库代码、无代理可走）。覆盖范围是拿到代理 env 的子进程；CLI 自身进程内的 fetch 没有代理地址，仍为直连，该边界如实记录。`http` / `https` 模块同样受该开关影响（实测 Node 26），目标仓库测试访问非白名单公网地址会得到 502——这正是 deny-by-default 的预期结果。
 
 证据：`artifacts/m64.2/node-env-proxy-matrix.log`（本地，gitignored；复现脚本见文件头）。负例（非白名单目标经代理返回 502 并落 `network_violations`）由 `egress-audit.test.ts` 的真实代理请求锁定。

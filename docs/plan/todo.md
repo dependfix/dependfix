@@ -25,7 +25,7 @@
 > **§3.4 五步交叉核验（2026-11-21 实测）**：
 > ① 归档扫描 `环境变量硬化|密钥 denylist|继续执行未完成|NODE_USE_ENV_PROXY` → 仅 M59 归档列为「未证实 / 残余」、M61 规划显式标注「未纳入本期」，均无闭环实现；
 > ② `git log --all --grep="继续执行"` / `--grep="denylist"` → 无对应实现提交（命中项为基线采样、队列僵尸任务等无关批次）；
-> ③ 代码 anchor：`packages/engine/src/runners/process-control.ts:45` 仍 `base = paramsEnv ?? process.env`（无 denylist）；`network-audit.ts:104` 的 `DEFAULT_ALLOWED_DOMAINS` 缺 `release-assets.githubusercontent.com`；`sandbox-executor.ts:193` 仅注入 registry、无连通性预检；`apps/platform/server/api/batch-runs/` 只有 `force-fail`；`planning.md §2.2 / §2.5` 仍强制每条子任务 8 要素（M64.5 已改为两级粒度）；
+> ③ 代码 anchor：`packages/engine/src/runners/process-control.ts:45` 仍 `base = paramsEnv ?? process.env`（无 denylist）；`network-audit.ts:104` 的 `DEFAULT_ALLOWED_DOMAINS` 缺 `release-assets.githubusercontent.com`；`sandbox-executor.ts:193` 仅注入 registry、无连通性预检；`apps/platform/server/api/batch-runs/` 只有 `force-fail`；`planning.md §2.2 / §2.5` 在 M64.5 之前仍强制每条子任务 8 要素（该批已改为大条目 8 要素 / 小条目 4 项）；
 > ④ 决策前提：用户已选方案 A；`NODE_USE_ENV_PROXY` 版本行为未实测（M64.2 首动作）、预算透传协议未定（M64.3 的 D3）——两项均写进对应原子的 D 阶段决策点，不预设结论；
 > ⑤ backlog 同步：7 条已从 [backlog.md](backlog.md) 移除并落到 M64.1-M64.5（`checkpoint unknown` / 平台侧交付载体 / 验证跳过可观测性等未上收项保留），候选池 37 → 31、待上收 3 → 2。
 >
@@ -44,10 +44,10 @@
 | 大条目 | 小条目 | 状态 | 提交 | 审计 | 容量 |
 |:--|:--|:--|:--|:--|:--|
 | M64.1 执行子进程环境变量硬化 | — | ✅ 已闭环 | 99cb464a..c6bbacc1（7） | R1 Reject → R2 Pass | 5-6 commits / 10-14 files / 350-600 行 |
-| M64.2 外联审计覆盖面收口 | — | ✅ 已闭环 | 0c462321..49fdb3ac（9） | R1 Reject → R2 Pass | 4-6 commits / 9-13 files / 300-550 行 |
+| M64.2 外联审计覆盖面收口 | — | ✅ 已闭环 | 0c462321..49fdb3ac（10） | R1 Reject → R2 Pass | 4-6 commits / 9-13 files / 300-550 行 |
 | M64.3 沙箱 install 快速失败与预算透传 | — | ✅ 已闭环 | 8473b0ae..243639b6（8） | R1 Reject → R2 Pass | 5-6 commits / 12-16 files / 400-650 行 |
-| M64.4 批次级「继续执行未完成项」入口 | — | ✅ 已闭环 | e151e55e..b1f1f7e2（11） | R1 Reject → R2 Reject → R3 Pass | 5-6 commits / 14-18 files / 450-750 行 |
-| M64.5 规划文档模型 v1 前向落地 | — | ✅ 已闭环 | 1307bcec + 本批文档提交 | R1 Reject → R2 Pass | 3-4 commits / 7-9 files / 350-600 行 |
+| M64.4 批次级「继续执行未完成项」入口 | — | ✅ 已闭环 | e151e55e..6217558a（10） | R1 Reject → R2 Reject → R3 Pass | 5-6 commits / 14-18 files / 450-750 行 |
+| M64.5 规划文档模型 v1 前向落地 | — | ✅ 已闭环 | 1307bcec..389a47c8（4） | R1 Reject → R2 Pass | 3-4 commits / 7-9 files / 350-600 行 |
 
 > `提交` 列为闭环区间的 commit 数与范围（归档批次可再精修）；`审计` 列为 Review Gate 轮次结论；小条目列在原子内拆分子任务时填写（当前各原子未再拆分）。
 

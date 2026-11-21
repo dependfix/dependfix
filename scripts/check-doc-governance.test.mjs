@@ -434,7 +434,7 @@ describe('validatePhaseProgressTable', () => {
     })
 
     it('缺表 / 行数不一致 / 孤儿行时报错', () => {
-        expect(validatePhaseProgressTable('### M64.1 甲\n').errors).toContain('当前阶段缺少 6 列进度表（大条目 / 小条目 / 状态 / 提交 / 审计 / 容量）')
+        expect(validatePhaseProgressTable('## 当前阶段\n\n### M64.1 甲\n').errors).toContain('当前阶段缺少 6 列进度表（大条目 / 小条目 / 状态 / 提交 / 审计 / 容量）')
         const markdown = `## 当前阶段
 
 ### 进度总览
@@ -461,7 +461,7 @@ describe('validatePhaseProgressTable', () => {
     })
 
     it('小写编号 / 重复行 / 无编号行 / 表格不在当前阶段均报错', () => {
-        expect(validatePhaseProgressTable('### m64.1 甲\n').errors).toContain('条目编号必须大写（`### M<x>.<y>`）')
+        expect(validatePhaseProgressTable('## 当前阶段\n\n### m64.1 甲\n').errors).toContain('条目编号必须大写（`### M<x>.<y>`）')
         const duplicate = `## 当前阶段
 
 ### 进度总览
@@ -514,6 +514,12 @@ describe('validatePhaseProgressTable', () => {
 #### M25.2a.1 子项
 `
         expect(validatePhaseProgressTable(markdown).errors).toEqual([])
+    })
+
+    it('小条目用 ### 或大写后缀报错；缺失当前阶段段报错', () => {
+        expect(validatePhaseProgressTable('## 当前阶段\n\n### M64.1.1 子项\n').errors).toContain('小条目必须使用 `#### M<x>.<y>.<z>` 标题（`###` 仅用于大条目）')
+        expect(validatePhaseProgressTable('## 当前阶段\n\n### M25.2A 甲\n').errors).toContain('子阶段后缀必须小写（如 `M25.2a`）')
+        expect(validatePhaseProgressTable('### M64.1 甲\n').errors).toContain('未找到「## 当前阶段」章节（进度表必须位于该段）')
     })
 
     it('归档命名遗留白名单锁定为 3 项', () => {

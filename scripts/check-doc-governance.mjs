@@ -414,28 +414,41 @@ export function validateArchiveIndex(todoArchiveMarkdown, archiveFiles, readFile
  */
 export function validatePhaseProgressTable(markdown) {
     const errors = []
-    // 只认 `### M<x>.<y>`（可带 a/b 字母后缀）；小条目（`#### M<x>.<y>.<z>`）不参与进度表
-    const headings = [...markdown.matchAll(/^### (M\d+\.\d+[a-z]?)\b/gm)].map((match) => match[1])
+    const lines = markdown.split(/\r?\n/)
+    const phaseStart = lines.findIndex((line) => /^## 当前阶段/.test(line.trim()))
+    if (phaseStart === -1) {
+        errors.push('未找到「## 当前阶段」章节（进度表必须位于该段）')
+        return { errors, rowCount: 0, noop: false }
+    }
+    const phaseEnd = lines.findIndex((line, index) => index > phaseStart && /^## /.test(line.trim()))
+    const scopeEnd = phaseEnd === -1 ? lines.length : phaseEnd
+    const phaseLines = lines.slice(phaseStart, scopeEnd)
+    const phaseMarkdown = phaseLines.join('\n')
+
+    // 标题形态守卫：小条目必须 `####`，字母后缀必须小写
+    if (/^### M\d+\.\d+\.\d+/m.test(phaseMarkdown)) {
+        errors.push('小条目必须使用 `#### M<x>.<y>.<z>` 标题（`###` 仅用于大条目）')
+    }
+    if (/^### M\d+\.\d+[A-Z]/m.test(phaseMarkdown)) {
+        errors.push('子阶段后缀必须小写（如 `M25.2a`）')
+    }
+    // 只认当前阶段内的 `### M<x>.<y>`（可带小写字母后缀）
+    const headings = [...phaseMarkdown.matchAll(/^### (M\d+\.\d+[a-z]?)\b/gm)].map((match) => match[1])
     if (headings.length === 0) {
-        if (/^### m\d+\.\d+/m.test(markdown)) {
+        if (/^### m\d+\.\d+/m.test(phaseMarkdown)) {
             errors.push('条目编号必须大写（`### M<x>.<y>`）')
             return { errors, rowCount: 0, noop: false }
         }
         return { errors, rowCount: 0, noop: true }
     }
-    const lines = markdown.split(/\r?\n/)
-    // 只在「当前阶段」章节内找 `### 进度总览` 下的 6 列表（位置不变量）
-    const phaseStart = lines.findIndex((line) => /^## 当前阶段/.test(line.trim()))
-    const phaseEnd = phaseStart >= 0
-        ? lines.findIndex((line, index) => index > phaseStart && /^## /.test(line.trim()))
-        : -1
-    const scopeEnd = phaseEnd === -1 ? lines.length : phaseEnd
-    const tableStart = lines.findIndex((line, index) => index > phaseStart
-        && index < scopeEnd
-        && /^### 进度总览\s*$/.test(line.trim()))
+    const duplicateHeadings = headings.filter((id, index) => headings.indexOf(id) !== index)
+    if (duplicateHeadings.length > 0) {
+        errors.push(`正文存在重复条目标题：${[...new Set(duplicateHeadings)].join('、')}`)
+    }
+
+    const tableStart = phaseLines.findIndex((line) => /^### 进度总览\s*$/.test(line.trim()))
     const headerIndex = tableStart >= 0
-        ? lines.findIndex((line, index) => index > tableStart
-            && index < scopeEnd
+        ? phaseLines.findIndex((line, index) => index > tableStart
             && line.trim().startsWith('|')
             && ['大条目', '小条目', '状态', '提交', '审计', '容量'].every((name) => line.includes(name)))
         : -1
@@ -444,8 +457,8 @@ export function validatePhaseProgressTable(markdown) {
         return { errors, rowCount: 0, noop: false }
     }
     const rowIds = []
-    for (let i = headerIndex + 1; i < scopeEnd; i += 1) {
-        const line = lines[i]
+    for (let i = headerIndex + 1; i < phaseLines.length; i += 1) {
+        const line = phaseLines[i]
         if (!line.trim().startsWith('|')) {
             break
         }

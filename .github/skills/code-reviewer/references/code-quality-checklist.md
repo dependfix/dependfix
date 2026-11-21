@@ -415,7 +415,7 @@ if (value) { ... }  // 对 0, "", false 失效
 
 ### todo.md / todo-archive.md 子任务详细度审计（必查项）
 
-P 阶段规划 / 阶段实施 / 阶段归档批次触及 `docs/plan/todo.md` / `docs/plan/todo-archive.md` 时，按 [planning.md §2.5 任务详细度要求](../../../../docs/standards/planning.md#_2-5-任务详细度要求) 检查每条子任务（子阶段条目）的详细度：
+P 阶段规划 / 阶段实施 / 阶段归档批次触及 `docs/plan/todo.md` / `docs/plan/todo-archive.md` 时，按 [planning.md §2.5 任务详细度要求](../../../../docs/standards/planning.md#_2-5-任务详细度要求) 检查大条目与小条目的详细度（两级粒度）：
 
 - **两级粒度**（[planning.md §2.5](../../../../docs/standards/planning.md#_2-5-任务详细度要求)）：**大条目**（`M<x>.<y>`）必须含下列 8 要素，缺一项即 warning（按严重性可升级为 blocker）；**小条目**（`M<x>.<y>.<z>`）只需 目标 / 验收标准 / 交付物 / 依赖 4 项，并继承所属大条目的优先级 / 范围 / 不做什么 / 风险。
   1. **目标**：要达成什么（一句话可证伪）
@@ -437,10 +437,10 @@ P 阶段规划 / 阶段实施 / 阶段归档批次触及 `docs/plan/todo.md` / `
 - **执行场景**：
   - P 阶段规划 commit：每条 `M\d+\.\d+` 大条目必须满足 8 要素；小条目按 4 项 + 继承核验
   - 阶段实施 commit：todo.md 子任务从 `[ ]` → `[x]` 时若任务描述变更需重新核验
-  - 阶段归档 commit：todo-archive.md 归档子任务需保留 8 要素（即使闭环后）
+  - 阶段归档 commit：大条目保留 8 要素、小条目保留 4 项（即使闭环后）
 
 - **验证手段**：
-  - 检索每条 `M\d+\.\d+` 条目，统计要素清单（标题 + 8 要素子条目 / 段落）
+  - 检索每条大条目（`^### M\d+\.\d+` 标题）统计 8 要素，小条目（`#### M\d+\.\d+\.\d+`）统计 4 项
   - 模糊口径关键词扫描：`grep -nE "(优化一下|清理一下|先做最小版本|做个基础版|顺手做|后续完善)" docs/plan/todo.md docs/plan/todo-archive.md`
   - 缺失要素 ≥ 2 项或含模糊口径 → warning；缺失要素 ≥ 4 项或主条目整体过简 → blocker
 

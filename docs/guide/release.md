@@ -283,7 +283,7 @@ pnpm release:preflight --out-dir=artifacts/release-preflight   # 额外写 prefl
 
 ### 发布记录
 
-各版本的发布包、tag、发布后复核、镜像与校验和见 [发布记录](release-records.md)：[0.7.0](release-records.md#_0-7-0-发布记录-m54-2-2026-11-02-已执行) / [1.0.0](release-records.md#_1-0-0-发布记录-m54-6-2026-11-07-已执行) / [1.1.0](release-records.md#_1-1-0-发布记录-2026-11-15-已执行)。
+各版本的发布包、tag、发布后复核、镜像与校验和见 [发布记录](release-records.md)：[0.7.0](release-records.md#_0-7-0-发布记录-m54-2-2026-11-02-已执行) / [1.0.0](release-records.md#_1-0-0-发布记录-m54-6-2026-11-07-已执行) / [1.1.0](release-records.md#_1-1-0-发布记录-2026-11-15-已执行) / [1.2.0](release-records.md#_1-2-0-发布记录-2026-11-21-已执行)。
 
 ## 定时自动发布（1.0.0+ 可启用，需用户另行授权）
 

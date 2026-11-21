@@ -152,3 +152,45 @@ dependfix@1.1.0          sha512-u1qUwgP3ozU0eqoSK0ZqqElKkCg6yGAEcs+09jzLzhvZuV/N
 @dependfix/engine@1.1.0  sha512-3IFpwnWJnLXvbgXwFnYLuq5xbgmw0zbVpPhnQehtBSgdwaCrQKIJ8f0qT1azGHRk22rke6OWvYO1ajMlCqkFWw==
 @dependfix/mcp@1.1.0     sha512-oPxBx/TnjW703V5c9RreoACgR84uM2xStXzSWn5/SheK4hghF5TDAI2G+37HdOHXuYYnloxKIxbyvGOeHhkepg==
 ```
+
+### 1.2.0 发布记录（2026-11-21 已执行）
+
+> 目的：发布 1.1.0 之后的 minor（执行面安全与交付闭环、平台对外只读观测面、运行日志复盘与执行成本收口、沙箱可用性、规划文档模型 v1）。**执行方式 = `release.yml` 的 OIDC dispatch**（用户 2026-11-21 授权）。
+
+**版本与 tag（2026-11-21）**
+
+| 通道 | 版本 | tag / 产物 |
+|:--|:--|:--|
+| `dependfix`（锚版本）+ `@dependfix/core` / `engine` / `mcp` | `1.2.0` | 各自的 `<pkg>@1.2.0`；`dependfix@1.2.0` 另打 `v1.2.0` |
+| `@dependfix/platform`（tag-only，不发 npm） | `1.2.0` | `@dependfix/platform@1.2.0` + 镜像 `platform-1.2.0` |
+| `@dependfix/skills` | `1.1.0` | `@dependfix/skills@1.1.0` |
+
+六个包 tag + `v1.2.0` 均指向发布提交 `6a28ad0f`；GitHub Release `v1.2.0` 为 Latest、非 prerelease（`publishedAt` = `2026-11-21T13:35:07Z`），正文含发布包矩阵 + 根 CHANGELOG 1.2.0 段（含「支持面变更」与「已知限制」）。
+
+**发布链**
+
+- 版本推导：`release:plan` 从 `@dependfix/mcp@1.1.0` 基线推导六包 minor。唯一 breaking 为 `b33746f4`（仅抬 `engines.node` 补丁下限），按 2026-11-21 用户决策「保留历史 + engines-only 按 minor」处理，计划正文注明并披露支持面；工具侧修正为 `790557e7`（删除大版本线 / 新增约束 / 改名块保守回退 major）。
+- 本地流程：`release:version`（1.1.0 → 1.2.0；skills 1.0.0 → 1.1.0）→ `pnpm changelog` → 根 1.2.0 段补支持面变更与已知限制 → `release:preflight`（`--version = 1.2.0`）→ 提交 `6a28ad0f` → push → `gh workflow run release.yml`。
+- 发布 run `44909024180` success，`13:28:27Z` → `13:35:13Z`（约 6m46s）；`verify:changelog --fresh` 在手工补段后仍通过（手工段用纯段落，避免被条目集合比对计为「多出项」）。
+
+**发布后复核（2026-11-21）**
+
+- npm（官方 registry）：`dependfix` / `@dependfix/core` / `@dependfix/engine` / `@dependfix/mcp` = `1.2.0`；`@dependfix/skills` = `1.1.0`。本机默认 registry 为镜像站，复核使用 `https://registry.npmjs.org`；首次查询存在传播延迟，以 dist-tags 与 versions 双读命中为准。
+- 安全：发布前门禁 PASS（critical 0 / high 0（豁免 0）/ moderate 1 / low 0；另有 stale 豁免告警：picomatch 台账无匹配 high 告警，不阻断）。
+- 镜像：dispatch run `44909593356` 全绿（QA / Build amd64 / Build arm64 / Publish multi-arch manifests / Post-release smoke amd64+arm64）；`platform-1.2.0` 已产出。
+- push 触发的 docker run `44909002178` 全绿（QA / amd64 / arm64 / manifests；`post-release-smoke` 因无版本入参按预期 skipped），同步产出 `latest` / 日期 / `sha-*` 标签。
+- `post-release-smoke`（run `44909593356`）两架构均 success，`/api/health` = `{"version":"1.2.0","commit":"6a28ad0fa07ce3fd4ac439775f33bf4970db0796","schema":"ok"}`（原生 amd64 / arm64 runner）。
+
+**回滚**：本轮未执行回滚演练；逐面命令与判据见 [1.0.0 发布清单 §5.1](release-1.0.md#_5-1-演练记录-m54-5-2026-11-02)。
+
+**产物校验和（官方 registry `dist.integrity`，2026-11-21）**
+
+```text
+dependfix@1.2.0          sha512-muhLd7UDgSIEdgcN9aROu/UfRmfxw7IyhfIy/SD0FUkp35WJuuSiRno5FsAXM/5hqxiiIQKOeMvW2NMp5PWu1w==
+@dependfix/core@1.2.0    sha512-Pl2Duoyp4uZVNwYtCA5jQlQ0XxVUvcJam2Vvzh+3Qkm4QYAIFncoLZpo2ZN22IBglRLqV8G/vHh3kSs+2tnLMQ==
+@dependfix/engine@1.2.0  sha512-0vZbKnXnsbTyyycO8HeXewEuvCgtUjzRoAX5mp1zOde+O7QOFsdrPv3elU1bJ9NRnKszMLfID7UMGY3moRgLqw==
+@dependfix/mcp@1.2.0     sha512-hQWbxcODlBm8Vmgi2tMQzSpbuljPENG+hKcqJqxiGbKifE64Zp9UrmV/Z1taFBYeFemsb1gMIaHxJj+SfLeBgQ==
+@dependfix/skills@1.1.0  sha512-H8wQrntFg0nSKdbT1SHIFDqFVGeLKHjRDMwVgvwhEUlSlEUT1HURVs0gVKT3uMrdF2jZZGk7KOTM7lFHF3gf1g==
+```
+
+**已知限制**：见根 CHANGELOG 1.2.0「已知限制」段（真实环境矩阵 pending / 沙箱 fix 全链未取证 / MCP remote 仅 mock / PR Check provider 原生日志未接入 / ACR arm64 未实测 / 镜像冒烟失败分支无样本）。

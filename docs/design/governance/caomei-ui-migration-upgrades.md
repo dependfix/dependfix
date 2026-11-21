@@ -1,4 +1,4 @@
-# caomei-ui 迁移：版本升级实证（§15.14-§15.17）
+# caomei-ui 迁移：版本升级实证（§15.14-§15.18）
 
 ## 15.14 caomei-ui 0.5.0 升级实证（M34.2，2026-10-01）
 
@@ -249,3 +249,85 @@
 - 选择栏只服务 `repos`；若后续新增多选表，可把「筛选集合全选」提取为 composable。
 - `全选全部` 是整集合替换：被筛选隐藏的已选行会被移出（与 DataTable 回写语义一致，已在页面注释记录）。
 - 暗色 elevated 若继续调亮需重算 `control-border`；调深则对比度只升不降。
+
+## 15.18 caomei-ui 1.4.0 升级实证（2026-11-22）
+
+> **背景**：用户直接指示手动升级（按 [规划规范 §3.1](../../standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement) 的追加通道，不分配阶段编号）。dependabot 版本更新默认带 **3 天冷却**且本仓为周更：`1.3.0` 于 2026-11-14 发布，11-16 定时运行只升到已满冷却的 `1.2.0`；`1.4.0` 于 2026-11-21 发布。本批把 `1.3.0` + `1.4.0` 一并升级，避免再等两轮周更；本批已闭环，证据即本节，不另登记临时待办。
+
+**1）版本与差异口径**
+
+- `apps/platform/package.json`：`caomei-ui` `1.2.0` → `1.4.0`（精确锁定）；`pnpm why caomei-ui -r` 单版本；`pnpm install --frozen-lockfile` 通过。
+- 传递依赖：`reka-ui` 2.10.4 → 2.11.0、`@tanstack/vue-table` / `@tanstack/table-core` 9.2.4 → 9.3.1；`reka-ui` 2.11.0 同时把 `@floating-ui/vue` 从 1.1.11 提到 **2.0.1（major）**并移除 `vue-demi` 0.14.10——浮层定位链的实质变更（与 Select 面板 / Popover 行为同源，已由视觉与 e2e 覆盖）。其余 lock 变化仅为 peer 解析连带（如 `@nuxtjs/i18n` 快照中的 rollup 归一），无显式钉定改动；`conventional-changelog-cmyr-config` 已回退到原解析，不随本批升级。
+- 包清单：`engines.node`（`>=22`）/ `peerDependencies` / `peerDependenciesMeta` / `sideEffects` / `exports`（13 键）与 1.2.0 **键值一致**。
+- 公开 API：`dist/index.d.ts` 190 → 233 行（additive，无删除导出）；`dist/components/` 目录 **58 → 72**，新增 14 个组件目录（ActionSheet / BackTop / Cascader / Cell / Descriptions / Empty / InputOTP / Popconfirm / Rating / Result / Tabbar / TimePicker / Timeline / Transfer）。
+- 语义级比对（沿用 §15.14 口径：剥 `data-v-*`、scoped 文件名哈希、长 hash 与空白后逐文件比较）：**CSS 89 → 114 文件**（新增 25 / 语义变化 60）；**JS 145 → 180 文件**（新增 35 / 语义变化 65）。locale 仍 21 个文件，zh-CN 仅新增键（新组件文案），既有键无改动。
+
+**2）平台命中面与处置**
+
+| 类别 | 变更 | 平台命中点 | 处置 |
+| :--- | :--- | :--- | :--- |
+| **布局（表头）** | 可排序表头文本改由 `CaomeiTooltipText` 承接（`inline-block` 可测量盒） | 所有可排序 DataTable 的表头：高度 **+3px**，表体 / 分页整体下移；`alerts` 整页 1065 → 1068，`alerts-right-*` 737 → 740 | **接受**（上游内建提示接线的布局口径），23 张基线同批重建 |
+| **布局（分页器）** | `CaomeiPaginator` 每页条数选择器宽 6rem → **5rem**、控件高度固定 32px | 所有带分页的表格页 | **接受**（库侧尺寸统一），随基线重建 |
+| **DataTable 能力** | 新增 `selectAllScope`（默认 `page`）、`autoResetPageIndex` 透传、受控列可见性 / 顺序 / 列宽、固定表头、列宽拖拽手柄 | `repos` 现用选择栏承载「全筛选结果」；其余表未使用新 prop | **不改代码**：默认行为与 1.2.0 一致（`selectAllScope` 缺省仍是当前页），能力留待后续按需采用 |
+| **Select 面板** | viewport 上限 `min(15rem, 可用高)` 且内部滚动；空串选项告警并丢弃（默认）；新增 `allowEmptyValue` | 筛选栏 / 表单 / 弹窗内 Select；平台仍用 `__all__` 等哨兵值 | **接受**：哨兵约定不变，`dialog-select-open-*` 随面板形态重建 |
+| **展开态隔离（a11y）** | Select / MultiSelect / AutoComplete 展开时给面板外兄弟节点补 `inert` + `aria-hidden`（字段自身保留交互） | `repos` 仓库表单的来源类型多选：原「选中后点标题收合」的点击被拦截 | **测试适配**：e2e 改为点字段内触发器 `.caomei-multi-select__icon` 收合（`repos-crud` 用例已改）；真实用户第一次点面板外仍会关闭面板，但不会触发被点元素 |
+| **按钮** | 悬浮位移取消、按压缩放（仅 `expressive` 轴）；文本承接层改 `block + nowrap + ellipsis`（内建提示前提） | 全部按钮；登录页 OAuth 文案出现亚像素 AA 差异（2649 / 2683 px，无几何位移） | **接受**（`data-motion` 缺省下无动画行为变化） |
+| **Tooltip** | 新增 `CaomeiTooltipText` / 内建提示；Button `tooltip` 默认 `false`，缺 Provider 时有兜底 | 平台 0 处 `icon-only` 用法，未启用 `tooltip` prop | **无新增浮层**；表头 / 按钮的文本承接是唯一可见影响 |
+| **图标 / 动效** | 内建图标改语义注册表；新增 `data-motion` 轴与尺寸档位 token | 平台显式传 `@lucide/vue`；未设置 `data-motion` | **无影响**（缺省行为与 1.2.0 一致） |
+| **ColorPicker / TagsInput** | 色板改 radiogroup 语义；TagsInput 外壳点击聚焦输入 | 仅 `repo-form-dialog` 的标签输入（无 `[aria-pressed]` / 色块依赖） | **无代码改动**（无依赖面） |
+
+**3）视觉基线复核（更新 + 两轮无 update 连跑）**
+
+- 首轮比对（旧基线）：**16 例失配 / 7 例通过**（用例口径；23 例中含 2 例纯交互断言、无截图，且 `alerts` 用例含整页 + 右侧表两张图）。`alerts-{light,dark}` 出现尺寸变化（1440×1065 → 1440×1068）。
+- `alerts` 用例在整页断言处先失败即中止，故 `alerts-right-{light,dark}` 两张**未进入比对**；它们与其余通过用例的图一起随 `=all` 重写。最终改动 **23 张** = 16 张门禁失配 + 5 张阈值内亚像素变化（`dialog-import-repos` 2 px、`notifications-*` 13 px、`settings-*` 31/23 px）+ 2 张未比对但需随表头 +3px 重写。
+- 重建：`pnpm test:visual:update --update-snapshots=all` → **23 passed**；随后不带 update 连跑两遍 **23 passed ×2**（无失配、无尺寸漂移）。
+- 逐基线量化（**门禁口径** = Playwright 报数；**严格口径** = 任一通道绝对差 > 0，取自更新前后逐像素比较；`maxΔ` / `bbox` 为严格口径）：
+
+| 基线 | 门禁口径 | 严格口径 | 严格占比 | maxΔ | bbox | 归因 |
+| :--- | ---: | ---: | ---: | ---: | :--- | :--- |
+| alerts-light.png | 30958（尺寸 +3px） | — | — | — | — | 表头 +3px：可排序列文本承接层 |
+| alerts-dark.png | 48929（尺寸 +3px） | — | — | — | — | 同上 |
+| alerts-right-light / dark.png | 尺寸失配（737→740，元素级） | — | — | — | — | 同一表头增高（该元素含表头） |
+| repos-light.png | 9165 | 40956 | 3.16% | 244 | (120,25)-(1358,526) | 表头 +3px + 分页器宽度 + 选择栏联动 |
+| repos-dark.png | 17641 | 41117 | 3.17% | 233 | (120,25)-(1407,526) | 同上 |
+| scans-main-light.png | 19722 | 96426 | 7.44% | 244 | (120,25)-(1358,846) | 表头 +3px + 分页器宽度 + 行位移 |
+| scans-run-detail-light.png | 9509 | 49306 | 3.80% | 221 | (120,25)-(1358,846) | 同上（弹窗内结果表） |
+| alerts-run-drawer-light.png | 20688 | 85742 | 6.62% | 250 | (120,102)-(1423,778) | 抽屉内表格位移 + 分页器宽度 |
+| batch-runs-resume-light.png | 1617 | 2161 | 0.17% | 244 | (205,25)-(1358,372) | 表头 + 分页器 |
+| pr-checks-light.png | 1622 | 2218 | 0.17% | 244 | (180,25)-(1358,844) | 表头 + 分页器 |
+| pr-checks-toast-light.png | 1622 | 2200 | 0.17% | 244 | (618,103)-(1295,691) | 按钮文本承接层 + 表头位移 |
+| dialog-select-open-light.png | 5548 | 23013 | 1.78% | 134 | (120,25)-(1358,526) | Select 面板形态 + 背景表头位移 |
+| dialog-select-open-dark.png | 5494 | 23101 | 1.78% | 128 | (120,25)-(1407,526) | 同上 |
+| schedules-form-layer-light.png | 787 | 5306 | 0.41% | 108 | (120,25)-(1358,804) | 表单 Select / 背景表头 |
+| schedules-form-layer-dark.png | 842 | 5445 | 0.42% | 116 | (120,25)-(1407,804) | 同上 |
+| login-light.png | 1473 | 2649 | 0.20% | 250 | (650,514)-(789,650) | OAuth 按钮文本（`block + nowrap + overflow` 的 AA 差异） |
+| login-dark.png | 1543 | 2683 | 0.21% | 237 | (650,516)-(790,650) | 同上 |
+| dialog-import-repos-light.png | 通过（≤100） | 2 | 0.00% | 8 | (689,403)-(690,403) | 亚像素 AA |
+| notifications-light / dark.png | 通过 | 13 / 13 | 0.00% | 16 / 25 | — | 亚像素 AA |
+| settings-light / dark.png | 通过 | 31 / 23 | 0.00% | 22 / 32 | — | 亚像素 AA |
+
+  - 归因收敛为三层：① **表头 +3px**（`CaomeiTooltipText` 的 `inline-block` 盒）导致表体 / 分页整体下移，`alerts` 整页高度 +3；② **分页器每页条数选择器 6rem → 5rem**；③ **Select 面板上限 + Button 文本承接层**（登录 / Toast 的 AA 差异）。无平台代码样式回退需求。
+
+**4）回归验证矩阵**
+
+| 检查 | 命令 | 结果 |
+| :--- | :--- | :--- |
+| 锁定 / 解析 | `pnpm install --frozen-lockfile` / `pnpm why caomei-ui -r` | 通过；单版本 `1.4.0` |
+| 构建 | `pnpm --filter @dependfix/core build` + engine + cli + platform | 全绿（platform `.output` 38.6 MB） |
+| Typecheck | `pnpm typecheck` | 全部包 Done，0 error（无需任何类型适配） |
+| Lint | `pnpm run lint:check` | 0 error（6 warning，预算 11） |
+| 单元 / 集成 | `pnpm --filter @dependfix/platform test` | 222 文件 / **2782 passed**（10 skipped） |
+| 全量 e2e | `CI=1 TMPDIR=/dev/shm pnpm --filter @dependfix/platform test:e2e` | **231 passed / 1 flaky（重试通过）/ 2 skipped** |
+| 视觉 | `=all` 重建 + 两轮 `test:visual` | 23 passed ×3 |
+
+- **e2e 1 flaky**：`schedules.e2e.test.ts`「计划类型选择器」首轮 5s 内未等到 `.caomei-select__content`，重试 961ms 通过——属 [§15.16 已记录的「Select 首次点击族」](#_15-16-caomei-ui-1-0-0-rc-1-升级实证-2026-10-31)（`scan-config` / `schedules` 均为同族），不随本批修复。
+- **首轮本地失败说明（非升级回归）**：首轮未用 `CI=1` 且 `data/e2e.sqlite` 累积 489 个仓库 → ① `repos-crud` 多选收合被 `inert` 拦截（已改点触发器）；② `schedules-crud` 的 `selectorKind=all` 触发同步扫描全部 489 仓库超 120s；③ `scan-config` 刷新后目标仓库被挤出首页。清理本地 e2e 库后，CI 口径（单 worker、干净库）全绿。
+
+**5）观察与遗留**
+
+- **表头 +3px 属上游一次性布局口径**：后续若上游把 `CaomeiTooltipText` 恢复为行内盒或改回纯文本，基线会再次 −3px；重建前先确认上游变更而非平台回退。
+- **展开态 `inert` 的第一下点击被吞**：面板外点击由文档级 `pointerdown` 释放隔离，事件目标已落到 `body`，被点元素不会收到这次点击（第二次点击才生效）。平台侧只调整了 e2e 收合手势，不为上游 a11y 设计做兜底封装。
+- **本地 e2e 库不自动重置**：累积仓库会让 `selectorKind: all` 的 trigger 用例超时；本地复跑全量前删除 `apps/platform/data/e2e.sqlite*`（或改用 CI 口径）。
+- **dependabot 冷却**：默认 3 天 cooldown + 周更使升级最多滞后约 10 天（1.3.0 / 1.4.0 本轮手动越过）。是否在 `.github/dependabot.yml` 显式配置 `cooldown` 仍待用户决策；仓库已有 pnpm `minimumReleaseAge: 60` 兜底。
+- **基线重建命令口径**：本批用 `=all` 一次性重写 23 张（含阈值内变化），便于确认「全部基线落在 1.4.0 预期形态」；后续常规升级优先用默认 `test:visual:update`（只重写失配），保留「哪些基线真的变了」这一信号。
+- **backlog 观察项闭环**：「caomei-ui 0.x → 1.0 升级回归」的剩余观察随 `1.0.0`（11-08）/ `1.2.0`（11-16）/ `1.4.0`（11-22）连续升级累积完成，本批收口并从 [backlog.md](../../plan/backlog.md) 清出。

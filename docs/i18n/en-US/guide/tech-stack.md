@@ -54,7 +54,7 @@ Versions are **not** duplicated here — [`apps/platform/package.json`](../../..
 | nuxt | Full-stack framework |
 | vue | UI framework |
 | vue-router | Routing |
-| caomei-ui | In-house UI component library (version pinned exactly; PrimeVue 4 migration completed in M31, upgraded to 0.5.0 in M34.2, to 0.6.0 on 2026-10-11 (0.6.0 upgrade regression completed on 2026-10-12) and to 0.7.0 on 2026-10-25; upgraded to 1.0.0-rc.1 from the `next` channel on 2026-10-31) |
+| caomei-ui | In-house UI component library (version pinned exactly; PrimeVue 4 migration completed in M31; 0.5.0 in M34.2; 0.6.0 on 2026-10-11 (regression completed 2026-10-12); 0.7.0 on 2026-10-25; 1.0.0-rc.1 from the `next` channel on 2026-10-31; 1.0.0 on 2026-11-08; 1.2.0 via Dependabot on 2026-11-16; 1.4.0 upgraded manually on 2026-11-22 — evidence in [upgrade §15.18](../../../design/governance/caomei-ui-migration-upgrades.md#_15-18-caomei-ui-1-4-0-升级实证-2026-11-22)) |
 | @lucide/vue | Icon components (passed through `CaomeiIcon`) |
 | @nuxtjs/i18n | Internationalization |
 | better-auth | Authentication core (SSO / third-party login via `better-auth/plugins` → `genericOAuth`) |

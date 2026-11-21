@@ -73,6 +73,16 @@
 | `DataTable` 在 `sort-mode="multiple"` 下**所有可排序列**均渲染 `__sort-index`（未参与排序者带 `--reserved` 且文本为空） | 接受（库侧 UX 改进：排序时列宽不再跳动）；视觉用例断言已限定 `:not(.caomei-data-table__sort-index--reserved)` |
 | `dialog` 内容底色 `bg → bg-elevated`（暗色 `#1e293b` = `rgb(30, 41, 59)`）；`Drawer` / `Popover` 同批改 `bg-elevated`、`Popover` 圆角 `radius-lg` | 接受（库侧设计口径）；`dark-mode` e2e 的背景断言已同步为新 token 取值 |
 
+**上游版本升级带来的基线刷新（caomei-ui 1.4.0，2026-11-22）**——依据见
+[§15.18](../../../../docs/design/governance/caomei-ui-migration-upgrades.md#_15-18-caomei-ui-1-4-0-升级实证-2026-11-22)：
+
+| 项 | 结论 |
+| :--- | :--- |
+| DataTable 可排序表头文本改由 `CaomeiTooltipText` 承接（`inline-block` 可测量盒）→ 表头 **+3px**，表体 / 分页整体下移；`alerts` 整页 1065 → 1068，`alerts-right-*` 737 → 740 | 接受（上游内建提示接线的一次性布局口径），23 张基线同批重建 |
+| `CaomeiPaginator` 每页条数选择器宽 **6rem → 5rem**、控件高度固定 32px | 接受（库侧尺寸统一） |
+| `CaomeiSelect` 面板 viewport 上限 `min(15rem, 可用高)` 且内部滚动 | 接受；`dialog-select-open-*` 面板形态随之上移 / 收敛 |
+| `CaomeiButton` 文本承接层改 `block + nowrap + ellipsis`（内建提示前提） | 接受；`login-*` 的 OAuth 文案仅亚像素 AA 变化（2649 / 2683 px，maxΔ 250 / 237；±1px 平移后差异升到约 60 万像素，零位移最优 → 非几何位移） |
+
 ## 覆盖边界（现状）
 
 - `pr-checks`：行级渲染已由 M33.4 覆盖——fixtures 端点新增可选 `prChecks` 写入路径（5 行覆盖结论标签四档 danger / success / warning / primary 与 Alert 状态三态 firing / 已 ack / OK；**PR 生命周期列**覆盖 `open` / `closed` / `merged` / `unknown` 四档，用例按行断言 `#103 merged` 为 primary、`#102 closed` 为 neutral）；时间列由 fixtures 钉死 `lastPolledAt` + 视觉环境固定 `locale` / `timezoneId` 保证 `toLocaleString()` 确定性，无需 `data-visual-mask`。**失败信号归因标签（2026-10-31）**：首行两个失败信号分别带 `attribution: self_caused`（danger 档）与 `external_noise`（neutral 档），用例断言两段文案（`本次改动导致` / `外部噪音`）与两个色调 class 同时存在——只断文案会漏色调映射改革，只断 class 会漏 i18n 键漂移。重建基线时该图变化 4242 px（ratio 0.01，新增两个标签）。注：fixtures 端点的信号写入映射此前漏透传 `attribution`（schema 允许但落库丢字段），已同批修复。

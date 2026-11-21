@@ -109,10 +109,13 @@ test.describe('仓库管理 CRUD', () => {
         await page.locator('input#name').fill(`repo-${stamp}`)
         await page.locator('input#focusProviders').fill('Vercel, github-actions')
         await page.locator('input#focusNames').fill('Test, Preview')
-        // 来源类型：多选（选中后点标题收合面板，避免 Escape 连带关闭弹窗）
+        // 来源类型：多选（选中后点字段内触发器收合面板，避免 Escape 连带关闭弹窗）。
+        // caomei-ui 1.4.0 起展开态会给面板外兄弟节点补 inert（含弹窗内容），点标题会被拦截，
+        // 故改点触发器；该按钮在组件隔离面之外（字段自身保留交互）。
         await page.locator('#focusKinds').click()
         await page.getByRole('option', { name: 'Check', exact: true }).click()
-        await page.locator('.repo-form__focus-title').click()
+        await page.locator('.repo-form__focus .caomei-multi-select__icon').click()
+        await expect(page.locator('.caomei-multi-select__content')).toBeHidden()
 
         await page.locator('.caomei-dialog__content button:has-text("保存")').click()
         await expect(page.locator('.caomei-message--success')).toContainText('仓库已添加', { timeout: 15000 })

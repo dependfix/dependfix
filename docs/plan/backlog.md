@@ -166,7 +166,6 @@
 - **T705 生产级部署**（PostgreSQL + Helm；Sentry 已随 2026-11-21 M65.1 上收）—— 2026-08-12 用户指示暂缓排期
 - **自托管 Umami 流量统计**（P3 🎨，1.0 后暂缓）—— 管理台用户量小；M65.1 落地后 Sentry 路由 transaction 可覆盖页面访问与性能，流量来源 / 留存价值不足以抵消额外服务与脚本成本（届时按 Sentry 实际数据重新评估）。触发：需要产品级使用分析且 Sentry 数据不足，或平台转为多租户 SaaS。详见 [评估](../research/2026-10-27-third-party-observability-evaluation.md)。
 - **T703 跨平台 Git**（GitLab + Bitbucket）—— 2026-08-12 用户指示暂缓排期
-- **caomei-ui 0.x → 1.0 升级回归** —— 库处于 0.x（平台当前 `0.6.0`，2026-10-11 由 dependabot 升级、2026-10-12 完成升级回归，见 [caomei-ui-migration.md §15.15](../design/governance/caomei-ui-migration-upgrades.md#_15-15-caomei-ui-0-6-0-升级回归实证-插队热修-2026-10-12)）。**剩余观察**：`1.0.0` 发布后的正式升级回归与「平台需跟进新组件能力」「用户明确恢复」两条触发条件。届时按 M31 迁移期实证索引（[caomei-ui-migration.md §15](../design/governance/caomei-ui-migration-mapping.md)）做回归；**升级回归的像素兜底已就位**（视觉回归基线 `apps/platform/tests/visual/`，覆盖 alerts / repos / pr-checks / dialog-import-repos / login，口径见 [测试规范 §6.7](../standards/testing.md)）
 - **ScanResult 数据层去重（upsert 唯一索引）** —— 决策暂缓：应用层去重（fingerprint + occurrenceCount / firstSeenAt / lastSeenAt / affectedRunIds）已实施且满足当前业务需求；恢复条件：出现"fix 复用同一 `scan_run_id` 跨次刷新"或"历史 fixStatus 跨次保留"需求时迁移到数据层 upsert
 - **兼容路由 `/repos/[id]/runs` 与 `repo-history-dialog` history 模式物理删除**（P3 🛠️，**2026-11-15 判定暂缓**）—— 现状：兼容路由无应用内入口，但仍是 `<repo-ai-toggle>`（仓库级 AI 研判开关）的唯一挂载点；history 模式（列表视图）应用内无挂载点，`/repos?history={id}` 也无页面解析，属死代码。**暂缓原因**：直接删页会丢失 AI 开关配置 UI。恢复条件：先把 AI 开关迁移到仓库表单 / 设置页（需 UX 决策），再删除兼容路由与 history 分支（保留 `run` 模式）。
 
@@ -367,6 +366,13 @@
 - **背景**：2026-10-26 M49.2a 依赖升级后连续两次运行 `pnpm --filter @dependfix/platform test:e2e`，`scan-config.e2e.test.ts` 的「扫描偏好：记住上次选择（重开 + 刷新生效）」均为 1 flaky（等待仓库行可见超时，重试通过）。M49.2b 升级 nuxt 4.6.2 后：第一轮除 scan-config 外新增 1 例 `repos-crud.e2e.test.ts`「删除仓库：列表移除」flaky（重试通过）；第二轮仅 scan-config flaky，其余 204 例全绿。
 - **持续观察项**：① scan-config 超时点在 `openScanConfig` 的 `.caomei-data-table__row` 可见性（15s）；② repos-crud 为删除后列表刷新时序。首要假设均为 SSR hydration / 行渲染时序，其次为上一轮 e2e 数据库残留导致列表排序漂移；再次出现时保留 `test-results/` 的 error-context 与截图后定位。
 - **触发条件**：运行 `apps/platform` e2e（`test:e2e`）时再次命中上述用例。
+
+### caomei-ui 1.4.0 浮层 inert 隔离吞掉面板外首击（2026-11-22 登记，持续观察）
+
+- **背景**：caomei-ui 1.4.0 起 Select / MultiSelect / AutoComplete 展开态会给面板外兄弟节点补 `inert` + `aria-hidden`。真实用户在面板外点击的第一下只会关闭面板：文档级 `pointerdown` 先释放隔离，但事件目标已落到 `body`，被点元素收不到该次点击（第二次点击才生效）。
+- **影响面**：当前仅 `repos` 仓库表单的「来源类型」多选需要「选中后点别处收合」；其余 Select 为单选，选中即收合。平台 e2e 已改为点字段内触发器 `.caomei-multi-select__icon` 收合（`repos-crud.e2e.test.ts`），未为上游 a11y 设计做兜底封装。
+- **持续观察项**：① 用户反馈「多选展开时点保存需要两次」类问题；② 上游是否调整首击语义或隔离范围。届时按 [升级 §15.18](../design/governance/caomei-ui-migration-upgrades.md#_15-18-caomei-ui-1-4-0-升级实证-2026-11-22) 复核，若上游修复则删除本条并撤回 e2e 手势适配。
+- **触发条件**：出现上述用户反馈 / 上游发布相关变更 / 再次升级 caomei-ui 时。
 
 ### 依赖审计豁免复核（minimatch，持续观察）
 

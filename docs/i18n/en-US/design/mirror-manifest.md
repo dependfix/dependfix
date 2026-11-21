@@ -94,7 +94,7 @@
 | `docs/design/governance/caomei-ui-migration.md` | 未重译（结构映射口径见文档规范 §6；全量镜像属 1.0 后评估项） |
 | `docs/design/governance/caomei-ui-migration-mapping.md` | 未重译（§12-§15.9 映射与评估补记；随主档不镜像） |
 | `docs/design/governance/caomei-ui-migration-m31-proof.md` | 未重译（§15.10-§15.13 M31 实施实证；随主档不镜像） |
-| `docs/design/governance/caomei-ui-migration-upgrades.md` | 未重译（§15.14-§15.17 版本升级实证；随主档不镜像） |
+| `docs/design/governance/caomei-ui-migration-upgrades.md` | 未重译（§15.14-§15.18 版本升级实证；随主档不镜像） |
 | `docs/design/governance/doc-governance.md` | 治理执行规范（现行权威；en 索引行指向 zh，1.0 后评估） |
 | `docs/design/governance/docs-and-readme-i18n-rollout.md` | 记录 / 落地分片（随主文档演进，暂不翻译） |
 | `docs/design/governance/docs-and-readme-i18n.md` | 未重译（结构映射口径见文档规范 §6；全量镜像属 1.0 后评估项） |

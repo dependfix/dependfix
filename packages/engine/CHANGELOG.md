@@ -1,5 +1,33 @@
 # @dependfix/engine
 
+# [1.2.0](https://github.com/dependfix/dependfix/compare/@dependfix/engine@1.1.0...@dependfix/engine@1.2.0) (2026-11-21)
+
+
+### ✨ 新功能
+
+* **cli:** 支持安装源预检与预算透传 ([726134d](https://github.com/dependfix/dependfix/commit/726134d))
+* **core:** 报告披露环境硬化计数 ([4eccfd8](https://github.com/dependfix/dependfix/commit/4eccfd8))
+* **engine:** 修复前基线安装失败即短路并回报未采样命令 ([736d01a](https://github.com/dependfix/dependfix/commit/736d01a))
+* **engine:** 命令级 OOM 判定与验证动作归因 ([4c3ab1d](https://github.com/dependfix/dependfix/commit/4c3ab1d))
+* **engine:** 基线采样改用只读 lint 链 ([1258609](https://github.com/dependfix/dependfix/commit/1258609))
+* **engine:** 外联审计注入状态可见 ([f9bcf5e](https://github.com/dependfix/dependfix/commit/f9bcf5e))
+* **engine:** 外联白名单补 Release 资产域 ([0c46232](https://github.com/dependfix/dependfix/commit/0c46232))
+* **engine:** 安装基线失败逐告警落结论并按预算重试一次 ([f3932ed](https://github.com/dependfix/dependfix/commit/f3932ed))
+* **engine:** 硬化执行子进程环境变量 ([99cb464](https://github.com/dependfix/dependfix/commit/99cb464))
+* **engine:** 覆盖状态查询与版本探测的环境过滤 ([d3de247](https://github.com/dependfix/dependfix/commit/d3de247))
+* **engine:** 跨 major 判定前移与 advisory 区间过滤 ([69889a0](https://github.com/dependfix/dependfix/commit/69889a0))
+
+
+### 🐛 Bug 修复
+
+* **delivery:** 同名修复分支残留时用 lease 覆盖 ([82d3919](https://github.com/dependfix/dependfix/commit/82d3919))
+* **engine:** 交付提交拒绝白名单文件删除 ([ceb9279](https://github.com/dependfix/dependfix/commit/ceb9279))
+* **engine:** 外联审计停止不再被 CONNECT 隧道挂住 ([f76ed61](https://github.com/dependfix/dependfix/commit/f76ed61))
+* **engine:** 接线执行层 deadlineAt 到运行时配置 ([352ce2f](https://github.com/dependfix/dependfix/commit/352ce2f))
+* **engine:** 统一 NO_PROXY 合并语义并补代理负例 ([d486b7b](https://github.com/dependfix/dependfix/commit/d486b7b))
+* **engine:** 锁文件修复以产物可用为成功判据 ([ad3033a](https://github.com/dependfix/dependfix/commit/ad3033a))
+* **security:** 收敛代理 env 与报告口径 ([49fdb3a](https://github.com/dependfix/dependfix/commit/49fdb3a))
+
 # [1.1.0](https://github.com/dependfix/dependfix/compare/@dependfix/engine@1.0.0...@dependfix/engine@1.1.0) (2026-11-15)
 
 

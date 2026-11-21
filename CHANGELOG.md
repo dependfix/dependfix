@@ -1,5 +1,103 @@
 # dependfix
 
+# [1.2.0](https://github.com/dependfix/dependfix/compare/dependfix@1.1.0...dependfix@1.2.0) (2026-11-21)
+
+
+### ✨ 新功能
+
+* **cli:** 支持安装源预检与预算透传 ([726134d](https://github.com/dependfix/dependfix/commit/726134d))
+* **core:** 报告契约新增命令级 OOM 字段与披露段 ([48bd6c1](https://github.com/dependfix/dependfix/commit/48bd6c1))
+* **core:** 报告契约新增基线未采样命令与原因词汇表 ([52bb743](https://github.com/dependfix/dependfix/commit/52bb743))
+* **core:** 报告披露外联审计注入状态 ([64049ac](https://github.com/dependfix/dependfix/commit/64049ac))
+* **core:** 报告披露环境硬化计数 ([4eccfd8](https://github.com/dependfix/dependfix/commit/4eccfd8))
+* **core:** 新增 advisory 受影响区间与混合实例跳过原因 ([7cfee07](https://github.com/dependfix/dependfix/commit/7cfee07))
+* **core:** 新增安装基线失败跳过原因 ([b527e26](https://github.com/dependfix/dependfix/commit/b527e26))
+* **core:** 新增安装源预检共享契约 ([8473b0a](https://github.com/dependfix/dependfix/commit/8473b0a))
+* **engine:** 修复前基线安装失败即短路并回报未采样命令 ([736d01a](https://github.com/dependfix/dependfix/commit/736d01a))
+* **engine:** 命令级 OOM 判定与验证动作归因 ([4c3ab1d](https://github.com/dependfix/dependfix/commit/4c3ab1d))
+* **engine:** 基线采样改用只读 lint 链 ([1258609](https://github.com/dependfix/dependfix/commit/1258609))
+* **engine:** 外联审计注入状态可见 ([f9bcf5e](https://github.com/dependfix/dependfix/commit/f9bcf5e))
+* **engine:** 外联白名单补 Release 资产域 ([0c46232](https://github.com/dependfix/dependfix/commit/0c46232))
+* **engine:** 安装基线失败逐告警落结论并按预算重试一次 ([f3932ed](https://github.com/dependfix/dependfix/commit/f3932ed))
+* **engine:** 硬化执行子进程环境变量 ([99cb464](https://github.com/dependfix/dependfix/commit/99cb464))
+* **engine:** 覆盖状态查询与版本探测的环境过滤 ([d3de247](https://github.com/dependfix/dependfix/commit/d3de247))
+* **engine:** 跨 major 判定前移与 advisory 区间过滤 ([69889a0](https://github.com/dependfix/dependfix/commit/69889a0))
+* **mcp:** 四个只读工具接入平台 remote 数据源 ([541d4ac](https://github.com/dependfix/dependfix/commit/541d4ac))
+* **mcp:** 新增平台 remote 后端与运行日志工具 ([1d74847](https://github.com/dependfix/dependfix/commit/1d74847))
+* **platform:** dfk_ API key 进入脱敏规则 ([1194030](https://github.com/dependfix/dependfix/commit/1194030))
+* **platform:** v1 只读面接入 API key 鉴权 ([d0e6b90](https://github.com/dependfix/dependfix/commit/d0e6b90))
+* **platform:** 导出与状态分布按层归因 OOM ([778e1b2](https://github.com/dependfix/dependfix/commit/778e1b2))
+* **platform:** 展示安装基线失败跳过原因 ([9a43b6a](https://github.com/dependfix/dependfix/commit/9a43b6a))
+* **platform:** 展示混合实例与仅传递依赖跳过原因 ([3d0e924](https://github.com/dependfix/dependfix/commit/3d0e924))
+* **platform:** 批次列表续跑入口 ([6759a6a](https://github.com/dependfix/dependfix/commit/6759a6a))
+* **platform:** 批次续跑数据模型与审计事件 ([e151e55](https://github.com/dependfix/dependfix/commit/e151e55))
+* **platform:** 批次续跑服务与端点 ([67b429d](https://github.com/dependfix/dependfix/commit/67b429d))
+* **platform:** 提供 API key 管理接口 ([4d6337c](https://github.com/dependfix/dependfix/commit/4d6337c))
+* **platform:** 新增 API key 与访问日志数据表 ([48cb7ca](https://github.com/dependfix/dependfix/commit/48cb7ca))
+* **platform:** 新增 v1 只读观测端点 ([472eaa0](https://github.com/dependfix/dependfix/commit/472eaa0))
+* **platform:** 未落定诊断区分在管子进程与句柄净增 ([4a62fe6](https://github.com/dependfix/dependfix/commit/4a62fe6))
+* **platform:** 沙箱安装源快速失败与超时输出回传 ([69306a8](https://github.com/dependfix/dependfix/commit/69306a8))
+* **platform:** 补齐 v1 告警 PR Check 仪表板与日志端点 ([a109e77](https://github.com/dependfix/dependfix/commit/a109e77))
+* **platform:** 运行详情披露基线未采样命令 ([7c6f9da](https://github.com/dependfix/dependfix/commit/7c6f9da))
+* **platform:** 运行详情披露审计注入未生效 ([8829155](https://github.com/dependfix/dependfix/commit/8829155))
+* **platform:** 运行详情披露环境硬化并硬化交付 git ([9f9e58c](https://github.com/dependfix/dependfix/commit/9f9e58c))
+* **platform:** 运行详情披露采集侧日志丢弃数 ([9e6a9c4](https://github.com/dependfix/dependfix/commit/9e6a9c4))
+* **platform:** 运行详情按层展示命令级与运行级 OOM ([e46a6c8](https://github.com/dependfix/dependfix/commit/e46a6c8))
+* **platform:** 运行详情提供日志聚合复制与下载 ([321a6ba](https://github.com/dependfix/dependfix/commit/321a6ba))
+* **platform:** 采集侧统计并透传日志丢弃条数 ([6fd2516](https://github.com/dependfix/dependfix/commit/6fd2516))
+* **sandbox:** fix 路径启用 Node 环境代理 ([ea1eec2](https://github.com/dependfix/dependfix/commit/ea1eec2))
+* **scripts:** 归档目录纳入 check:docs 的链接门禁 ([1e14965](https://github.com/dependfix/dependfix/commit/1e14965))
+* **scripts:** 新增 AI 资产治理机检门禁 ([8e47272](https://github.com/dependfix/dependfix/commit/8e47272))
+* **scripts:** 机检进度表与归档分片命名式 ([1307bce](https://github.com/dependfix/dependfix/commit/1307bce))
+
+
+### 🐛 Bug 修复
+
+* **core:** 修正硬化文案断言与注入状态类型 ([650eee5](https://github.com/dependfix/dependfix/commit/650eee5))
+* **delivery:** 同名修复分支残留时用 lease 覆盖 ([82d3919](https://github.com/dependfix/dependfix/commit/82d3919))
+* **deps:** 豁免未发布修复版本的 picomatch high 告警 ([fd45a27](https://github.com/dependfix/dependfix/commit/fd45a27))
+* **engine:** 交付提交拒绝白名单文件删除 ([ceb9279](https://github.com/dependfix/dependfix/commit/ceb9279))
+* **engine:** 外联审计停止不再被 CONNECT 隧道挂住 ([f76ed61](https://github.com/dependfix/dependfix/commit/f76ed61))
+* **engine:** 接线执行层 deadlineAt 到运行时配置 ([352ce2f](https://github.com/dependfix/dependfix/commit/352ce2f))
+* **engine:** 统一 NO_PROXY 合并语义并补代理负例 ([d486b7b](https://github.com/dependfix/dependfix/commit/d486b7b))
+* **engine:** 锁文件修复以产物可用为成功判据 ([ad3033a](https://github.com/dependfix/dependfix/commit/ad3033a))
+* **platform:** 列表可续跑计数与服务端口径对齐 ([565c821](https://github.com/dependfix/dependfix/commit/565c821))
+* **platform:** 批次续跑来源语义与可续跑计数 ([41d8ada](https://github.com/dependfix/dependfix/commit/41d8ada))
+* **platform:** 续跑原因按错误码映射并禁用空入口 ([5b4810e](https://github.com/dependfix/dependfix/commit/5b4810e))
+* **platform:** 适配 caomei-ui 1.2.0 DatePicker 模型类型 ([5aa3022](https://github.com/dependfix/dependfix/commit/5aa3022))
+* **platform:** 预检不可用与容器超时信号收口 ([4bc5b98](https://github.com/dependfix/dependfix/commit/4bc5b98))
+* **scripts:** engines-only breaking 按 minor 推导 ([790557e](https://github.com/dependfix/dependfix/commit/790557e))
+* **scripts:** 契约冻结抽取忽略前缀残片 ([aa05040](https://github.com/dependfix/dependfix/commit/aa05040))
+* **scripts:** 收紧进度表机检与命名白名单 ([9c6426a](https://github.com/dependfix/dependfix/commit/9c6426a))
+* **scripts:** 补齐进度表段内约束与两级核验口径 ([36e055e](https://github.com/dependfix/dependfix/commit/36e055e))
+* **scripts:** 骨架化 todo 的进度表机检 no-op ([f94ddc5](https://github.com/dependfix/dependfix/commit/f94ddc5))
+* **security:** 收敛代理 env 与报告口径 ([49fdb3a](https://github.com/dependfix/dependfix/commit/49fdb3a))
+* **test:** 同步 env-events 审计类型数量 ([e237178](https://github.com/dependfix/dependfix/commit/e237178))
+
+
+### 📦 代码重构
+
+* **platform:** 下沉绝对路径归一为共享脱敏规则 ([a274f03](https://github.com/dependfix/dependfix/commit/a274f03))
+* **platform:** 下沉脱敏规则并新增日志聚合纯函数 ([d25eaed](https://github.com/dependfix/dependfix/commit/d25eaed))
+* **platform:** 告警与 PR Check 复用共享筛选排序 ([6071f13](https://github.com/dependfix/dependfix/commit/6071f13))
+* **platform:** 抽取告警仪表板与健康视图 ([8a51f2f](https://github.com/dependfix/dependfix/commit/8a51f2f))
+* **platform:** 抽取运行与仓库共享视图层 ([acbeb3c](https://github.com/dependfix/dependfix/commit/acbeb3c))
+* **platform:** 日志聚合支持查询分页与原始视图 ([b00bd3f](https://github.com/dependfix/dependfix/commit/b00bd3f))
+
+### 支持面变更
+
+**Node.js 运行时基线**：由 `^22.23.4 || ^24.22.1` 抬升到 `^22.23.5 || ^24.22.3`（2026-11-11 Node.js 安全公告基线；低于该补丁版本的运行时存在未修复 High 漏洞）。本轮按 minor 发布，不改变 1.x 对外契约；升级前请确认运行时版本（Node 26 线亦在声明支持面内）。
+
+**平台数据库迁移**：新增运行日志丢弃计数（`3200000000000`）、API Key 表（`3300000000000`）、批次续跑来源字段（`3400000000000`）。升级前请备份数据库；启动后 `/api/health` 的 `schema` 字段应为 `ok`。
+
+### 已知限制
+
+真实环境矩阵仍为 `pending`（无 OAuth / IdP / staging 资源），本发布不作通过声明。
+
+沙箱 fix 模式的真实全链（clone → 修复 → 推送 → 建 PR）依赖真实 GitHub token 与可达出站网络，尚未取得证据；MCP remote 与平台 v1 只读面仅有 mock / 单元证据，真实平台 remote 联调待做。
+
+PR Check 失败详情仍只到 provider / 信号层，provider 原生日志为后续增量。ACR 个人版在 arm64 主机的按 tag 拉取未实测，双架构主通道为 GHCR / Docker Hub；镜像 `post-release-smoke` 的失败可见性仍未取得失败样本。
+
 # [1.1.0](https://github.com/dependfix/dependfix/compare/dependfix@1.0.0...dependfix@1.1.0) (2026-11-15)
 
 

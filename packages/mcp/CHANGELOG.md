@@ -1,5 +1,13 @@
 # @dependfix/mcp
 
+# [1.2.0](https://github.com/dependfix/dependfix/compare/@dependfix/mcp@1.1.0...@dependfix/mcp@1.2.0) (2026-11-21)
+
+
+### ✨ 新功能
+
+* **mcp:** 四个只读工具接入平台 remote 数据源 ([541d4ac](https://github.com/dependfix/dependfix/commit/541d4ac))
+* **mcp:** 新增平台 remote 后端与运行日志工具 ([1d74847](https://github.com/dependfix/dependfix/commit/1d74847))
+
 # [1.1.0](https://github.com/dependfix/dependfix/compare/@dependfix/mcp@1.0.0...@dependfix/mcp@1.1.0) (2026-11-15)
 
 

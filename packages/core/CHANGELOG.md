@@ -1,5 +1,25 @@
 # @dependfix/core
 
+# [1.2.0](https://github.com/dependfix/dependfix/compare/@dependfix/core@1.1.0...@dependfix/core@1.2.0) (2026-11-21)
+
+
+### ✨ 新功能
+
+* **core:** 报告契约新增命令级 OOM 字段与披露段 ([48bd6c1](https://github.com/dependfix/dependfix/commit/48bd6c1))
+* **core:** 报告契约新增基线未采样命令与原因词汇表 ([52bb743](https://github.com/dependfix/dependfix/commit/52bb743))
+* **core:** 报告披露外联审计注入状态 ([64049ac](https://github.com/dependfix/dependfix/commit/64049ac))
+* **core:** 报告披露环境硬化计数 ([4eccfd8](https://github.com/dependfix/dependfix/commit/4eccfd8))
+* **core:** 新增 advisory 受影响区间与混合实例跳过原因 ([7cfee07](https://github.com/dependfix/dependfix/commit/7cfee07))
+* **core:** 新增安装基线失败跳过原因 ([b527e26](https://github.com/dependfix/dependfix/commit/b527e26))
+* **core:** 新增安装源预检共享契约 ([8473b0a](https://github.com/dependfix/dependfix/commit/8473b0a))
+
+
+### 🐛 Bug 修复
+
+* **core:** 修正硬化文案断言与注入状态类型 ([650eee5](https://github.com/dependfix/dependfix/commit/650eee5))
+* **platform:** 预检不可用与容器超时信号收口 ([4bc5b98](https://github.com/dependfix/dependfix/commit/4bc5b98))
+* **security:** 收敛代理 env 与报告口径 ([49fdb3a](https://github.com/dependfix/dependfix/commit/49fdb3a))
+
 # [1.1.0](https://github.com/dependfix/dependfix/compare/@dependfix/core@1.0.0...@dependfix/core@1.1.0) (2026-11-15)
 
 

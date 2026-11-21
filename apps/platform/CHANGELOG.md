@@ -1,5 +1,55 @@
 # @dependfix/platform
 
+# [1.2.0](https://github.com/dependfix/dependfix/compare/@dependfix/platform@1.1.0...@dependfix/platform@1.2.0) (2026-11-21)
+
+
+### ✨ 新功能
+
+* **platform:** dfk_ API key 进入脱敏规则 ([1194030](https://github.com/dependfix/dependfix/commit/1194030))
+* **platform:** v1 只读面接入 API key 鉴权 ([d0e6b90](https://github.com/dependfix/dependfix/commit/d0e6b90))
+* **platform:** 导出与状态分布按层归因 OOM ([778e1b2](https://github.com/dependfix/dependfix/commit/778e1b2))
+* **platform:** 展示安装基线失败跳过原因 ([9a43b6a](https://github.com/dependfix/dependfix/commit/9a43b6a))
+* **platform:** 展示混合实例与仅传递依赖跳过原因 ([3d0e924](https://github.com/dependfix/dependfix/commit/3d0e924))
+* **platform:** 批次列表续跑入口 ([6759a6a](https://github.com/dependfix/dependfix/commit/6759a6a))
+* **platform:** 批次续跑数据模型与审计事件 ([e151e55](https://github.com/dependfix/dependfix/commit/e151e55))
+* **platform:** 批次续跑服务与端点 ([67b429d](https://github.com/dependfix/dependfix/commit/67b429d))
+* **platform:** 提供 API key 管理接口 ([4d6337c](https://github.com/dependfix/dependfix/commit/4d6337c))
+* **platform:** 新增 API key 与访问日志数据表 ([48cb7ca](https://github.com/dependfix/dependfix/commit/48cb7ca))
+* **platform:** 新增 v1 只读观测端点 ([472eaa0](https://github.com/dependfix/dependfix/commit/472eaa0))
+* **platform:** 未落定诊断区分在管子进程与句柄净增 ([4a62fe6](https://github.com/dependfix/dependfix/commit/4a62fe6))
+* **platform:** 沙箱安装源快速失败与超时输出回传 ([69306a8](https://github.com/dependfix/dependfix/commit/69306a8))
+* **platform:** 补齐 v1 告警 PR Check 仪表板与日志端点 ([a109e77](https://github.com/dependfix/dependfix/commit/a109e77))
+* **platform:** 运行详情披露基线未采样命令 ([7c6f9da](https://github.com/dependfix/dependfix/commit/7c6f9da))
+* **platform:** 运行详情披露审计注入未生效 ([8829155](https://github.com/dependfix/dependfix/commit/8829155))
+* **platform:** 运行详情披露环境硬化并硬化交付 git ([9f9e58c](https://github.com/dependfix/dependfix/commit/9f9e58c))
+* **platform:** 运行详情披露采集侧日志丢弃数 ([9e6a9c4](https://github.com/dependfix/dependfix/commit/9e6a9c4))
+* **platform:** 运行详情按层展示命令级与运行级 OOM ([e46a6c8](https://github.com/dependfix/dependfix/commit/e46a6c8))
+* **platform:** 运行详情提供日志聚合复制与下载 ([321a6ba](https://github.com/dependfix/dependfix/commit/321a6ba))
+* **platform:** 采集侧统计并透传日志丢弃条数 ([6fd2516](https://github.com/dependfix/dependfix/commit/6fd2516))
+* **sandbox:** fix 路径启用 Node 环境代理 ([ea1eec2](https://github.com/dependfix/dependfix/commit/ea1eec2))
+
+
+### 🐛 Bug 修复
+
+* **core:** 修正硬化文案断言与注入状态类型 ([650eee5](https://github.com/dependfix/dependfix/commit/650eee5))
+* **delivery:** 同名修复分支残留时用 lease 覆盖 ([82d3919](https://github.com/dependfix/dependfix/commit/82d3919))
+* **platform:** 列表可续跑计数与服务端口径对齐 ([565c821](https://github.com/dependfix/dependfix/commit/565c821))
+* **platform:** 批次续跑来源语义与可续跑计数 ([41d8ada](https://github.com/dependfix/dependfix/commit/41d8ada))
+* **platform:** 续跑原因按错误码映射并禁用空入口 ([5b4810e](https://github.com/dependfix/dependfix/commit/5b4810e))
+* **platform:** 适配 caomei-ui 1.2.0 DatePicker 模型类型 ([5aa3022](https://github.com/dependfix/dependfix/commit/5aa3022))
+* **platform:** 预检不可用与容器超时信号收口 ([4bc5b98](https://github.com/dependfix/dependfix/commit/4bc5b98))
+* **test:** 同步 env-events 审计类型数量 ([e237178](https://github.com/dependfix/dependfix/commit/e237178))
+
+
+### 📦 代码重构
+
+* **platform:** 下沉绝对路径归一为共享脱敏规则 ([a274f03](https://github.com/dependfix/dependfix/commit/a274f03))
+* **platform:** 下沉脱敏规则并新增日志聚合纯函数 ([d25eaed](https://github.com/dependfix/dependfix/commit/d25eaed))
+* **platform:** 告警与 PR Check 复用共享筛选排序 ([6071f13](https://github.com/dependfix/dependfix/commit/6071f13))
+* **platform:** 抽取告警仪表板与健康视图 ([8a51f2f](https://github.com/dependfix/dependfix/commit/8a51f2f))
+* **platform:** 抽取运行与仓库共享视图层 ([acbeb3c](https://github.com/dependfix/dependfix/commit/acbeb3c))
+* **platform:** 日志聚合支持查询分页与原始视图 ([b00bd3f](https://github.com/dependfix/dependfix/commit/b00bd3f))
+
 # [1.1.0](https://github.com/dependfix/dependfix/compare/@dependfix/platform@1.0.0...@dependfix/platform@1.1.0) (2026-11-15)
 
 

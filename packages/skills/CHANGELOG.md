@@ -1,6 +1,13 @@
 # @dependfix/skills
 
 
+# [1.1.0](https://github.com/dependfix/dependfix/compare/@dependfix/skills@1.0.0...@dependfix/skills@1.1.0) (2026-11-21)
+
+
+### ✨ 新功能
+
+* **mcp:** 新增平台 remote 后端与运行日志工具 ([1d74847](https://github.com/dependfix/dependfix/commit/1d74847))
+
 # [1.0.0](https://github.com/dependfix/dependfix/compare/@dependfix/skills@0.3.0...@dependfix/skills@1.0.0) (2026-11-06)
 
 ### ⚙️ 运行时基线更新

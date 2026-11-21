@@ -1,5 +1,12 @@
 # dependfix
 
+# [1.2.0](https://github.com/dependfix/dependfix/compare/dependfix@1.1.0...dependfix@1.2.0) (2026-11-21)
+
+
+### ✨ 新功能
+
+* **cli:** 支持安装源预检与预算透传 ([726134d](https://github.com/dependfix/dependfix/commit/726134d))
+
 # [1.1.0](https://github.com/dependfix/dependfix/compare/dependfix@1.0.0...dependfix@1.1.0) (2026-11-15)
 
 

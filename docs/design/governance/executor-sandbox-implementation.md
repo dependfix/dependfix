@@ -395,3 +395,19 @@ C53 引入 A 模式 `fix-and-pr` 链路完成的关键代价是 **凭据权限�
 - **失败副作用**：分支已推但 PR 失败 / 取消时，平台按结果声明的 `branch` 清理 **仅 `dependfix/` 前缀**分支（默认分支直推不在范围），删除成功 / 失败 / 跳过（无凭据、越界）都落 `delivery_branch_cleanup` 审计事件。push 失败（受保护默认分支 / 凭据失效 / 网络）以 `PUSH_FAILED` 进入状态机交付失败白名单 → 运行判 `failed`（不再静默完成）；失败 run 不落 `runUrl`（避免指向已清理或不存在的分支）。
 - **落库与披露**：`summaryJson.delivery` 携带 status / deliveredBy / branch / commitSha（不新增 DB 列），运行详情「交付」项展示 `branch @ shortSha`。
 
+
+### 8.7 Node 内置 fetch 的代理覆盖（2026-11-21，M64.2）
+
+背景：沙箱 fix 路径的 deny-by-default 依赖运行级审计代理注入 `HTTP(S)_PROXY`；但 Node 内置 `fetch`（undici）**默认不读代理 env**，容器内 CLI 的子命令用 `fetch` 直连时会绕开拦截。
+
+实测矩阵（本机 Node 三版本，本地 HTTP 目标 + 不可达代理对照：`unset` 直连成功 / `=1` 走代理报 `ECONNREFUSED`）：
+
+| Node | `NODE_USE_ENV_PROXY` 未设置 | `NODE_USE_ENV_PROXY=1` | 结论 |
+|:--|:--|:--|:--|
+| 22.23.4 | 直连（200） | 走 env 代理（ECONNREFUSED，undici `EnvHttpProxyAgent` experimental 警告） | 支持 |
+| 24.22.1 | 直连（200） | 走 env 代理（ECONNREFUSED） | 支持 |
+| 26.13.1 | 直连（200） | 走 env 代理（ECONNREFUSED） | 支持 |
+
+决策：**仅沙箱 fix / fix-and-pr 路径注入 `NODE_USE_ENV_PROXY=1`**（`SandboxExecutor.buildSpec`），report-only 不注入（不执行仓库代码、无代理可走）。覆盖范围是容器内 CLI 派生的子进程（`runTrackedCommand` 注入代理 env 后继承）；CLI 自身进程内的 fetch 没有代理地址，仍为直连，该边界如实记录。
+
+证据：`artifacts/m64.2/node-env-proxy-matrix.log`（本地，gitignored；复现脚本见文件头）。负例（非白名单目标经代理返回 502 并落 `network_violations`）由 `egress-audit.test.ts` 的真实代理请求锁定。

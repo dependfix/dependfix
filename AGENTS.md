@@ -176,6 +176,7 @@ A 阶段 `code-auditor` 审计必须触发的场景：
 4. **原子粒度**：一个提交对应一个逻辑变更，关联且仅关联 `todo.md` 中的一个原子条目。
 5. **推送禁令**：`git commit` 后不得自动执行 `git push`，推送仅限用户明确要求时执行。提交完成后应告知用户"已提交到本地，等待推送确认"。**唯一例外**是 [GitHub 协作规范 §4](docs/standards/github-collaboration.md#_4-推送授权) 明列的两个窗口（CI 修复、条目完成收口），窗口外推送仍须用户明确指示。
 6. **src/dist 不一致时 build 在先（monorepo 纪律）**：改动涉及 `packages/*/src/**`（被其他 workspace 包 import）时，**提交前必须先 `pnpm -r build`（或定向 `pnpm --filter <changed-pkg> build`）重建 dist**，否则下游包的 typecheck 会报 TS2339（缺新字段）。CI 自动 rebuild 掩盖本地 dev 过期，导致 `pnpm exec tsc --noEmit` 通过但 `pnpm run typecheck`（含 nuxt typecheck pipeline）失败。**验证协议**：commit 前实测 `pnpm run typecheck` exit 0（覆盖 root tsc + nuxt typecheck）；如失败，第一动作是 `pnpm -r build` 而非修改源码。教训见 [经验归档 §五十五（M23.3 C66-C standard depth audit W1）](docs/design/governance/experience-archive.md)。
+7. **破坏性提交人工确认（hard requirement）**：主题 `!` 或 `BREAKING CHANGE:` footer 的提交，提交前必须取得项目所有者或授权人确认，并在 `BREAKING CHANGE:` 之前写入 `Breaking-Review:` 记录。判定、时机、记录格式、重确认条件与 engines-only 口径以 [Git 规范 §3.9](docs/standards/git.md#_3-9-破坏性提交人工审查) 为唯一权威，本节不重复。
 
 ## GitHub 协作与推送授权（hard requirement）
 

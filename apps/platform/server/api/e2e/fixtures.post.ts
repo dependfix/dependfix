@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { ensureDatabaseInitialized } from '#server/database'
 import { Repository } from '#server/entities/repository'
 import { ScanRun, SCAN_RUN_STATUSES } from '#server/entities/scan-run'
+import { BatchRun } from '#server/entities/batch-run'
 import { RUN_FAILURE_KINDS, RUN_FAILURE_STAGES } from '#server/services/run-failure-classify'
 import { ScanResult } from '#server/entities/scan-result'
 import { PRCheck, PR_CHECK_CONCLUSIONS, PR_CHECK_PR_STATES } from '#server/entities/pr-check'
@@ -74,6 +75,8 @@ const scanRunSchema = z.object({
      * 运行 ID 以短 ID 形式渲染在运行抽屉与运行详情弹窗上 → 视觉基线需要确定性取值。
      */
     id: z.string().min(1).max(36).optional(),
+    /** 所属批量运行 id（视觉基线 / 续跑入口用） */
+    batchRunId: z.string().min(1).max(36).nullable().optional(),
     /**
      * 时间戳覆盖。缺省填注入时刻 `now()`；`createdAt` 参与「最近运行」统计与运行列表排序，
      * `startedAt` / `finishedAt` 渲染在运行列表 / 运行详情弹窗 / 运行抽屉上 → 视觉基线需要确定性取值。
@@ -271,8 +274,25 @@ const prCheckSchema = z.object({
     failureSources: z.array(prCheckFailureSourceSchema).optional(),
 })
 
+const batchRunSchema = z.object({
+    id: z.string().min(1).max(36).optional(),
+    createdAt: z.string().optional(),
+    source: z.enum(['scheduled', 'manual']).default('manual'),
+    mode: z.enum(['report-only', 'fix', 'fix-and-pr']).default('fix'),
+    severityThreshold: z.enum(['low', 'medium', 'high', 'critical']).default('high'),
+    status: z.enum(['running', 'completed', 'failed']).default('failed'),
+    repositoryCount: z.number().int().min(0).default(0),
+    finishedCount: z.number().int().min(0).default(0),
+    completedCount: z.number().int().min(0).default(0),
+    failedCount: z.number().int().min(0).default(0),
+    pendingCount: z.number().int().min(0).default(0),
+    /** 续跑来源批次 id（续跑链视觉基线用） */
+    resumedFromBatchRunId: z.string().max(36).nullable().optional(),
+})
+
 const fixturesBodySchema = z.object({
     repos: z.array(repoSchema).optional(),
+    batchRuns: z.array(batchRunSchema).optional(),
     scanRuns: z.array(scanRunSchema).optional(),
     scanResults: z.array(scanResultSchema).optional(),
     prChecks: z.array(prCheckSchema).optional(),
@@ -340,6 +360,35 @@ export default defineEventHandler(async (event) => {
         }
     }
 
+    // batchRuns：先创建（scanRuns 可引用 batchRunId）；id / createdAt 传了才覆盖
+    const batchResults: { id: string, created: boolean }[] = []
+    if (parsed.data.batchRuns) {
+        const batchRepo = ds.getRepository(BatchRun)
+        const organizationId = await resolveOrganizationId(ds)
+        for (const br of parsed.data.batchRuns) {
+            const saved = await batchRepo.save(batchRepo.create({
+                ...(br.id ? { id: br.id } : {}),
+                ...(br.createdAt ? { createdAt: new Date(br.createdAt) } : {}),
+                organizationId,
+                source: br.source,
+                scheduleId: null,
+                triggeredByUserId: null,
+                mode: br.mode,
+                severityThreshold: br.severityThreshold,
+                repositoryCount: br.repositoryCount,
+                finishedCount: br.finishedCount,
+                completedCount: br.completedCount,
+                failedCount: br.failedCount,
+                pendingCount: br.pendingCount,
+                summaryJson: null,
+                status: br.status,
+                finishedAt: br.status === 'running' ? null : new Date(br.createdAt ?? Date.now()),
+                resumedFromBatchRunId: br.resumedFromBatchRunId ?? null,
+            } as BatchRun))
+            batchResults.push({ id: saved.id, created: true })
+        }
+    }
+
     // scanRuns：通过 owner/name 反查已创建的 repo id（保证引用一致性）
     const runResults: { index: number, id: string, repositoryId: string, created: boolean }[] = []
     if (parsed.data.scanRuns) {
@@ -383,6 +432,7 @@ export default defineEventHandler(async (event) => {
                 failureKind: sr.failureKind ?? null,
                 logsJson: sr.logs ? JSON.stringify(sr.logs) : null,
                 logsDropped: sr.logsDropped ?? null,
+                batchRunId: sr.batchRunId ?? null,
             }))
             runResults.push({
                 index: i,

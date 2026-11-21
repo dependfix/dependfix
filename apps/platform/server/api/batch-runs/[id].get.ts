@@ -7,6 +7,7 @@ import { requireAuth, requireOrgResource } from '#server/utils/guard'
 import { createLocalizedError } from '#server/utils/localized-error'
 import { aggregateScanRuns, isUndecidedZeroChildRunning } from '#server/services/batch/batch-aggregate'
 import { persistBatchAggregation } from '#server/services/batch/batch-writeback'
+import { selectResumableRuns } from '#server/services/batch/batch-resume'
 import { notifyBatchTerminal } from '#server/services/notification/batch-notification.service'
 
 /**
@@ -82,6 +83,8 @@ export default defineEventHandler(async (event) => {
         status: effectiveStatus,
         finishedAt: batchRun.finishedAt,
         createdAt: batchRun.createdAt,
+        resumedFromBatchRunId: batchRun.resumedFromBatchRunId,
+        resumableCount: selectResumableRuns(runs).repositoryIds.length,
         runs: runs.map((r) => ({
             id: r.id,
             repositoryId: r.repositoryId,

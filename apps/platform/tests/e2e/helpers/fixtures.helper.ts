@@ -29,6 +29,8 @@ export interface ScanRunFixture {
      * 视觉回归基线需要确定性的短 ID 文本（运行抽屉 / 运行详情弹窗会渲染它）。
      */
     id?: string
+    /** 所属批量运行 id（批量运行页 / 续跑入口基线用；缺省 null） */
+    batchRunId?: string | null
     /**
      * 时间戳覆盖。缺省由 fixtures 端点填注入时刻 `now()`：`createdAt` 参与运行列表排序与
      * 「最近运行」统计，`startedAt` / `finishedAt` 渲染在运行列表 / 详情弹窗 / 运行抽屉上。
@@ -179,8 +181,25 @@ export interface PRCheckFixture {
  * 名称沿革：原为 `AlertsRowgroupFixtures`（只有 alerts-rowgroup 数据集用到），
  * 接入 `prChecks` 字段后成为通用载荷类型，故更名；数据集常量名保持不变。
  */
+export interface BatchRunFixture {
+    id?: string
+    createdAt?: string
+    source?: 'scheduled' | 'manual'
+    mode?: 'report-only' | 'fix' | 'fix-and-pr'
+    severityThreshold?: 'low' | 'medium' | 'high' | 'critical'
+    status?: 'running' | 'completed' | 'failed'
+    repositoryCount?: number
+    finishedCount?: number
+    completedCount?: number
+    failedCount?: number
+    pendingCount?: number
+    resumedFromBatchRunId?: string | null
+}
+
 export interface FixturesPayload {
     repos: { owner: string, name: string, tags?: string[] }[]
+    /** 批量运行行（视觉 / 续跑入口基线；e2e 数据集可不提供） */
+    batchRuns?: BatchRunFixture[]
     scanRuns: ScanRunFixture[]
     scanResults: ScanResultFixture[]
     /** PR Check 数据（视觉套件 pr-checks 页行级基线用；e2e 数据集可不提供） */

@@ -11,11 +11,12 @@ import { createLocalizedError } from '#server/utils/localized-error'
 import { resolveOrganizationId } from '#server/utils/organization'
 import { ensureDatabaseInitialized } from '#server/database'
 
-const REJECTION: Record<BatchResumeError['reason'], { statusCode: number, code: 'BATCH_RUN_NOT_FOUND' | 'BATCH_RUN_RESUME_IN_PROGRESS' | 'BATCH_RUN_RESUME_ALREADY_RESUMING' | 'BATCH_RUN_RESUME_NOTHING_TO_RESUME' }> = {
+const REJECTION: Record<BatchResumeError['reason'], { statusCode: number, code: 'BATCH_RUN_NOT_FOUND' | 'BATCH_RUN_RESUME_IN_PROGRESS' | 'BATCH_RUN_RESUME_ALREADY_RESUMING' | 'BATCH_RUN_RESUME_NOTHING_TO_RESUME' | 'BATCH_RUN_RESUME_INVALID_PARAMS' }> = {
     'not-found': { statusCode: 404, code: 'BATCH_RUN_NOT_FOUND' },
     'in-progress': { statusCode: 409, code: 'BATCH_RUN_RESUME_IN_PROGRESS' },
     'already-resuming': { statusCode: 409, code: 'BATCH_RUN_RESUME_ALREADY_RESUMING' },
     'nothing-to-resume': { statusCode: 409, code: 'BATCH_RUN_RESUME_NOTHING_TO_RESUME' },
+    'invalid-params': { statusCode: 409, code: 'BATCH_RUN_RESUME_INVALID_PARAMS' },
 }
 
 export default defineEventHandler(async (event) => {

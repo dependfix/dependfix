@@ -1,11 +1,15 @@
+import { In } from 'typeorm'
 import { BatchRun } from '#server/entities/batch-run'
+import { ScanRun } from '#server/entities/scan-run'
 import { ensureDatabaseInitialized } from '#server/database'
 import { requireAuth } from '#server/utils/guard'
 import { resolveOrganizationId } from '#server/utils/organization'
 
 /** BatchRun 视图（列表/详情共用；日期经 Nuxt 序列化为 ISO 字符串）。
  * 列表附带 updatedAt 便于前端做增量 reconcile（避免整表替换导致迁移前的 DataTable 屏闪）。 */
-const toView = (b: BatchRun) => ({
+const toView = (b: BatchRun, resumableCount = 0) => ({
+    resumedFromBatchRunId: b.resumedFromBatchRunId,
+    resumableCount,
     id: b.id,
     source: b.source,
     scheduleId: b.scheduleId,
@@ -40,5 +44,18 @@ export default defineEventHandler(async (event) => {
         order: { createdAt: 'DESC', id: 'DESC' },
         take: 50,
     })
-    return rows.map(toView)
+    // 可续跑子项数（failed + transient，按仓库去重）：UI 据此禁用入口并给原因
+    const ids = rows.map((row) => row.id)
+    const counts = ids.length > 0
+        ? await ds.getRepository(ScanRun).createQueryBuilder('run')
+            .select('run.batchRunId', 'batchRunId')
+            .addSelect('COUNT(DISTINCT run.repositoryId)', 'count')
+            .where('run.batchRunId IN (:...ids)', { ids })
+            .andWhere('run.status = :failed', { failed: 'failed' })
+            .andWhere('run.failureKind = :transient', { transient: 'transient' })
+            .groupBy('run.batchRunId')
+            .getRawMany<{ batchRunId: string, count: string }>()
+        : []
+    const countByBatch = new Map(counts.map((row) => [row.batchRunId, Number(row.count)]))
+    return rows.map((row) => toView(row, countByBatch.get(row.id) ?? 0))
 })

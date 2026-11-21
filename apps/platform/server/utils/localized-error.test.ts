@@ -173,6 +173,7 @@ describe('createLocalizedError', () => {
         BATCH_RUN_RESUME_IN_PROGRESS: true,
         BATCH_RUN_RESUME_ALREADY_RESUMING: true,
         BATCH_RUN_RESUME_NOTHING_TO_RESUME: true,
+        BATCH_RUN_RESUME_INVALID_PARAMS: true,
         REPOS_BATCH_VALIDATION_FAILED: true,
         REPOS_BATCH_SCAN_VALIDATION_FAILED: true,
         REPOS_BATCH_SCAN_NO_REPO: true,

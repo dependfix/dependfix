@@ -8,15 +8,17 @@
 // - 原批次仍有 pending / running 子项 → 拒绝（批次仍在进行中，避免重复执行）
 // - 已有派生续跑批次仍在 running → 拒绝（批次级互斥，防连点）
 // - 候选 = 原批次下 `status='failed'` 且 `failureKind='transient'` 的子项（确定性失败不重试）
+import { In } from 'typeorm'
 import { executeBatchRun } from './batch-executor'
 import { ensureDatabaseInitialized } from '#server/database'
 import { BatchRun } from '#server/entities/batch-run'
 import { ScanRun } from '#server/entities/scan-run'
 import { AuditEvent } from '#server/entities/audit-event'
+import { Repository } from '#server/entities/repository'
 import { logger as platformLogger } from '#server/utils/logger'
 
 /** 续跑被拒绝的原因（HTTP 层映射 409）。 */
-export type BatchResumeRejection = 'not-found' | 'in-progress' | 'already-resuming' | 'nothing-to-resume'
+export type BatchResumeRejection = 'not-found' | 'in-progress' | 'already-resuming' | 'nothing-to-resume' | 'invalid-params'
 
 export class BatchResumeError extends Error {
     constructor(readonly reason: BatchResumeRejection, message: string) {
@@ -33,8 +35,9 @@ export interface BatchResumeResult {
 }
 
 /**
- * 计算可续跑子项：失败的 transient 子项，按仓库去重（同仓多次失败只续跑一次）。
- * 确定性失败（failureKind=deterministic）不参与，避免「重试必然再失败」的循环。
+ * 计算可续跑子项：failed + transient（确定性失败不参与，避免「重试必然再失败」的循环）
+ * 与 dispatched（Action 已派发未回执）子项，按仓库去重（同仓多次失败只续跑一次）。
+ * 迁移前存量 `failureKind=null` 不参与（先跑 backfill），已在设计 §5.4 声明。
  */
 export function selectResumableRuns(
     runs: Pick<ScanRun, 'repositoryId' | 'status' | 'failureKind'>[],
@@ -42,11 +45,10 @@ export function selectResumableRuns(
     const repositoryIds = new Set<string>()
     let skippedCount = 0
     for (const run of runs) {
-        if (run.status !== 'failed') {
-            skippedCount++
-            continue
-        }
-        if (run.failureKind !== 'transient') {
+        // `dispatched`（Action 已派发未回执）同属未完成；failed 只接受 transient
+        const resumable = run.status === 'dispatched'
+            || (run.status === 'failed' && run.failureKind === 'transient')
+        if (!resumable) {
             skippedCount++
             continue
         }
@@ -84,16 +86,35 @@ export async function resumeBatchRun(params: {
         throw new BatchResumeError('already-resuming', `该批次已有进行中的续跑批次 ${resuming.id}`)
     }
 
-    const { repositoryIds, skippedCount } = selectResumableRuns(runs)
-    if (repositoryIds.length === 0) {
+    const MODES = ['report-only', 'fix', 'fix-and-pr'] as const
+    const SEVERITIES = ['critical', 'high', 'medium', 'all'] as const
+    if (!MODES.includes(batch.mode as typeof MODES[number]) || !SEVERITIES.includes(batch.severityThreshold as typeof SEVERITIES[number])) {
+        throw new BatchResumeError('invalid-params', '来源批次参数非法，无法续跑')
+    }
+
+    const selected = selectResumableRuns(runs)
+    if (selected.repositoryIds.length === 0) {
         throw new BatchResumeError('nothing-to-resume', '没有可继续执行的子项（仅 transient 失败可续跑）')
     }
 
+    // 组织归属复核（多组织扩展点）：跨组织 / 已删除仓库计入 skipped
+    const repos = await ds.getRepository(Repository).find({
+        where: { organizationId: params.organizationId ?? '', id: In(selected.repositoryIds) },
+    })
+    const allowed = new Set(repos.map((repo) => repo.id))
+    const repositoryIds = selected.repositoryIds.filter((id) => allowed.has(id))
+    const skippedCount = selected.skippedCount + (selected.repositoryIds.length - repositoryIds.length)
+    if (repositoryIds.length === 0) {
+        throw new BatchResumeError('nothing-to-resume', '没有可继续执行的子项（仓库不可用）')
+    }
+
     const result = await executeBatchRun({
-        source: 'manual',
+        // 保留原批次来源语义：定时批次续跑仍是 scheduled（scheduleId 继承），优先级不降级
+        source: batch.source,
+        scheduleId: batch.scheduleId,
         repositoryIds,
         request: {
-            mode: batch.mode as 'report-only' | 'fix' | 'fix-and-pr',
+            mode: batch.mode as typeof MODES[number],
             severityThreshold: batch.severityThreshold,
         },
         organizationId: params.organizationId ?? '',

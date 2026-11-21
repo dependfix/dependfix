@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
     alertsFound,
     buildExportScopeItems,
+    envFilteredKeys,
     EXPORT_RUNS_LIMIT,
     failureKindLabel,
     failureStageLabel,
@@ -47,6 +48,17 @@ describe('utils/run-view', () => {
             expect(alertsFound({ alertsFound: '5' })).toBe(0)
             expect(alertsFound({ alertsFound: Number.NaN })).toBe(0)
             expect(alertsFound({ alertsFound: Number.POSITIVE_INFINITY })).toBe(0)
+        })
+    })
+
+    describe('envFilteredKeys', () => {
+        it('读取环境硬化过滤计数', () => {
+            expect(envFilteredKeys({ envFilteredKeys: 3 })).toBe(3)
+        })
+
+        it('旧 summary 缺字段 / 非数字按 0', () => {
+            expect(envFilteredKeys(null)).toBe(0)
+            expect(envFilteredKeys({ envFilteredKeys: 'x' })).toBe(0)
         })
     })
 

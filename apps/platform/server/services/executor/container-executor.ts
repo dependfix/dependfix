@@ -13,6 +13,7 @@ import {
     GIT_PUSH_SIGNING_ISOLATION_ARGS,
     getAbortReason,
     getAbortSnapshot,
+    sanitizeCommandEnv,
 } from '@dependfix/engine'
 import type { AuthProvider } from '@dependfix/engine/auth'
 import type { ScanExecutor, ScanExecutorContext, ScanExecutorResult } from './types'
@@ -38,6 +39,15 @@ import { detectSigkill, startResourceMonitor } from '#server/utils/resource-usag
 import { sanitizeString } from '#server/utils/sanitize'
 
 const execFileAsync = promisify(execFile)
+
+/**
+ * 平台自身派生 git 命令的环境：复用引擎的平台密钥过滤（单一事实源），
+ * 避免 clone / push / rev-parse 继承平台进程的 `NUXT_*` / `AUTH_*` / `DATABASE_*` 等变量。
+ * 工具链变量（PATH / HOME / 代理）由引擎的保留清单保证不丢失。
+ */
+function sanitizedSpawnEnv(): NodeJS.ProcessEnv {
+    return sanitizeCommandEnv().env
+}
 
 /** clone 超时默认值（可通过 CLONE_TIMEOUT_MS 环境变量覆盖） */
 const DEFAULT_CLONE_TIMEOUT_MS = 300_000 // 300秒（弱网环境 GitHub CDN 慢，120s 不足）
@@ -113,6 +123,7 @@ export async function extractBranchName(workDir: string): Promise<string> {
     const { stdout } = await execFileAsync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], {
         cwd: workDir,
         timeout: 5_000,
+        env: sanitizedSpawnEnv(),
     })
     const branch = stdout.trim()
     if (!branch || branch === 'HEAD') {
@@ -173,7 +184,7 @@ export async function pushFixBranch(
         ...GIT_PUSH_HOOKS_ISOLATION_ARGS,
         'origin', branchName,
     ]
-    const { stderr } = await execFileAsync('git', args, { cwd: workDir, timeout: 60_000 })
+    const { stderr } = await execFileAsync('git', args, { cwd: workDir, timeout: 60_000, env: sanitizedSpawnEnv() })
     if (stderr && !/^To /m.test(stderr)) {
         throw new Error(`git push 失败：${stderr.trim()}`)
     }
@@ -196,7 +207,7 @@ export async function cleanupRemoteBranch(branchName: string, workDir: string, t
         'origin', '--delete', branchName,
     ]
     try {
-        await execFileAsync('git', args, { cwd: workDir, timeout: 30_000 })
+        await execFileAsync('git', args, { cwd: workDir, timeout: 30_000, env: sanitizedSpawnEnv() })
         return true
     } catch {
         // 失败静默：分支不存在 / 权限不足 / 网络错误——不阻塞主流程
@@ -665,6 +676,7 @@ export class ContainerExecutor implements ScanExecutor {
                 const { stderr } = await execFileAsync('git', args, {
                     cwd: workDir,
                     timeout: this.cloneTimeoutMs,
+                    env: sanitizedSpawnEnv(),
                 })
                 if (stderr && !stderr.trim().startsWith('Cloning into')) {
                     throw new Error(`git clone 失败：${extractGitErrorMessage(stderr)}`)
@@ -762,6 +774,7 @@ async function readHeadSha(workDir: string): Promise<string | null> {
         const { stdout } = await execFileAsync('git', ['rev-parse', 'HEAD'], {
             cwd: workDir,
             timeout: 5_000,
+            env: sanitizedSpawnEnv(),
         })
         return stdout.trim() || null
     } catch {

@@ -1044,3 +1044,36 @@ describe('extractGitErrorMessage (utility)', () => {
         expect(extractGitErrorMessage('')).toBe('')
     })
 })
+
+describe('平台派生 git 命令的环境硬化', () => {
+    it('clone / rev-parse 等命令不继承平台密钥变量，工具链变量保留', async () => {
+        const saved = {
+            NUXT_ENCRYPTION_KEY: process.env.NUXT_ENCRYPTION_KEY,
+            AUTH_SECRET: process.env.AUTH_SECRET,
+            DATABASE_URL: process.env.DATABASE_URL,
+        }
+        process.env.NUXT_ENCRYPTION_KEY = 'nux-secret'
+        process.env.AUTH_SECRET = 'auth-secret'
+        process.env.DATABASE_URL = 'sqlite:./db.sqlite'
+        try {
+            childProcessMock.execFile.mockReset()
+            childProcessMock.execFile.mockResolvedValueOnce({ stdout: 'main\n', stderr: '' })
+            await extractBranchName('/tmp/workdir')
+
+            const options = childProcessMock.execFile.mock.calls[0]?.[2] as { env?: NodeJS.ProcessEnv } | undefined
+            expect(options?.env).toBeTypeOf('object')
+            expect(options?.env).not.toHaveProperty('NUXT_ENCRYPTION_KEY')
+            expect(options?.env).not.toHaveProperty('AUTH_SECRET')
+            expect(options?.env).not.toHaveProperty('DATABASE_URL')
+            expect(options?.env?.PATH).toBeTruthy()
+        } finally {
+            for (const [key, value] of Object.entries(saved)) {
+                if (value === undefined) {
+                    delete process.env[key]
+                } else {
+                    process.env[key] = value
+                }
+            }
+        }
+    })
+})

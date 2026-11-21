@@ -169,6 +169,9 @@ export const networkViolations = (summary: Record<string, unknown> | null) => su
 /** 本次运行记录的外联审计条数（`summary.networkAudited`，含白名单命中）。 */
 export const networkAudited = (summary: Record<string, unknown> | null) => summaryNumber(summary, 'networkAudited')
 
+/** 本次运行从执行子进程环境中过滤掉的平台密钥类变量个数（`summary.envFilteredKeys`）。 */
+export const envFilteredKeys = (summary: Record<string, unknown> | null) => summaryNumber(summary, 'envFilteredKeys')
+
 /** 落库的最小化外联目标（最多 20 条；旧 summaryJson 缺该字段时为空）。 */
 export const networkViolationTargets = (summary: Record<string, unknown> | null) => {
     const value = summary?.networkViolationTargets

@@ -14,6 +14,7 @@ import {
     generatePRBody,
     GIT_PUSH_HOOKS_ISOLATION_ARGS,
     GIT_PUSH_SIGNING_ISOLATION_ARGS,
+    sanitizeCommandEnv,
     type DependfixOpenPR,
 } from '@dependfix/engine'
 import { fromPat } from '@dependfix/engine/auth'
@@ -142,7 +143,7 @@ async function resolveRemoteBranchTip(
         const { stdout } = await execFileAsync(
             'git',
             ['-c', authHeader, 'ls-remote', 'origin', `refs/heads/${branchName}`],
-            { cwd: workDir, timeout: 60_000 },
+            { cwd: workDir, timeout: 60_000, env: sanitizeCommandEnv(process.env).env },
         )
         return stdout.trim().split(/\s+/u)[0] || undefined
     } catch {
@@ -196,7 +197,11 @@ export async function pushFixBranchWithCredential(
         'origin', branchName,
     ]
     try {
-        const { stderr } = await execFileAsync('git', args, { cwd: workDir, timeout: 60_000 })
+        const { stderr } = await execFileAsync('git', args, {
+            cwd: workDir,
+            timeout: 60_000,
+            env: sanitizeCommandEnv(process.env).env,
+        })
         if (stderr && !/^To /m.test(stderr)) {
             throw new Error(stderr.trim())
         }

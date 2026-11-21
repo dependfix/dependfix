@@ -21,6 +21,7 @@ import {
     verificationSkipSummary,
     networkViolations,
     networkViolationSummary,
+    envFilteredKeys,
     runDelivery,
     verificationsSkipped,
     baselineSkippedCommands,
@@ -387,6 +388,12 @@ watch(() => props.runId, (runId) => {
                     <span class="run-detail__meta-label">{{ t('runs.networkViolationsLabel') }}</span>
                     <strong :title="networkViolationText || t('runs.networkViolationsHint')">
                         {{ t('runs.networkViolations', {count: networkViolations(detail.summary)}) }}
+                    </strong>
+                </div>
+                <div v-if="!isRunResultMissing(detail) && envFilteredKeys(detail.summary) > 0" class="run-detail__meta-item">
+                    <span class="run-detail__meta-label">{{ t('runs.envFilteredKeysLabel') }}</span>
+                    <strong :title="t('runs.envFilteredKeysHint')">
+                        {{ t('runs.envFilteredKeys', {count: envFilteredKeys(detail.summary)}) }}
                     </strong>
                 </div>
                 <div v-if="deliveryInfo?.status === 'pushed' && deliveryInfo.branch && (detail.status === 'completed' || detail.status === 'degraded')" class="run-detail__meta-item">

@@ -2,6 +2,7 @@ import { execSync } from 'node:child_process'
 import { copyFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { NormalizedSecurityAlert } from '@dependfix/core'
+import { sanitizeCommandEnv } from '../../runners/env-hardening'
 import {
     cleanupBackups,
     execPnpmInstall,
@@ -686,6 +687,7 @@ export function detectPnpmMajor(workDir: string): number | null {
             encoding: 'utf-8',
             stdio: ['ignore', 'pipe', 'ignore'],
             timeout: 10_000,
+            env: sanitizeCommandEnv(process.env).env,
         })
         const match = /(\d+)\./.exec(raw.trim())
         if (!match) {

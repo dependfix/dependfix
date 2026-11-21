@@ -1,5 +1,6 @@
 import { execSync } from 'node:child_process'
 import { AppError, type BaselineRedDelivery, type SeverityThreshold, type AlertSourceKind } from '@dependfix/core'
+import { sanitizeCommandEnv } from '../runners/env-hardening'
 import { resolveRepoList } from '../github/repo-selector'
 import { normalizeDurationMs, readBaselineRedDelivery, validateRuntimeConfig } from './validation'
 import { normalizeOverrideProtect } from './override-protect'
@@ -857,6 +858,7 @@ export function inferRepoFromGitRemote(workDir: string): string | null {
             cwd: workDir,
             encoding: 'utf-8',
             stdio: 'pipe',
+            env: sanitizeCommandEnv(process.env).env,
         }).trim()
 
         const match = GITHUB_REMOTE_RE.exec(url)

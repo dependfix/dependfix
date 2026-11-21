@@ -52,7 +52,7 @@ export interface RunGitOptions {
     cwd: string
     /** 超时（毫秒；默认 {@link GIT_COMMAND_TIMEOUT_MS}） */
     timeoutMs?: number
-    /** 显式 env（缺省继承父进程） */
+    /** 显式 env（缺省继承父进程，但经平台密钥过滤，见 process-control） */
     env?: NodeJS.ProcessEnv
     /** 可执行文件（缺省 `git`；仅测试注入替身时使用） */
     binary?: string

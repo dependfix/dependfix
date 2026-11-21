@@ -32,6 +32,7 @@ import {
 import { applyCodeScanningFix, restoreSourceFile, snapshotSourceFile } from '../fixers/code-scanning'
 import { isVersionAffected } from '../fixers/dependency/vulnerable-range'
 import { inferRepoFromGitRemote, type RuntimeConfig } from '../config'
+import { sanitizeCommandEnv } from '../runners/env-hardening'
 
 import { quickVerifyProject } from '../helpers'
 import { collectFailingInstallCommands, findInstallBlockedReposWithFixes, hasDeliverableFixes, recordDeliverySkip } from './delivery'
@@ -197,6 +198,13 @@ export interface AppContext {
     deadlineAt?: number
     /** 已记录的预算跳过（`stage:work`；避免同一跳过来回刷审计）。缺省 ⇒ 不去重。 */
     budgetSkips?: Set<string>
+    /**
+     * 运行起点的环境硬化计数基线（`DependfixApp` 构造期取快照）。
+     *
+     * 运行级披露取「当前快照 − 基线」的增量，避免同进程内前一次运行的计数串入本次；
+     * 缺省（测试直接构造 ctx）⇒ 不披露（不读进程级全局状态，保持 hermetic）。
+     */
+    envHardeningBaseline?: { filteredKeys: number, filteredCommands: number }
 }
 
 // ---------------------------------------------------------------------------
@@ -627,7 +635,7 @@ export async function commitLocalChanges(
  */
 export function isGitRepository(workDir: string): boolean {
     try {
-        execFileSync('git', ['rev-parse', '--git-dir'], { cwd: workDir, stdio: 'pipe' })
+        execFileSync('git', ['rev-parse', '--git-dir'], { cwd: workDir, stdio: 'pipe', env: sanitizeCommandEnv(process.env).env })
         return true
     } catch {
         return false
@@ -647,8 +655,8 @@ export function hasGitChanges(workDir: string): boolean {
         return false
     }
     try {
-        execSync('git diff --quiet', { cwd: workDir, stdio: 'pipe' })
-        execSync('git diff --cached --quiet', { cwd: workDir, stdio: 'pipe' })
+        execSync('git diff --quiet', { cwd: workDir, stdio: 'pipe', env: sanitizeCommandEnv(process.env).env })
+        execSync('git diff --cached --quiet', { cwd: workDir, stdio: 'pipe', env: sanitizeCommandEnv(process.env).env })
         return false // 两者都无变更
     } catch {
         return true // 任一有变更

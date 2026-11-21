@@ -15,6 +15,7 @@ import { execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, isAbsolute, join, resolve } from 'node:path'
 import type { Logger } from '@dependfix/core'
+import { sanitizeCommandEnv } from '../runners/env-hardening'
 import type { RuntimeMode } from '../config'
 import { normalizeGitignoreEntry } from './helpers'
 
@@ -44,6 +45,7 @@ export function resolveGitDir(workDir: string): string | undefined {
         const out = execFileSync('git', ['rev-parse', '--git-common-dir'], {
             cwd: workDir,
             stdio: 'pipe',
+            env: sanitizeCommandEnv(process.env).env,
         }).toString().trim()
         if (!out) {
             return undefined

@@ -414,19 +414,37 @@ export function validateArchiveIndex(todoArchiveMarkdown, archiveFiles, readFile
  */
 export function validatePhaseProgressTable(markdown) {
     const errors = []
-    const headingIds = [...markdown.matchAll(/^### (M\d+\.\d+)/gm)].map((match) => match[1])
-    if (headingIds.length === 0) {
+    // 只认 `### M<x>.<y>`（可带 a/b 字母后缀）；小条目（`#### M<x>.<y>.<z>`）不参与进度表
+    const headings = [...markdown.matchAll(/^### (M\d+\.\d+[a-z]?)\b/gm)].map((match) => match[1])
+    if (headings.length === 0) {
+        if (/^### m\d+\.\d+/m.test(markdown)) {
+            errors.push('条目编号必须大写（`### M<x>.<y>`）')
+            return { errors, rowCount: 0, noop: false }
+        }
         return { errors, rowCount: 0, noop: true }
     }
     const lines = markdown.split(/\r?\n/)
-    const headerIndex = lines.findIndex((line) => line.trim().startsWith('|')
-        && ['大条目', '小条目', '状态', '提交', '审计', '容量'].every((name) => line.includes(name)))
+    // 只在「当前阶段」章节内找 `### 进度总览` 下的 6 列表（位置不变量）
+    const phaseStart = lines.findIndex((line) => /^## 当前阶段/.test(line.trim()))
+    const phaseEnd = phaseStart >= 0
+        ? lines.findIndex((line, index) => index > phaseStart && /^## /.test(line.trim()))
+        : -1
+    const scopeEnd = phaseEnd === -1 ? lines.length : phaseEnd
+    const tableStart = lines.findIndex((line, index) => index > phaseStart
+        && index < scopeEnd
+        && /^### 进度总览\s*$/.test(line.trim()))
+    const headerIndex = tableStart >= 0
+        ? lines.findIndex((line, index) => index > tableStart
+            && index < scopeEnd
+            && line.trim().startsWith('|')
+            && ['大条目', '小条目', '状态', '提交', '审计', '容量'].every((name) => line.includes(name)))
+        : -1
     if (headerIndex === -1) {
         errors.push('当前阶段缺少 6 列进度表（大条目 / 小条目 / 状态 / 提交 / 审计 / 容量）')
         return { errors, rowCount: 0, noop: false }
     }
     const rowIds = []
-    for (let i = headerIndex + 1; i < lines.length; i += 1) {
+    for (let i = headerIndex + 1; i < scopeEnd; i += 1) {
         const line = lines[i]
         if (!line.trim().startsWith('|')) {
             break
@@ -435,25 +453,32 @@ export function validatePhaseProgressTable(markdown) {
         if (cells.length < 6 || /^:?-+:?$/.test(cells[0])) {
             continue
         }
-        const id = cells[0].match(/M\d+\.\d+/)?.[0]
-        if (id) {
-            rowIds.push(id)
+        const id = cells[0].match(/^(M\d+\.\d+[a-z]?)\b/)?.[1]
+        if (!id) {
+            errors.push(`进度表行缺少合法条目编号：${line.slice(0, 80)}`)
+            continue
         }
+        rowIds.push(id)
     }
-    for (const id of headingIds) {
-        if (!rowIds.includes(id)) {
+    const rowSet = new Set(rowIds)
+    if (rowSet.size !== rowIds.length) {
+        errors.push(`进度表存在重复条目行：${rowIds.filter((id, index) => rowIds.indexOf(id) !== index).join('、')}`)
+    }
+    const headingSet = new Set(headings)
+    for (const id of headingSet) {
+        if (!rowSet.has(id)) {
             errors.push(`进度表缺少条目行：${id}`)
         }
     }
-    for (const id of rowIds) {
-        if (!headingIds.includes(id)) {
+    for (const id of rowSet) {
+        if (!headingSet.has(id)) {
             errors.push(`进度表存在无正文的条目行：${id}`)
         }
     }
-    if (rowIds.length !== headingIds.length) {
-        errors.push(`进度表行数（${rowIds.length}）≠ 正文条目数（${headingIds.length}）`)
+    if (rowSet.size !== headingSet.size) {
+        errors.push(`进度表行数（${rowSet.size}）≠ 正文条目数（${headingSet.size}）`)
     }
-    return { errors, rowCount: rowIds.length, noop: false }
+    return { errors, rowCount: rowSet.size, noop: false }
 }
 
 /** 校验 archive/index.md 不承载阶段正文，并指向批次日志。 */
@@ -566,7 +591,10 @@ export function checkDocGovernance(root = REPO_ROOT) {
         archiveFiles,
         (relativePath) => readFileSync(join(root, relativePath), 'utf8'),
     )
+    const legacyMissing = [...ARCHIVE_FILENAME_LEGACY].filter((name) => !archiveFiles.includes(name))
     const governanceErrors = [
+        ...(ARCHIVE_FILENAME_LEGACY.size === 3 ? [] : ['归档命名遗留白名单必须恰好 3 项（新增分片不得豁免）']),
+        ...legacyMissing.map((name) => `归档命名遗留白名单成员不存在：${name}`),
         ...validatePhaseProgressTable(readFileSync(join(root, TODO), 'utf8')).errors,
         ...validateArchiveGovernance(readFileSync(join(root, ARCHIVE_INDEX), 'utf8')),
         ...(statSync(join(root, ARCHIVE_LOG)).isFile() ? [] : ['archive-log.md 不是文件']),

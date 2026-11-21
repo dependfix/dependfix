@@ -19,6 +19,7 @@ import {
     validateArchiveGovernance,
     validateArchiveIndex,
     validatePhaseProgressTable,
+    ARCHIVE_FILENAME_LEGACY,
 } from './check-doc-governance.mjs'
 
 const BUDGET_FIXTURE = `# 文档治理
@@ -417,6 +418,8 @@ describe('validatePhaseProgressTable', () => {
     it('行集合与正文条目一致时通过', () => {
         const markdown = `## 当前阶段
 
+### 进度总览
+
 | 大条目 | 小条目 | 状态 | 提交 | 审计 | 容量 |
 |:--|:--|:--|:--|:--|:--|
 | M64.1 甲 | — | ✅ | — | — | 1 commit |
@@ -432,7 +435,11 @@ describe('validatePhaseProgressTable', () => {
 
     it('缺表 / 行数不一致 / 孤儿行时报错', () => {
         expect(validatePhaseProgressTable('### M64.1 甲\n').errors).toContain('当前阶段缺少 6 列进度表（大条目 / 小条目 / 状态 / 提交 / 审计 / 容量）')
-        const markdown = `| 大条目 | 小条目 | 状态 | 提交 | 审计 | 容量 |
+        const markdown = `## 当前阶段
+
+### 进度总览
+
+| 大条目 | 小条目 | 状态 | 提交 | 审计 | 容量 |
 |:--|:--|:--|:--|:--|:--|
 | M64.1 甲 | — | ✅ | — | — | 1 commit |
 | M64.9 幽灵 | — | ✅ | — | — | 1 commit |
@@ -451,6 +458,66 @@ describe('validatePhaseProgressTable', () => {
         const result = validatePhaseProgressTable('## 当前阶段\n\n无活跃阶段\n')
         expect(result.errors).toEqual([])
         expect(result.noop).toBe(true)
+    })
+
+    it('小写编号 / 重复行 / 无编号行 / 表格不在当前阶段均报错', () => {
+        expect(validatePhaseProgressTable('### m64.1 甲\n').errors).toContain('条目编号必须大写（`### M<x>.<y>`）')
+        const duplicate = `## 当前阶段
+
+### 进度总览
+
+| 大条目 | 小条目 | 状态 | 提交 | 审计 | 容量 |
+|:--|:--|:--|:--|:--|:--|
+| M64.1 甲 | — | ✅ | — | — | 1 |
+| M64.1 甲 | — | ✅ | — | — | 1 |
+
+### M64.1 甲
+`
+        expect(validatePhaseProgressTable(duplicate).errors).toEqual(expect.arrayContaining([
+            expect.stringContaining('进度表存在重复条目行'),
+        ]))
+        const noId = `## 当前阶段
+
+### 进度总览
+
+| 大条目 | 小条目 | 状态 | 提交 | 审计 | 容量 |
+|:--|:--|:--|:--|:--|:--|
+| 合计 | — | ✅ | — | — | 1 |
+
+### M64.1 甲
+`
+        expect(validatePhaseProgressTable(noId).errors.some((error) => error.includes('缺少合法条目编号'))).toBe(true)
+        const wrongSection = `## 已完成
+
+### 进度总览
+
+| 大条目 | 小条目 | 状态 | 提交 | 审计 | 容量 |
+|:--|:--|:--|:--|:--|:--|
+| M64.1 甲 | — | ✅ | — | — | 1 |
+
+## 当前阶段
+### M64.1 甲
+`
+        expect(validatePhaseProgressTable(wrongSection).errors).toContain('当前阶段缺少 6 列进度表（大条目 / 小条目 / 状态 / 提交 / 审计 / 容量）')
+    })
+
+    it('字母后缀子阶段与小条目（####）不破坏行集合', () => {
+        const markdown = `## 当前阶段
+
+### 进度总览
+
+| 大条目 | 小条目 | 状态 | 提交 | 审计 | 容量 |
+|:--|:--|:--|:--|:--|:--|
+| M25.2a 甲 | — | ✅ | — | — | 1 |
+
+### M25.2a 甲
+#### M25.2a.1 子项
+`
+        expect(validatePhaseProgressTable(markdown).errors).toEqual([])
+    })
+
+    it('归档命名遗留白名单锁定为 3 项', () => {
+        expect(ARCHIVE_FILENAME_LEGACY.size).toBe(3)
     })
 })
 

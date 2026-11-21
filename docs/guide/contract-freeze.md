@@ -304,7 +304,7 @@ account: id, created_at, updated_at, account_id, provider_id, issuer, user_id, a
 apikey: id, created_at, updated_at, name, start, reference_id, prefix, key, enabled, request_count, last_request, expires_at, metadata
 api_request_log: id, created_at, updated_at, api_key_id, organization_id, method, path, status_code, ip_address, user_agent
 audit_event: id, created_at, updated_at, type, severity, repository_id, scan_run_id, payload_json, notified, notified_via
-batch_run: id, created_at, updated_at, source, schedule_id, triggered_by_user_id, mode, severity_threshold, repository_count, finished_count, completed_count, failed_count, pending_count, summary_json, status, finished_at, organization_id
+batch_run: id, created_at, updated_at, source, schedule_id, triggered_by_user_id, mode, severity_threshold, repository_count, finished_count, completed_count, failed_count, pending_count, summary_json, status, finished_at, organization_id, resumed_from_batch_run_id
 credential: id, created_at, updated_at, organization_id, name, type, encrypted_token, app_id, encrypted_private_key, installation_id, bot_login, owner_login, note, last_used_at
 notification_log: id, created_at, updated_at, delivery_key, category, scope_type, scope_id, channel, fingerprint, recipient_user_id, recipients_json, status, error_message, sent_at
 notification_preference: id, created_at, updated_at, user_id, category, channel, enabled

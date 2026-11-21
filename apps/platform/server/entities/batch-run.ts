@@ -65,6 +65,15 @@ export class BatchRun extends BaseEntity {
     @Column({ type: 'text', nullable: true })
     summaryJson!: string | null
 
+    /**
+     * 续跑来源批次 id（「继续执行未完成项」派生批次；原始批次为 null）。
+     *
+     * 消费方：批次列表 / 详情展示来源链路，审计事件同时记录；不建外键（批次可被清理）。
+     */
+    @Index()
+    @Column({ type: 'varchar', length: 36, nullable: true, name: 'resumed_from_batch_run_id' })
+    resumedFromBatchRunId!: string | null
+
     /** 批量运行整体状态 */
     @Index()
     @Column({ type: 'varchar', length: 32, default: 'running' })

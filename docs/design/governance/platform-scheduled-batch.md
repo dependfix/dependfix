@@ -137,6 +137,11 @@ export class BatchRun extends BaseEntity {
     @Column({ type: 'varchar', length: 36, nullable: true })
     scheduleId!: string | null
 
+    /** 续跑来源批次 id（「继续执行未完成项」派生批次；原始批次为 null） */
+    @Index()
+    @Column({ type: 'varchar', length: 36, nullable: true })
+    resumedFromBatchRunId!: string | null
+
     /** 扫描模式 */
     @Column({ type: 'varchar', length: 32 })
     mode!: string
@@ -337,6 +342,14 @@ export const resolveRepositoryIds = async (input: SelectorInput): Promise<string
 **权限隔离**：所有策略解析均经 `requireOrgResource` 校验，跨组织仓库不可选。
 
 ---
+
+### 5.4 批次级「继续执行未完成项」（2026-11-21，M64.4）
+
+- **入口**：`POST /api/batch-runs/{id}/resume`（admin / org_admin）。承载形态 = **派生新批次**：`BatchRun.resumedFromBatchRunId` 记录来源，原批次历史终态不变；同时落 `AuditEvent(type='batch_run_resumed')`（payload 含来源批次 / 新批次 / 仓库集 / 跳过数）。
+- **候选**：原批次下 `status='failed'` 且 `failure_kind='transient'` 的子项，按仓库去重；确定性失败不重试。
+- **互斥**：原批次仍有 `pending` / `running` 子项 → 409（仍在进行中）；已有 `resumedFromBatchRunId=原批次 && status='running'` 的派生批次 → 409（批次级互斥，防连点）；无候选 → 409 并给出原因（UI 可读）。
+- **通用单条重试** 仍由 `POST /api/runs/{id}/retry` 承担，两者共享 `BatchRun` 终态 / `ScanRun` 分类口径，不改变批次终态语义。
+- **UI**：批次列表行内「继续执行未完成项」（非进行中且有失败子项时可见）+ 二次确认 + 结果提示（中英 i18n）。
 
 ## 6. API 契约
 

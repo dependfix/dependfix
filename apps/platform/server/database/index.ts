@@ -35,6 +35,7 @@ import { AddPrCheckLifecycleState3100000000000 } from './migrations/310000000000
 import { AddRepositorySandboxImage3100000000001 } from './migrations/3100000000001-AddRepositorySandboxImage'
 import { AddScanRunLogsDropped3200000000000 } from './migrations/3200000000000-AddScanRunLogsDropped'
 import { CreateApiKeyTables3300000000000 } from './migrations/3300000000000-CreateApiKeyTables'
+import { AddBatchRunResume3400000000000 } from './migrations/3400000000000-AddBatchRunResume'
 import { runStartupBackup } from './backup'
 import { isQueueWorkerProcess } from '#server/utils/process-role'
 import { Account } from '#server/entities/account'
@@ -130,6 +131,7 @@ export const createDataSourceOptions = (): DataSourceOptions => {
             AddRepositorySandboxImage3100000000001,
             AddScanRunLogsDropped3200000000000,
             CreateApiKeyTables3300000000000,
+            AddBatchRunResume3400000000000,
         ],
         migrationsRun,
         synchronize,

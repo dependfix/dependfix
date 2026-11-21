@@ -37,6 +37,8 @@ export interface ExecuteBatchInput {
     organizationId: string
     /** 手动批量触发者；定时 / 系统触发为 undefined */
     triggeredByUserId?: string
+    /** 续跑来源批次 id（批次级「继续执行未完成项」派生批次） */
+    resumedFromBatchRunId?: string
 }
 
 export interface ExecuteBatchResult {
@@ -57,6 +59,7 @@ export const executeBatchRun = async (input: ExecuteBatchInput): Promise<Execute
         status: 'running',
         organizationId: input.organizationId,
         triggeredByUserId: input.triggeredByUserId ?? null,
+        resumedFromBatchRunId: input.resumedFromBatchRunId ?? null,
     }))
 
     // 空批次终态兜底：无目标仓库（如 tag 策略无匹配仓库）→ 立即 completed，避免永久 running

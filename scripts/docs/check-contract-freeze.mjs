@@ -292,7 +292,7 @@ export function extractEnvVars(repoRoot) {
     const keys = new Set()
     for (const file of listPackageSources(repoRoot)) {
         walk(parseFile(file), (node) => {
-            if (ts.isStringLiteralLike(node) && /^DEPENDFIX_[A-Z0-9_]+$/.test(node.text)) {
+            if (ts.isStringLiteralLike(node) && /^DEPENDFIX_[A-Z0-9_]+$/.test(node.text) && !node.text.endsWith('_')) {
                 keys.add(node.text)
             }
             if (ts.isPropertyAccessExpression(node) && /^DEPENDFIX_[A-Z0-9_]+$/.test(node.name.text)) {

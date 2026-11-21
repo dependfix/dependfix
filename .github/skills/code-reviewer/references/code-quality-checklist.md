@@ -392,8 +392,8 @@ if (value) { ... }  // 对 0, "", false 失效
 | [git.md §3.2](../../../../docs/standards/git.md#_3-2-单文件跨-type-改动需提前规划-commit-拆分) | 拆分多 commit / 顶格文件落行为变更 | 拆分前是否逐个提交核对可独立编译？跨提交依赖（类型 / 参数 / 正文说明）是否合批？顶格 `max-lines` 时是否先纯搬迁再落行为、并在搬迁提交声明唯一差异？ |
 | [documentation.md §2](../../../../docs/standards/documentation.md) | Markdown 表格单元格含双竖线 | 是否用「反斜杠 + 双竖线」转义？`check:docs` / `lint-md` / `docs:build` 都不校验列数（门禁全绿但渲染丢列），改完是否解析产物 HTML 复核列数？ |
 | [documentation.md §6](../../../../docs/standards/documentation.md) | 实现形态反转（如「先建后 chown」→「以运行身份创建」） | 检查点矩阵行是否与条款**同批更新**？矩阵仍写旧形态会让后续审计按矩阵「整改」重新引入缺陷 |
-| [planning.md §2.2 / §2.5](../../../../docs/standards/planning.md) | 阶段规划 / 任务拆分 | 当前阶段段首是否有 6 列进度表且行集合 = `^### M\d+\.\d+` 正文条目（`check-doc-governance`）？大条目 8 要素、小条目 4 项且继承其余 4 项是否成立？阶段条目数是否 ≤ 8（第 7-8 项附不可拆分判据）？ |
-| [planning.md §2.4](../../../../docs/standards/planning.md) | 阶段归档 / 分片改名 | 分片名是否符合 `todo-archive-phases-<起>[-<止>].md`，且未把新增分片误加进 3 项遗留白名单？`check-doc-governance` 是否覆盖命名式与白名单？ |
+| [planning.md §1.1 / §2.2 / §2.5](../../../../docs/standards/planning.md) | 阶段规划 / 任务拆分 | 当前阶段段首是否有 6 列进度表且行集合 = `^### M\d+\.\d+` 正文条目（`check-doc-governance`）？大条目 8 要素、小条目 4 项且继承其余 4 项是否成立？阶段条目数是否 ≤ 8（第 7-8 项附不可拆分判据）？ |
+| [archive/index.md §2](../../../../docs/plan/archive/index.md) + [doc-governance.md §4.3](../../../../docs/design/governance/doc-governance.md) | 阶段归档 / 分片改名 | 分片名是否符合 `todo-archive-phases-<起>[-<止>].md`，且未把新增分片误加进 3 项遗留白名单？`check-doc-governance` 是否覆盖命名式与白名单？ |
 | [planning.md §2.5](../../../../docs/standards/planning.md) | 设计 / 验收中出现计数 | 是否写明**单位与分母**（如「安装尝试数」而非「故障事件数」）？同一故障在多链路各落一条审计时，按事件理解会误判重复计数 |
 | [platform.md §10.1](../../../../docs/standards/platform.md) | 官方 Node 基础镜像 / pnpm / node-gyp 工具链 | 是否先移除 corepack shim 再钉 pnpm 版本？受限网络是否设 `npm_config_nodedir`？pnpm 11 是否使用 `pnpm_config_*` 前缀（`npm_config_registry` 不保证生效，构建期两种前缀同时导出）？ |
 | [planning.md §3.1.1](../../../../docs/standards/planning.md#_3-1-1-插队后的阶段容量再平衡-hard-requirement-2026-10-19) | 阶段头写容量数字 / 批准插队后的再平衡判定 | 分母是否由各原子「交付物」逐条相加（不是手写区间或估个数）？原子拆分变化后是否重算？插队累计批次与预估占比是否按该分母判定？ |
@@ -417,7 +417,7 @@ if (value) { ... }  // 对 0, "", false 失效
 
 P 阶段规划 / 阶段实施 / 阶段归档批次触及 `docs/plan/todo.md` / `docs/plan/todo-archive.md` 时，按 [planning.md §2.5 任务详细度要求](../../../../docs/standards/planning.md#_2-5-任务详细度要求) 检查每条子任务（子阶段条目）的详细度：
 
-- **8 要素完整性**：每条子任务必须含以下 8 要素，缺一项即 warning（按严重性可升级为 blocker）：
+- **两级粒度**（[planning.md §2.5](../../../../docs/standards/planning.md#_2-5-任务详细度要求)）：**大条目**（`M<x>.<y>`）必须含下列 8 要素，缺一项即 warning（按严重性可升级为 blocker）；**小条目**（`M<x>.<y>.<z>`）只需 目标 / 验收标准 / 交付物 / 依赖 4 项，并继承所属大条目的优先级 / 范围 / 不做什么 / 风险。
   1. **目标**：要达成什么（一句话可证伪）
   2. **优先级**：P1 / P2 / P3
   3. **范围**：包含什么（具体文件 / 模块）
@@ -435,7 +435,7 @@ P 阶段规划 / 阶段实施 / 阶段归档批次触及 `docs/plan/todo.md` / `
   - 仅 1-2 行描述的子任务清单（信息密度不足以指导实施）
 
 - **执行场景**：
-  - P 阶段规划 commit：每条 `M\d+\.\d+` 子任务清单必须满足 8 要素
+  - P 阶段规划 commit：每条 `M\d+\.\d+` 大条目必须满足 8 要素；小条目按 4 项 + 继承核验
   - 阶段实施 commit：todo.md 子任务从 `[ ]` → `[x]` 时若任务描述变更需重新核验
   - 阶段归档 commit：todo-archive.md 归档子任务需保留 8 要素（即使闭环后）
 

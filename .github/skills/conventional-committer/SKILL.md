@@ -1,6 +1,6 @@
 ---
 name: conventional-committer
-description: 生成符合 Conventional Commits 规范的提交消息并执行单次提交时使用。覆盖 feat、fix、docs、style、refactor、perf、test、build、ci、chore、revert 全部常规 type；先校验质量门与 Review Gate，再审视 diff 范围生成消息，最后通过 husky commit-msg / commitlint 校验。触发场景：commit、提交、commit message、提交信息、Conventional Commits、commitlint。
+description: 生成符合 Conventional Commits 规范的提交消息并执行单次提交时使用。覆盖 feat、fix、docs、style、refactor、perf、test、build、ci、chore、revert 全部常规 type，含破坏性提交的人工确认与 `Breaking-Review:` 记录；先校验质量门与 Review Gate，再审视 diff 范围生成消息，最后通过 husky commit-msg / commitlint 校验。触发场景：commit、提交、commit message、提交信息、Conventional Commits、commitlint、breaking change 提交、破坏性提交。
 metadata:
   internal: true
 ---
@@ -24,7 +24,9 @@ metadata:
     - [ ] 3.2 按「type 决策规则」与「scope 命名约定」确定 type / scope。
     - [ ] 3.3 主题 ≤ 120 字符（commitlint 硬上限 140），正文每行 ≤ 120 字符。
     - [ ] 3.4 type / scope 英文；主题与正文使用简体中文（或用户显式指定语言）。
-    - [ ] 3.5 不向后兼容变更必须加 `!` 标记并在正文末附 `BREAKING CHANGE: <说明>` 段。
+    - [ ] 3.5 不向后兼容变更的 footer 必须含 `BREAKING CHANGE: <说明>`；建议同时加主题 `!`（footer-only 合法，但 header 识别更弱）。
+    - [ ] 3.6 判定是否破坏性（主题 `!` 或 `BREAKING CHANGE:` footer）；是则先取得人工确认（项目所有者或授权人），未确认不得进入 Step 4。
+    - [ ] 3.7 确认后写 `Breaking-Review: <标识> <YYYY-MM-DD> <approved|approved-with-migration>`，置于 `BREAKING CHANGE:` 之前。
 - [ ] Step 4: 执行提交 (conditional)
     - [ ] 4.1 仅在用户明确允许时执行 `git add` + `git commit`；也可走 `pnpm commit`（已绑定 `cz` 交互式 CLI）。
     - [ ] 4.2 husky `commit-msg`（commitlint）与 `pre-commit`（lint-staged）会自动执行，必须确保通过；环境不兼容时方可 `--no-verify`，并显式说明原因。
@@ -81,11 +83,21 @@ scope 反映改动所在的目录或职责，必须英文、小写、kebab-case�
 
 - **主题行**：≤ 120 字符（推荐），硬上限 140（commitlint `header-max-length`）；祈使语气；首字母不大写；不加句点；不加括号备注；T- / C- / M- 阶段编号直接写入主题。
 - **正文**：`-` 列表；每行 ≤ 120 字符；简述「做了什么」与「为什么这么做」；简单改动可不写。
-- **footer**：仅在不向后兼容（`BREAKING CHANGE:`）、引用 issue（`Refs:` / `Closes:`）或 `revert` 类场景使用。
+- **footer**：仅在不向后兼容（`Breaking-Review:` + `BREAKING CHANGE:`）、引用 issue（`Refs:` / `Closes:`）或 `revert` 类场景使用。
 - **特例**：`.md` / README / API 类文件改动一律 `docs`；测试文件改动一律 `test`；无法归类一律 `chore`。
 - **多类型变更**：按 `feat > refactor/perf > fix > 其他` 选主类型，其余改动放正文；只在改动互相关联、不宜拆分时使用。
 
 > 完整规则、示例与 commitlint 配置见 [docs/standards/git.md §3.1](../../../docs/standards/git.md) —— git.md 为权威声明，两处不一致时以 git.md 为准。
+
+## 破坏性提交
+
+破坏性提交指主题含 `!`（`<type>[(<scope>)]!:`）或 footer 含 `BREAKING CHANGE:` 的提交，两种形态都须走本节审查；`BREAKING CHANGE:` footer 必须存在，只写 `!` 不带 footer 不合规。
+
+- **先确认后落库**：先判定是否破坏性，再取得项目所有者或授权人确认；A 阶段 Review Gate 与本文档的格式检查都不替代它，未确认不得提交。
+- **记录格式**：`Breaking-Review: <确认人标识> <YYYY-MM-DD> <approved|approved-with-migration>`。标识为单个 token（默认 `owner`，授权人用 GitHub 用户名），置于 `BREAKING CHANGE:` **之前**；`approved-with-migration` 须给出迁移路径。
+- **重确认**：提交树或消息文本变化（含 amend）需重新确认。
+
+判定细节（连字符形态、engines-only）、批次与机检状态见 [git.md §3.9](../../../docs/standards/git.md#_3-9-破坏性提交人工审查)（权威声明）。
 
 ## 反模式
 
@@ -100,6 +112,8 @@ scope 反映改动所在的目录或职责，必须英文、小写、kebab-case�
 - 单文件跨多 type 改动直接 `git add` 整文件（必须按 [git.md §3.2](../../../docs/standards/git.md) 拆分）。
 - 提交后自动 `git push`，违反推送禁令（授权窗口见 [GitHub 协作规范 §4](../../../docs/standards/github-collaboration.md#_4-推送授权)）。
 - 提交超过 todo.md 原子条目粒度，把多个任务硬塞进一个 commit。
+- 破坏性提交未经人工确认就落库，或只写 `!` 而不写 `BREAKING CHANGE:` footer。
+- 把 `Breaking-Review:` 写在 `BREAKING CHANGE:` 之后（会被并入发布说明文本）。
 - 撤销提交时不写明原 commit hash 或省略 `This reverts commit <hash>.` 引用。
 
 ## 交付前检查
@@ -109,7 +123,8 @@ scope 反映改动所在的目录或职责，必须英文、小写、kebab-case�
 - [ ] 暂存范围只包含本次变更；`pnpm-lock.yaml` 随其所属批次一起提交。
 - [ ] 提交消息符合 Conventional Commits 语义且 type / scope 收敛合理。
 - [ ] type / scope 使用英文，主题与正文使用简体中文（或用户指定语言）。
-- [ ] 多类型变更已收敛主类型；不向后兼容时已加 `!` 与 `BREAKING CHANGE:` 段。
+- [ ] 多类型变更已收敛主类型；不向后兼容时 footer 已含 `BREAKING CHANGE:`，并按建议补齐主题 `!`。
+- [ ] 破坏性提交已取得人工确认，且 `Breaking-Review:` 位于 `BREAKING CHANGE:` 之前、标识 / 日期 / 结论格式合法。
 - [ ] 主题 ≤ 120 字符（硬上限 140），正文每行 ≤ 120 字符，未在主题中夹带括号备注。
 - [ ] 已告知用户「已提交到本地，等待推送确认」；未自动 `git push`（授权窗口见 [GitHub 协作规范 §4](../../../docs/standards/github-collaboration.md#_4-推送授权)）。
 - [ ] 已说明任何未完成的质量风险。

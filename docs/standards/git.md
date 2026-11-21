@@ -182,6 +182,35 @@ commit message 应聚焦于"当次提交的改动"+"可供事后复查的信息"
 - **硬约束**：作用对象为被修复仓库的 `git commit` / `git push`（含 `push --delete`）必须复用 `git-signing.ts` 的 4 个隔离常量（`GIT_COMMIT_*` / `GIT_PUSH_*` 的 SIGNING / HOOKS），`--no-verify` 置于对应子命令之后；不得提供签名 / hooks opt-in。
 - **细节与边界**：隔离参数表、作用对象 4 处 push + commit 侧、`-c` 不写回配置、重开条件、不做边界与取证口径见 [ai-delivery-protocols.md §5](../design/governance/ai-delivery-protocols.md#_5-git-隔离语义与参数)。
 
+### 3.9 破坏性提交人工审查
+
+**判定**：提交主题含 `!`（`<type>[(<scope>)]!:`）或 footer 含 `BREAKING CHANGE:` 即属破坏性提交，两种形态都须走本节审查。`BREAKING CHANGE:` footer **必须存在**——只写 `!` 不合规（发布链以 footer 生成发布说明，`!` 可能照样 bump 版本却不进 CHANGELOG）；只写 footer 不带 `!` 合法，建议补齐 `!` 便于按 header 识别。连字符 `BREAKING-CHANGE:` 不进 CHANGELOG 发布说明（`noteKeywords` 仅识别空格形态），但 `release:plan` 仍按 breaking 推导 bump——版本抬升而发布说明缺失，故本项目按缺 footer 处理。历史存量 footer-only 破坏性提交不回补 `!`。
+
+**时机**：`git add` 之后、`git commit` 之前；`--amend` 前同样执行。
+
+**主体**：项目所有者或其明确授权的确认人。A 阶段 Review Gate、作者自检与 `conventional-committer` 的格式检查均不替代这道确认；确认记录是自证标识，审计只校验存在性、位置与格式。
+
+**记录格式**：与 `BREAKING CHANGE:` 同处 footer 区，且**必须位于其之前**（写在之后会被并入发布说明的 note 文本）。
+
+```
+Breaking-Review: <确认人标识> <YYYY-MM-DD> <approved|approved-with-migration>
+BREAKING CHANGE: <破坏面说明；结论为 approved-with-migration 时给出迁移路径>
+```
+
+- **确认人标识**：单个无空格 token；默认 `owner`，授权人写其 GitHub 用户名。公开仓库不写真实姓名与邮箱——提交历史会永久保留并被 fork / 镜像。
+- **结论枚举**：仅 `approved` 与 `approved-with-migration`。后者必须在正文或关联文档给出迁移路径，未给视为未通过；「同意但延后到下一窗口」不是提交时点结论，延后即不提交。
+- **历史不回补**：已入历史的破坏性提交不追溯补记录。
+
+**重确认**：确认后提交树或提交消息文本发生任何变化（含 `--amend`）都须重新确认；比较时 `Breaking-Review:` 行本身不计入。
+
+**批次**：破坏性提交独立成批，不与无关改动混批；破坏面实现与其审查记录、支撑文件必须同 commit 入库（口径同 §3.2 / §3.3，且不违反 §3.7 提交态自洽）。
+
+**engines-only**：只抬升或收窄 `package.json` 的 `engines.node` 支持范围的破坏性提交同样需要本审查记录（收窄受支持运行时对下游可见）；版本提升级别仍按 [发布指南的 engines-only → minor 例外](../guide/release.md) 推导，审查记录与 bump 级别互不替代。
+
+**执行分工**：A 阶段只核验「是否破坏性」并提示记录格式——消息在 A 阶段之后才生成，记录本体由 `conventional-committer` 在提交前写入，提交后用 `git log -1 --format=%B` 复核。
+
+**机检状态**：`commit-msg` 与 CI 共用脚本的机检登记在 [backlog](../plan/backlog.md) 追踪；落地后只校验记录的存在、位置与格式，不替代人工确认。机器人 PR（Dependabot / dependfix）的合并路径不受本条约束。
+
 ## 4. AI 行为准则
 
 - **禁止擅自推送**: commit 后不得自动执行 `git push`，推送仅限用户明确指令；授权窗口（含定时任务等场景）见 [GitHub 协作规范 §4](github-collaboration.md#_4-推送授权)。

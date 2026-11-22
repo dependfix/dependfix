@@ -390,6 +390,18 @@ export DEPENDFIX_RETRY_FAILED=false
 
 > 通道分工：进程级日志（启动 / 队列 / 执行器 / 通知）走统一 logger 落文件；单次 run 的引擎输出仍由 `MemoryLogger` 收集到 `ScanRun.logsJson`（控制台可见，不重复写日志文件）。排障命令与保留策略见 [Docker 部署 → 日志文件](./deployment.md#日志文件)。
 
+### 可观测性（Sentry，可选）
+
+| 变量 | 必填 | 默认值 | 说明 |
+|:---|:---:|:---|:---|
+| `SENTRY_DSN` | — | 空 | 服务端 Sentry DSN。**为空即完全关闭**（SDK 不初始化、零出网）；配置后未捕获异常 / API 5xx / worker 异常 / 执行失败 / 通知失败 / 周报异常上报 |
+| `NUXT_PUBLIC_SENTRY_DSN` | — | 空 | 浏览器端 DSN（运行时 `NUXT_PUBLIC_` 覆盖通道）。DSN 是公开的**事件摄取**凭据：可写入事件，不能读取数据或改配置；泄露风险为事件注入与配额消耗。**不回落到服务端 `SENTRY_DSN`**，浏览器采集须显式开启 |
+| `SENTRY_ENVIRONMENT` / `NUXT_PUBLIC_SENTRY_ENVIRONMENT` | — | `NODE_ENV`，再回退 `development` | Sentry environment 维度（值为空串时按未配置回退；建议生产显式设为 `production`） |
+| `SENTRY_ERRORS_SAMPLE_RATE` / `NUXT_PUBLIC_SENTRY_ERRORS_SAMPLE_RATE` | — | `1` | 错误事件采样率（0-1）；服务端读前者，浏览器端运行期覆盖读后者（构建期回退前者）。非法值回退默认；服务端输出 warn |
+| `SENTRY_TRACES_SAMPLE_RATE` / `NUXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE` | — | `0.1` | 事务 / Web Vitals 采样率（0-1；通道与回退同上） |
+
+> release / commit 无需单独配置：复用构建期版本戳 `NUXT_BUILD_VERSION` / `NUXT_BUILD_COMMIT`（见 [平台规范 §10.6](../standards/platform.md#_10-6-队列执行进程隔离-独立-worker-进程) 的 10.7 条）。容器部署时以上变量须在 compose 的 `environment` 白名单内（仓库内 `apps/platform/docker-compose.yml` 已声明，空值即关闭）。采集字段、关闭项与脱敏边界见 [平台可观测性设计](../design/governance/platform-observability.md)。
+
 ### Docker / 部署
 
 | 变量 | 必填 | 默认值 | 说明 |

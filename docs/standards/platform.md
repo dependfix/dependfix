@@ -179,14 +179,14 @@ Nuxt 4（全栈 SSR + API Routes，`app/` + `server/`）/ TypeScript strict / UI
 
 - **10.7 部署产物版本戳（构建期注入 + 运行时核对）**：`BUILD_COMMIT/BUILD_VERSION` 经 CI `--build-arg` → Dockerfile `ENV NUXT_BUILD_*` → `runtimeConfig`，`GET /api/health` 与启动 `[build]` 行公开只读暴露，运行级回执写入 `scan_run.build_version` / `build_commit`。`/api/health` 同时返回 `schema` 状态枚举（`ok` / `drift` / `unknown`，口径见 §3.3），**只允许状态枚举，不得暴露表名 / 列名 / 数据库路径**。CI 接线、字段语义、`github-action` 边界与刷新语义见 [run-failure-taxonomy.md §5.12](../design/governance/run-failure-taxonomy.md#_5-12-平台写入-回填与部署版本戳接线) 与 §5.11。
 - **10.8 pnpm store 持久化与安装产物提交卫生**：目标仓库依赖安装的 store **必须**落持久卷（入口默认 `PNPM_CONFIG_STORE_DIR=$DATA_DIR/pnpm-store`，compose 转发），且 store 与 `RUN_WORK_ROOT` 同卷（跨盘退化为复制）；入口三条不变式（运行身份写探针 / 不可用 unset 回退 / 以运行身份创建且不对用户路径 `chown`）与部署侧配置见 [deployment.md「pnpm store 与依赖缓存」](../guide/deployment.md#pnpm-store-与依赖缓存)。安装产物不得进入交付提交：运行开始前把 `.pnpm-store/` / `node_modules/` 幂等写入目标仓库 `.git/info/exclude`（**不得**改 `.gitignore`，仅 `fix` / `fix-and-pr` 非 `dry-run`），清单与边界见 [gitignore-management.md §7](../design/governance/gitignore-management.md#_7-安装产物排除-git-info-exclude)。
-- **10.9 进程级日志通道**：进程级日志**必须**经 `server/utils/logger.ts` 输出（已接入边界禁新增裸 `console.*`），运行级 `MemoryLogger` 不得重复落文件；文件布局 / 轮转 / 配置回退 / 致命路径 / 脱敏 / 多进程边界的硬约束与唯一权威见 [platform-logging.md](../design/governance/platform-logging.md)，检查点见矩阵 §10.9 行。
+- **10.9 进程级日志通道**：进程级日志**必须**经 `server/utils/logger.ts` 输出（已接入边界禁新增裸 `console.*`），运行级 `MemoryLogger` 不得重复落文件；文件布局 / 轮转 / 配置回退 / 致命路径 / 脱敏 / 多进程边界的硬约束与唯一权威见 [platform-logging.md](../design/governance/platform-logging.md)，检查点见矩阵 §10.9 行。**远程通道**仅允许 Sentry（DSN 空即关闭，统一走 `server/utils/observability.ts`），口径见 [platform-observability.md](../design/governance/platform-observability.md)。
 
 ## 11. 环境变量总表（.env.example 对齐）
 
 > 默认值与完整说明以 [`apps/platform/.env.full.example`](../../apps/platform/.env.full.example) + [平台配置指南](../guide/configuration.md) 为唯一权威；本节只列平台差异点。
 
 - **执行 / 队列**：`EXECUTION_TIMEOUT_MS`、`DEPENDFIX_MAX_EXECUTION_TIMEOUT_MS`、`DEPENDFIX_QUEUE_WORKER` / `DEPENDFIX_ROLE`、`DEPENDFIX_QUEUE_WORKER_SLOW_RETRY_SECONDS`、`STALE_CLEANUP_*_GRACE_MS`——取值与边界见 [设计稿 §9](../design/governance/executor-process-isolation.md#_9-队列执行进程隔离-运行时形态) 与 [queue-stale-recovery.md](../design/governance/queue-stale-recovery.md)；队列锁来源见 10.5。
-- **构建 / 存储 / 日志**：`NUXT_BUILD_*`（10.7）、`PNPM_CONFIG_STORE_DIR`（10.8）、`LOG_*`（10.9）、`DEPENDFIX_WEEKLY_DIGEST_HOUR`（[platform-notification.md §6.5](../design/governance/platform-notification.md#_6-5-周汇总触发)）。
+- **构建 / 存储 / 日志 / 可观测性**：`NUXT_BUILD_*`（10.7）、`PNPM_CONFIG_STORE_DIR`（10.8）、`LOG_*`（10.9）、`SENTRY_*` / `NUXT_PUBLIC_SENTRY_*`（DSN 为空即关闭，见 [platform-observability.md](../design/governance/platform-observability.md)）、`DEPENDFIX_WEEKLY_DIGEST_HOUR`（[platform-notification.md §6.5](../design/governance/platform-notification.md#_6-5-周汇总触发)）。
 - **数据 / 认证 / 监测**：`DATABASE_*` 见 [§3](#_3-数据库规范-多后端兼容-时区)；`NUXT_ENCRYPTION_KEY` 见 [§5](#_5-凭据安全规范-t602-起生效)；`ACTION_STATUS_MONITOR_ENABLED` 见 [§7.6](#_7-6-运行时-env-开关的-ui-状态暴露用只读端点)；`AUTH_SECRET` / `SMTP_*`（compose 插值名，容器运行期 `NUXT_SMTP_*`） / `NUXT_PUBLIC_BETTER_AUTH_URL` / `PORT` / `MACHINE_ID` 见 [`.env.full.example`](../../apps/platform/.env.full.example)。
 
 ## 12. 决策记录（2026-08-07 人工审查确认）

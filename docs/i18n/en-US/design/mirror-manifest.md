@@ -122,6 +122,7 @@
 | `docs/design/governance/platform-auth-users.md` | 未重译（结构映射口径见文档规范 §6；全量镜像属 1.0 后评估项） |
 | `docs/design/governance/platform-logging.md` | 未重译（结构映射口径见文档规范 §6；全量镜像属 1.0 后评估项） |
 | `docs/design/governance/platform-notification.md` | 未重译（结构映射口径见文档规范 §6；全量镜像属 1.0 后评估项） |
+| `docs/design/governance/platform-observability.md` | 未重译（结构映射口径见文档规范 §6；全量镜像属 1.0 后评估项） |
 | `docs/design/governance/platform-page-decomposition.md` | 未重译（结构映射口径见文档规范 §6；全量镜像属 1.0 后评估项） |
 | `docs/design/governance/platform-public-api.md` | 未重译（结构映射口径见文档规范 §6；全量镜像属 1.0 后评估项） |
 | `docs/design/governance/platform-scheduled-batch-rollout.md` | 记录 / 落地分片（随主文档演进，暂不翻译） |

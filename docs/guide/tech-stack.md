@@ -83,8 +83,9 @@
 | lodash-es | 工具函数 |
 | winston / winston-daily-rotate-file | 进程级结构化日志（控制台 + 本地文件按日轮转；见 [平台日志通道设计](../design/governance/platform-logging.md)） |
 | nodemailer | 邮件发送 |
+| @sentry/nuxt | 可观测性（错误 / 性能 / 关键生命周期事件；DSN 为空即关闭，见 [平台可观测性设计](../design/governance/platform-observability.md)） |
 
-> 本表只列当前实际使用（`apps/platform/package.json` / `nuxt.config.ts` / 源码 import 可追溯）的依赖；曾列入但在 `apps/platform`（`package.json` / `nuxt.config.ts` / 源码）无引用的条目已移除——Sentry 错误监控已从 T705 拆出为独立候选（官方 SaaS，1.0 后排期；见 [backlog](../plan/backlog.md) 与 [第三方可观测性评估](../research/2026-10-27-third-party-observability-evaluation.md)），当前仍未采用；表中 winston 行对应的平台 logger 已完成接线（进程级日志通道，见 [平台日志通道设计](../design/governance/platform-logging.md)）；Axiom 远程聚合仍为 1.0 后候选（同评估文档）。PWA / VueUse / dayjs / class-validator / dompurify 等未采用（页面渲染依赖 Vue 模板默认转义，无 `v-html` 使用面）。
+> 本表只列当前实际使用（`apps/platform/package.json` / `nuxt.config.ts` / 源码 import 可追溯）的依赖；曾列入但在 `apps/platform`（`package.json` / `nuxt.config.ts` / 源码）无引用的条目已移除——Sentry 已随 M65.1 接入（官方 SaaS，`SENTRY_DSN` 为空即关闭；规划来源见 [第三方可观测性评估](../research/2026-10-27-third-party-observability-evaluation.md)）；表中 winston 行对应的平台 logger 已完成接线（进程级日志通道，见 [平台日志通道设计](../design/governance/platform-logging.md)）；Axiom 远程聚合仍为 1.0 后候选（同评估文档）。PWA / VueUse / dayjs / class-validator / dompurify 等未采用（页面渲染依赖 Vue 模板默认转义，无 `v-html` 使用面）。
 
 ## 库（packages/*）
 

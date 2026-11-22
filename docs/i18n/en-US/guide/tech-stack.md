@@ -62,8 +62,9 @@ Versions are **not** duplicated here — [`apps/platform/package.json`](../../..
 | better-sqlite3 / pg / mysql2 | SQLite (dev/test) / PostgreSQL (production) / MySQL (alternative) |
 | bullmq / ioredis | Task queue + Redis client |
 | zod / lodash-es / winston / winston-daily-rotate-file / nodemailer | Validation / utilities / process-level structured logging (console + daily-rotated local files) / email |
+| @sentry/nuxt | Observability (errors / performance / key lifecycle events; disabled when the DSN is empty — see the [Chinese platform observability design](https://github.com/dependfix/dependfix/blob/master/docs/design/governance/platform-observability.md)) |
 
-> Only dependencies traceable to `package.json`, `nuxt.config.ts` or source imports are listed; entries without any reference have been removed (Sentry monitoring has been split out of the deferred T705 item into a standalone observability candidate (official SaaS, scheduled after 1.0) and is not adopted yet; the `winston` row is now wired up as the platform process-level log channel (see the [Chinese platform logging design](../../../design/governance/platform-logging.md)); Axiom remote aggregation remains a post-1.0 candidate — see the Chinese third-party observability evaluation; PWA / VueUse / dayjs / class-validator / dompurify are not used).
+> Only dependencies traceable to `package.json`, `nuxt.config.ts` or source imports are listed; entries without any reference have been removed (Sentry is adopted as of M65.1 (official SaaS, disabled when `SENTRY_DSN` is empty); the `winston` row is now wired up as the platform process-level log channel (see the [Chinese platform logging design](../../../design/governance/platform-logging.md)); Axiom remote aggregation remains a post-1.0 candidate — see the Chinese third-party observability evaluation; PWA / VueUse / dayjs / class-validator / dompurify are not used).
 
 ## Build & release
 

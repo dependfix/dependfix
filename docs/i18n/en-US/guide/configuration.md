@@ -381,6 +381,18 @@ The management platform (`apps/platform`) is configured via env vars injected by
 
 > Channel split: process-level logs (startup / queue / executor / notification) go through the unified logger into files; per-run engine output stays in `ScanRun.logsJson` via `MemoryLogger` (visible on the console, never duplicated into the log files). Troubleshooting commands and retention are in [Docker deployment → Log files](./deployment.md#log-files).
 
+### Observability (Sentry, optional)
+
+| Variable | Required | Default | Description |
+|:---|:---:|:---|:---|
+| `SENTRY_DSN` | — | empty | Server-side Sentry DSN. **Empty means fully disabled** (SDK is not initialised, zero outbound traffic); once set, uncaught exceptions / API 5xx / worker errors / failed runs / failed notifications / weekly-digest errors are reported |
+| `NUXT_PUBLIC_SENTRY_DSN` | — | empty | Browser-side DSN (runtime `NUXT_PUBLIC_` override channel). A DSN is a public **event-ingest** credential: it can write events but cannot read data or change settings; leakage means event injection and quota consumption. It does **not** fall back to the server-side `SENTRY_DSN`, so browser collection is always explicit |
+| `SENTRY_ENVIRONMENT` / `NUXT_PUBLIC_SENTRY_ENVIRONMENT` | — | `NODE_ENV`, then `development` | Sentry environment dimension (an empty value counts as unset; set it explicitly to `production` in production) |
+| `SENTRY_ERRORS_SAMPLE_RATE` / `NUXT_PUBLIC_SENTRY_ERRORS_SAMPLE_RATE` | — | `1` | Error event sample rate (0-1); the server reads the first, the browser runtime override reads the second (build-time fallback to the first). Invalid values fall back to the default; the server logs a warning |
+| `SENTRY_TRACES_SAMPLE_RATE` / `NUXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE` | — | `0.1` | Transaction / Web Vitals sample rate (0-1; same channels and fallback) |
+
+> release / commit need no separate configuration: they reuse the build-time stamps `NUXT_BUILD_VERSION` / `NUXT_BUILD_COMMIT` (see [platform standard §10.6](https://github.com/dependfix/dependfix/blob/master/docs/standards/platform.md) item 10.7). In containers these variables must be inside the compose `environment` whitelist (the repository's `apps/platform/docker-compose.yml` already declares them; an empty value keeps the channel off). Collected fields, disabled items and redaction boundaries are in [Platform observability design](https://github.com/dependfix/dependfix/blob/master/docs/design/governance/platform-observability.md).
+
 ### Docker / deployment
 
 | Variable | Required | Default | Description |

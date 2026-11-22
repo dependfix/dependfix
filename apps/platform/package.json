@@ -42,7 +42,7 @@
   "dependencies": {
     "@dependfix/core": "workspace:*",
     "@dependfix/engine": "workspace:*",
-    "@lucide/vue": "^1.72.0",
+    "@lucide/vue": "^1.76.0",
     "@nuxtjs/i18n": "^10.6.0",
     "@octokit/rest": "^22.0.1",
     "@sentry/nuxt": "^11.16.0",

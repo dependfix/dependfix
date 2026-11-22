@@ -72,7 +72,7 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
-    "@playwright/test": "^1.65.0",
+    "@playwright/test": "^1.65.1",
     "@sentry/core": "^11.16.0",
     "@types/better-sqlite3": "^9.6.0",
     "@types/ms": "^2.1.0",

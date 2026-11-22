@@ -46,6 +46,7 @@ release / commit 不设独立 env：复用构建期版本戳 `NUXT_BUILD_VERSION
 - 服务端关闭 SDK 自带 Nitro error handler（`enableNitroErrorHandler: false`）：API 5xx 由 `server/plugins/observability.ts` 统一上报，避免同一异常出现两条事件。
 - 脱敏接线两条：`beforeSend`（错误 / 消息事件）+ `beforeSendSpan`（事务 / span；SDK 默认 span streaming 下事务不再经 `beforeSend`）。
 - 构建期零出网：`sentry.sourcemaps.disable = true` + `sentry.telemetry = false`（后者默认开启会向 Sentry 发送构建插件自身遥测）。
+- 关闭 `buildTimeInstrumentation`：Sentry 的构建期依赖插桩会在服务端启动时 eager import 被插桩的驱动（`pg` → `postgres-interval` 的 `require('xtend/mutable')` 被提升成无扩展名 ESM import，Node 无法解析），2026-11-22 E2E / 视觉回归实测启动失败；关闭后 HTTP / 错误面采集不受影响，DB 自动 span 不在本阶段范围。
 
 ### 3.3 采集字段与关闭项
 

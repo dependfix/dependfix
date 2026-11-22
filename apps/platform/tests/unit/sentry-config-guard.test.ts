@@ -21,6 +21,8 @@ describe('Sentry 构建配置门禁', () => {
         expect(source).toMatch(/'@sentry\/nuxt\/module'/)
         expect(source).toMatch(/sourcemaps:\s*\{\s*disable:\s*true\s*\}/)
         expect(source).toMatch(/telemetry:\s*false/)
+        // 构建期依赖插桩会把 pg 链的 CJS 子路径提升为无扩展名 ESM import，导致产物启动失败
+        expect(source).toMatch(/buildTimeInstrumentation:\s*false/)
     })
 
     it('服务端配置：DSN 闸门 + beforeSend / beforeSendSpan', () => {

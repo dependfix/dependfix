@@ -43,6 +43,10 @@ export default defineNuxtConfig({
         sourcemaps: { disable: true },
         // 构建插件默认会发送自身遥测事件；本项目的「未配置零出网」口径要求关闭
         telemetry: false,
+        // 关闭构建期依赖注入（orchestrion）：它会在服务端启动时 eager import 被插桩的驱动
+        // （pg / mysql2 链上的 CJS 子路径 require('xtend/mutable') 会被提升成无扩展名 ESM import，
+        // Node 无法解析，2026-11-22 E2E / 视觉回归实测启动失败）。HTTP / 错误面采集不受影响。
+        buildTimeInstrumentation: false,
     },
     // caomei-ui 主题接线：模块的 `theme` 只生成一条跨明暗的 `:root` 声明，
     // 因此这里只声明跨主题稳定的 token（实底色 / 亮色档）；

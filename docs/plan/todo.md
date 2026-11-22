@@ -45,7 +45,7 @@
 |:--|:--|:--|:--|:--|:--|
 | M65.1 Sentry 错误 / 性能 / 日志接入 | — | ✅ 已闭环（2026-11-22） | `ca9cf8a6`..`02167df1`（9） | A deep R1 Reject → R2/R3 Pass；B standard R1 Reject → R2 Pass | 计划 5-7 commits / 11-16 files / 600-900 行；实际 9 commits / 39 files / +2376 行 |
 | M65.2 健康检查与外部 uptime 接入 | — | ✅ 已闭环（2026-11-22） | `52598aaa` / `5eaa2869` + 计划记录（3） | 代码 deep R1 Pass(4W) → R2 Pass；文档 standard R1 Reject → R2 Pass | 计划 3-4 commits / 6-9 files / 200-320 行；实际 3 commits / 13 files / +372 行 |
-| M65.3 邮件传输超时与周报节拍约束 | — | ⏳ 待开始 | — | — | 2 commits / 3-4 files / 100-160 行 |
+| M65.3 邮件传输超时与周报节拍约束 | — | ✅ 已闭环（2026-11-22） | `087c9450` / `27b459d5` + 计划记录（3） | standard R1 Pass(3W) → R2 Pass | 计划 2 commits / 3-4 files / 100-160 行；实际 3 commits / 10 files / +147 行 |
 | M65.4 PR Check provider 原生日志富化 | M65.4.1 / M65.4.2 / M65.4.3 | ⏳ 待开始 | — | — | 5-7 commits / 9-14 files / 400-700 行 |
 | M65.5 可观测性门禁与脱敏测试矩阵 | — | ⏳ 待开始 | — | — | 2-3 commits / 5-7 files / 180-260 行 |
 
@@ -109,7 +109,7 @@
 ### M65.3 邮件传输超时与周报节拍约束（P2 🛠️）
 
 - **目标**：SMTP 发送不会无限挂起；「传输超时必须小于周报检查间隔」从隐式默认值关系变成显式断言。
-- **优先级**：P2（M50.3 重入守卫已落地，但某次发送永不 settle 时周报会永久停摆，仅靠 nodemailer 默认值兜底）。
+- **优先级**：P2（M50.3 重入守卫已落地，但某次发送长时间挂起会跨过检查节拍，仅靠 nodemailer 默认值兜底）。
 - **范围**：
   - `apps/platform/server/services/mailer/transport.ts`：显式 `connectionTimeout` / `socketTimeout` / `greetingTimeout`，注释锁定与周报节拍的关系；
   - `apps/platform/server/plugins/weekly-digest.ts`（或启动断言工具）：断言 `socketTimeout < WEEKLY_DIGEST_CHECK_INTERVAL_MS`，违反时 warn 并带两者数值；
@@ -123,6 +123,13 @@
 - **依赖**：M50.3 重入守卫；`WEEKLY_DIGEST_CHECK_INTERVAL_MS`（15 分钟）。
 - **交付物**：2 commits / 3-4 files（transport + 断言 + 用例 + 设计稿）/ 100-160 行。
 - **风险与缓解**：超时过短误杀慢 relay → 默认值取 ≥ 60s 且只 warn 不 fail；断言依赖常量导入 → 校验函数接收节拍参数，便于单测注入。
+- **执行记录（2026-11-22 闭环）**：
+  - D3 决策：超时值用常量而非新 env（避免 compose 白名单扩张）：connection 60s / greeting 60s / socket 120s；校验函数接收节拍参数，便于单测注入。
+  - 校验落点：weekly-digest 插件在 HTTP-only 早退之后、定时器注册之前断言 `socketTimeout < 15 分钟节拍`，违反时 warn 带两值、不阻断启动。
+  - 因果口径：nodemailer 默认 socket 空闲超时为 10 分钟，单看已小于节拍，但默认值会随升级 / 手改漂移，且空闲超时不构成多收件人顺序发送的总时长上界；显式收紧到 2 分钟并写成启动期断言，让漂移可见。
+  - 验收：AC1 transport 精确对象断言三超时；AC2 正常 / 相等 / 违规三向 + 插件接线正负断言；AC3 平台全量 2849 passed / mailer 与周报既有用例全绿；AC4 设计稿 §6.5、zh/en 配置指南与代码注释同源。
+  - 审计：standard R1 Pass（3W）→ R2 Pass（残留「停摆」口径已逐处扫描修净）。
+  - 残余：真实 SMTP 黑洞与多收件人累计时长未实测。
 
 ### M65.4 PR Check provider 原生日志富化（P2 🎨）
 

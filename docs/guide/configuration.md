@@ -314,6 +314,8 @@ export DEPENDFIX_RETRY_FAILED=false
 
 ### 邮件（SMTP）
 
+> 传输固定超时（不可经 env 调整）：建连 60s / 问候 60s / socket 120s；socket 必须小于周报检查节拍 15 分钟，启动期违反会输出 warn（口径见 [平台通知设计 §6.5](../design/governance/platform-notification.md#_6-5-周汇总触发)）。
+
 | 变量 | 必填 | 默认值 | 说明 |
 |:---|:---:|:---|:---|
 | `SMTP_*`（compose 插值名）→ 容器 `NUXT_SMTP_*` | — | 空 / `587` | 配置后启用邮箱验证与密码重置；未配置自动跳过。**运行时覆盖只认 `NUXT_SMTP_*`**（裸 `SMTP_*` 只在构建期求值，容器内注入无效）；是否启用由 `smtpHost` 是否非空在运行时派生，无独立开关变量 |

@@ -305,6 +305,8 @@ The management platform (`apps/platform`) is configured via env vars injected by
 
 ### Email (SMTP)
 
+> Fixed transport timeouts (not configurable via env): connect 60s / greeting 60s / socket 120s; socket must stay below the 15-minute weekly-digest check interval, otherwise startup logs a warning (see the [Chinese notification design](https://github.com/dependfix/dependfix/blob/master/docs/design/governance/platform-notification.md#_6-5-周汇总触发)).
+
 | Variable | Required | Default | Description |
 |:---|:---:|:---|:---|
 | `SMTP_*` (compose interpolation) → container `NUXT_SMTP_*` | — | empty / `587` | Configuring it enables email verification and password reset; otherwise skipped. **Runtime overrides only honor `NUXT_SMTP_*`** (bare `SMTP_*` is evaluated at build time only); enablement is derived from a non-empty `smtpHost` at runtime, with no separate switch |

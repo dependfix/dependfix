@@ -12,6 +12,7 @@ import {
     type WeeklyDigestAttemptState,
 } from '#server/services/notification/weekly-digest-attempt'
 import { logger } from '#server/utils/logger'
+import { captureLifecycleError } from '#server/utils/observability'
 import { shouldSkipHttpOnlyPlugin } from '#server/utils/process-role'
 
 /**
@@ -72,6 +73,9 @@ export default defineNitroPlugin((nitroApp) => {
             // 意外异常按「失败」推进（计次 + 退避），不会在同一节拍内无限重试
             state = reduceWeeklyDigestAttempt(current, 'failed', Date.now())
             logger.error('[weekly-digest] 周报发送失败', { error })
+            // 可观测性通道：周报停摆是已知高风险（SMTP 挂起时无任何用户可见信号）；
+            // DSN 未配置时为 no-op，退避与重试语义不变
+            captureLifecycleError(error, { source: 'weekly_digest' })
         } finally {
             running = false
         }

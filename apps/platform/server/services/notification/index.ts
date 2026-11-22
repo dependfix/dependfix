@@ -17,6 +17,7 @@ import { NotificationLog } from '#server/entities/notification-log'
 import { AuditEvent } from '#server/entities/audit-event'
 import { ensureDatabaseInitialized } from '#server/database'
 import { logger } from '#server/utils/logger'
+import { captureLifecycleError } from '#server/utils/observability'
 
 export { ensureNotificationChannelsRegistered, listNotificationChannels, registerNotificationChannel, unregisterNotificationChannel } from './registry'
 
@@ -157,6 +158,14 @@ export const notifyEnvEvent = async (event: NotificationEvent): Promise<void> =>
         } catch (e) {
             const code = e instanceof NotificationError ? e.code : 'NOTIFICATION_SEND_FAILED'
             logger.error(`[notification] channel '${channel.name}' send failed for event ${event.id} (${code})`, { error: e })
+            // 可观测性通道：通知投递失败（渠道故障 / 凭据失效）上报异常事件；
+            // DSN 未配置时为 no-op，不改变既有通知日志与审计语义
+            captureLifecycleError(e, {
+                source: 'notification',
+                eventId: event.id,
+                channel: channel.name,
+                code,
+            })
             if (isUniqueViolation(e)) {
                 await recordNotificationLog({
                     deliveryKey: null,

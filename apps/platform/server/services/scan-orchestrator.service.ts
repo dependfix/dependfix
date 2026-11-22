@@ -28,6 +28,7 @@ import { ensureDatabaseInitialized } from '#server/database'
 import { detectSigkill, unavailableResourceUsage } from '#server/utils/resource-usage'
 import { resolveRunBuildStamp } from '#server/utils/run-build-info'
 import { logger } from '#server/utils/logger'
+import { captureLifecycleError, captureLifecycleEvent } from '#server/utils/observability'
 
 /**
  * 扫描编排：触发 → 执行 → 落库（同步执行模型 Q2，请求内完成）。
@@ -595,6 +596,17 @@ const runScanInternal = async (
                     alertsUnfixed: Math.max(0, found - converged),
                 })
             }
+            // 可观测性通道：执行失败上报一条生命周期事件（只带分类字段，不带上报错误正文；
+            // DSN 未配置时为 no-op，不改变既有失败通知与落库语义）
+            captureLifecycleEvent('scan_run_failed', 'warning', {
+                runId: savedRun.id,
+                repositoryId: repository.id,
+                executorKind,
+                failureCode: savedRun.failureCode ?? null,
+                failureStage: savedRun.failureStage ?? null,
+                failureKind: savedRun.failureKind ?? null,
+                exitCode: savedRun.exitCode ?? null,
+            })
         } else if (decision.status === 'degraded') {
             // degraded：业务结果完整 + 路径偏离（与 completed 等价写 summaryJson + runUrl）
             savedRun.status = 'degraded'
@@ -679,6 +691,13 @@ const runScanInternal = async (
         }
         // 编排 catch-all 失败同样落失败分类（与状态机失败路径同源）
         applyFailureClassification(savedRun, { status: 'failed', error: orchestrationFailure })
+        // 可观测性通道：编排级异常（执行器 / 落库 / 收尾异常）单独上报，便于与「引擎判定失败」区分
+        captureLifecycleError(error, {
+            source: 'scan_orchestration',
+            runId: savedRun.id,
+            repositoryId,
+            failureCode: savedRun.failureCode ?? null,
+        })
         // 编排 catch-all 同样走条件更新：与正常终态写回同一守卫
         const { run: persisted, written } = await persistRunTerminalState(ds, savedRun)
         if (written) {

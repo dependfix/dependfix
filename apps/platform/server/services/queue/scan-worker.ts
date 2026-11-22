@@ -19,6 +19,7 @@ import { resolveExecutionCeilingMs } from '#server/utils/execution-limits'
 import { sanitizeString } from '#server/utils/sanitize'
 import { DEFAULT_SCAN_CONCURRENCY } from '#server/utils/resource-budget'
 import { logger } from '#server/utils/logger'
+import { captureLifecycleError } from '#server/utils/observability'
 
 /** scheduled-scan job 数据（BullMQ job scheduler 模板，见 scheduler.service registerSchedule） */
 export interface ScheduledScanJobData {
@@ -155,6 +156,13 @@ export const handleWorkerError = (error: Error): void => {
         ...(isLockRenewalError ? { duplicateOf: 'lockRenewalFailed' as const } : {}),
     }
     logger.error(`[scan-worker] ${JSON.stringify(payload)}`)
+    // 可观测性通道：worker 级异常（连接断开 / 锁管理失败 / 未知）上报一条异常事件；
+    // DSN 未配置时为 no-op，不改变既有日志与告警语义
+    captureLifecycleError(error, {
+        source: 'queue_worker',
+        event: 'error',
+        lockRenewal: isLockRenewalError,
+    })
 }
 
 export interface ScanWorkerOptions {

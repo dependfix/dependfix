@@ -1,5 +1,6 @@
 import { defineNitroPlugin } from 'nitropack/runtime'
 import { formatLogStartupLine, getLoggerState, getWinstonLogger, logger } from '#server/utils/logger'
+import { captureLifecycleEvent, flushObservability } from '#server/utils/observability'
 import { installProcessErrorHandlers } from '#server/utils/process-log'
 
 /**
@@ -15,9 +16,17 @@ import { installProcessErrorHandlers } from '#server/utils/process-log'
  */
 export default defineNitroPlugin((nitroApp) => {
     const uninstall = installProcessErrorHandlers()
-    logger.info(formatLogStartupLine(getLoggerState()))
+    const state = getLoggerState()
+    logger.info(formatLogStartupLine(state))
+    // 可观测性启动事件（DSN 未配置时为 no-op）：确认进程角色与日志落点，便于与 Sentry release 对齐
+    captureLifecycleEvent('platform_started', 'info', {
+        role: state.env.PROCESS_ROLE,
+        logDir: state.logDir,
+        fileLogging: state.fileLogging,
+        level: state.env.LOG_LEVEL,
+    })
 
-    nitroApp.hooks.hook('close', () => {
+    nitroApp.hooks.hook('close', async () => {
         uninstall()
         // 关闭 transport 以冲刷缓冲并释放文件句柄（容器优雅停止时避免丢尾部日志）
         try {
@@ -25,5 +34,7 @@ export default defineNitroPlugin((nitroApp) => {
         } catch {
             // 关闭失败不阻断退出
         }
+        // 冲刷待发送的 Sentry 事件（本插件两进程共用：worker 侧同样需要，observability 插件是 HTTP-only）
+        await flushObservability(2000)
     })
 })

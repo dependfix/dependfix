@@ -22,7 +22,7 @@ export type ProcessRole = 'server' | 'worker'
  * HTTP-only 插件清单（worker 进程跳过）：判定与理由见 docs/standards/platform.md §10.6。
  * 清单为单一事实源——跳过日志、守卫调用与单测一致性用例共用。
  */
-export const HTTP_ONLY_PLUGINS = ['stale-cleanup', 'build-info', 'weekly-digest'] as const
+export const HTTP_ONLY_PLUGINS = ['stale-cleanup', 'build-info', 'weekly-digest', 'observability'] as const
 
 export type HttpOnlyPluginName = (typeof HTTP_ONLY_PLUGINS)[number]
 

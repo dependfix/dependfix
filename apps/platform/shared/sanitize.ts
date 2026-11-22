@@ -13,7 +13,7 @@
  * - GitHub token 前缀：`ghp_` / `gho_` / `ghu_` / `ghs_` / `ghr_` / `github_pat_` → `***`
  * - dependfix API key 前缀：`dfk_` → `dfk_***`
  * - 敏感字段名：password / passwd / secret / token / credential / api-key / private-key /
- *   connection-string / access-key → `***`
+ *   connection-string / access-key / cookie → `***`（cookie 值是会话凭据，2026-11-22 起纳入）
  * - `Error` 实例：展开为 `{ name, message, stack, code?, cause? }`（字段各自脱敏）
  *
  * Error 分支的必要性：`Error` 的 `message` / `stack` 是**非可枚举**属性，`Object.entries()`
@@ -44,7 +44,7 @@ export function redactAbsolutePaths(value: string): string {
 }
 
 /** 敏感字段名（维度内 OR：命中任一即整体替换为 `***`）。 */
-const SENSITIVE_KEY_PATTERN = /token|secret|passw|authorization|credential|api[-_]?key|private[-_]?key|connection[-_]?string|access[-_]?key/i
+const SENSITIVE_KEY_PATTERN = /token|secret|passw|authorization|credential|api[-_]?key|private[-_]?key|connection[-_]?string|access[-_]?key|cookie/i
 
 /** 循环引用占位符（日志上下文可能引用自身 / 形成环，脱敏不能因此爆栈）。 */
 export const CIRCULAR_PLACEHOLDER = '[Circular]'

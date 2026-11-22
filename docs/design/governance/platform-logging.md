@@ -77,12 +77,14 @@
 3. 队列 worker：`queue.service` / `scan-worker` / `scan-queue` / `orphan-job-release`。
 4. 执行器：`container-executor`（进程级行，与 `MemoryLogger` 的运行级行并存）/ `scan-orchestrator.service`（通知与审计失败）。
 5. 通知：`notification/index` / `delivery` / `weekly-digest.service` / `mailer`。
+6. 可观测性（2026-11-22 M65.1）：进程级生命周期事件经 `captureLifecycleEvent` / `captureLifecycleError` 转发 Sentry（启动 / API 5xx / worker 异常 / 执行失败 / 通知失败 / 周报异常，共 7 处，清单见 [platform-observability.md §3.4](./platform-observability.md#_3-4-生命周期转发点-≤10)）。`SENTRY_DSN` 为空时不初始化 SDK，转发入口为 no-op；运行级 `MemoryLogger` 输出**不**转发。
 
 **未迁移**（2026-10-28 实测）：`apps/platform/server` 非测试源码仍有 **112 处 / 28 文件** `console.*`（含 logger 自身降级输出 6 处与 `MemoryLogger` 运行级输出 3 处；业务侧约 103 处），最大面是 `server/database/**`（63 处，含迁移 / 备份 / 回填 / 回滚脚本）、`monitor/*`、`batch/*`、`scan-trigger.service`、`auth.ts` 等；仍走 stdout，按批次迁移，本设计不要求一次性全量替换。
 
 ## 9. 不做什么
 
-- 不接入 Axiom / Sentry / 其它远程通道；Axiom 传输层已从 logger 移除（未声明依赖 + ESM `require` 不可用），P2 接入时按动态 `import()` 重写并默认关闭。
+- 不接入 Axiom / 其它远程日志通道；Axiom 传输层已从 logger 移除（未声明依赖 + ESM `require` 不可用），后续如需接入按动态 `import()` 重写并默认关闭。
+- Sentry 已按 [platform-observability.md](./platform-observability.md) 接入（M65.1）：**仅转发有限进程级生命周期事件**，默认关闭（DSN 为空即停用），与 logger 各走独立通道。
 - 不改变运行结果模型、`logsJson` 结构与运行详情下载。
 - 不引入结构化日志规范（JSON 字段名 / 事件码表），当前沿用消息 + meta 的既有格式。
 - 不做按角色拆日志文件名（HTTP / worker 共享 `YYYY-MM-DD.log`），避免与验收的文件命名口径冲突。

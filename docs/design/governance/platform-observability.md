@@ -31,7 +31,7 @@
 |:--|:--|:--:|:--|:--|
 | `SENTRY_DSN` | 服务端 | — | 空 | **唯一启用判据**：为空即不初始化 SDK、不登记采集 sink（零出网） |
 | `NUXT_PUBLIC_SENTRY_DSN` | 浏览器 | — | 空 | 浏览器端 DSN（运行时 `NUXT_PUBLIC_` 覆盖；**不回落**服务端 `SENTRY_DSN`）。DSN 是公开的**事件摄取**凭据：可写入事件、不能读取或改配置，泄露风险为事件注入与配额消耗 |
-| `SENTRY_ENVIRONMENT` / `NUXT_PUBLIC_SENTRY_ENVIRONMENT` | 双端 | — | `NODE_ENV`（浏览器端取构建期值），再回退 `development` | Sentry environment 维度；服务端对空串 / 非法采样率输出 warn |
+| `SENTRY_ENVIRONMENT` / `NUXT_PUBLIC_SENTRY_ENVIRONMENT` | 双端 | — | `NODE_ENV`（浏览器端取构建期值），再回退 `development` | Sentry environment 维度；空串按未配置回退，服务端对非法采样率输出 warn |
 | `SENTRY_ERRORS_SAMPLE_RATE` | 双端 | — | `1` | 错误事件采样率（0-1；非法值回退默认并 warn） |
 | `SENTRY_TRACES_SAMPLE_RATE` | 双端 | — | `0.1` | 事务 / Web Vitals 采样率（0-1；同上） |
 

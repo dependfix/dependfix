@@ -3,9 +3,12 @@ import {
     isWeeklyDigestDue,
     parseWeeklyDigestHour,
     resolveWeeklyDigestSlot,
+    WEEKLY_DIGEST_CHECK_INTERVAL_MS,
     WEEKLY_DIGEST_HOUR_ENV,
 } from '#server/services/notification/weekly-digest-schedule'
 import { sendWeeklyDigest } from '#server/services/notification/weekly-digest.service'
+import { SMTP_SOCKET_TIMEOUT_MS } from '#server/services/mailer/transport'
+import { checkSmtpTimeoutBudget } from '#server/services/mailer/timeout-budget'
 import {
     createWeeklyDigestAttemptState,
     reduceWeeklyDigestAttempt,
@@ -30,11 +33,20 @@ import { shouldSkipHttpOnlyPlugin } from '#server/utils/process-role'
  * 失败不抛出：服务内部 best-effort 落 notification_log；意外异常按失败退避并在后续节拍重试。
  */
 export const WEEKLY_DIGEST_FIRST_RUN_DELAY_MS = 30 * 1000
-export const WEEKLY_DIGEST_CHECK_INTERVAL_MS = 15 * 60 * 1000
+export { WEEKLY_DIGEST_CHECK_INTERVAL_MS }
 
 export default defineNitroPlugin((nitroApp) => {
     if (shouldSkipHttpOnlyPlugin('weekly-digest', process.env, logger)) {
         return
+    }
+
+    // 传输超时必须小于检查节拍：否则单次挂起的发送会跨过节拍（发送结束后下一节拍继续）；只 warn，不阻断启动
+    const timeoutBudget = checkSmtpTimeoutBudget({
+        socketTimeoutMs: SMTP_SOCKET_TIMEOUT_MS,
+        checkIntervalMs: WEEKLY_DIGEST_CHECK_INTERVAL_MS,
+    })
+    if (!timeoutBudget.ok) {
+        logger.warn(`[weekly-digest] ${timeoutBudget.message}`)
     }
 
     const parsedHour = parseWeeklyDigestHour(process.env[WEEKLY_DIGEST_HOUR_ENV])

@@ -17,6 +17,9 @@ export const DEFAULT_WEEKLY_DIGEST_HOUR = 9
 /** 触发窗口：周一触发时刻起 24 小时内允许发送 / 补发。 */
 export const WEEKLY_DIGEST_CATCH_UP_MS = 24 * 60 * 60 * 1000
 
+/** 周报检查节拍：15 分钟；SMTP socket 超时必须严格小于该值（见 mailer/timeout-budget）。 */
+export const WEEKLY_DIGEST_CHECK_INTERVAL_MS = 15 * 60 * 1000
+
 export interface WeeklyDigestHourParseResult {
     hour: number
     /** 原始值存在但不是 0-23 整数（已回退默认值，调用方可告警）。 */

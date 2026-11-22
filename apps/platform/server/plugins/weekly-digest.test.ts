@@ -4,11 +4,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
  * 周汇总插件单测：注册守卫（worker 跳过）+ 触发窗口 + 本进程同周只尝试一次 +
  * 失败允许下一轮重试 + 非法小时 env 回退。周报服务整体 mock，不触达 DB / 渠道。
  */
-const { sendWeeklyDigestMock, logInfoMock, logWarnMock, logErrorMock } = vi.hoisted(() => ({
+const { sendWeeklyDigestMock, logInfoMock, logWarnMock, logErrorMock, checkBudgetMock } = vi.hoisted(() => ({
     sendWeeklyDigestMock: vi.fn(),
     logInfoMock: vi.fn(),
     logWarnMock: vi.fn(),
     logErrorMock: vi.fn(),
+    checkBudgetMock: vi.fn(() => ({ ok: true, message: '' })),
 }))
 
 vi.mock('nitropack/runtime', () => ({
@@ -16,6 +17,12 @@ vi.mock('nitropack/runtime', () => ({
 }))
 vi.mock('#server/services/notification/weekly-digest.service', () => ({
     sendWeeklyDigest: sendWeeklyDigestMock,
+}))
+vi.mock('#server/services/mailer/timeout-budget', () => ({
+    checkSmtpTimeoutBudget: checkBudgetMock,
+}))
+vi.mock('#server/services/mailer/transport', () => ({
+    SMTP_SOCKET_TIMEOUT_MS: 120_000,
 }))
 vi.mock('#server/utils/logger', () => ({
     logger: { debug: vi.fn(), info: logInfoMock, warn: logWarnMock, error: logErrorMock },
@@ -64,6 +71,27 @@ describe('weekly-digest 插件注册守卫', () => {
         expect(nitroApp.hooks.hook).not.toHaveBeenCalled()
         expect(vi.getTimerCount()).toBe(0)
         expect(logInfoMock).toHaveBeenCalled()
+    })
+
+    it('启动期按真实常量校验超时预算，违规时 warn 并带两值', () => {
+        vi.useFakeTimers()
+        checkBudgetMock.mockReturnValueOnce({
+            ok: false,
+            message: 'socketTimeout=1800000ms >= digestInterval=900000ms',
+        })
+        runPlugin()
+
+        expect(checkBudgetMock).toHaveBeenCalledWith({
+            socketTimeoutMs: 120_000,
+            checkIntervalMs: WEEKLY_DIGEST_CHECK_INTERVAL_MS,
+        })
+        expect(logWarnMock).toHaveBeenCalledWith(expect.stringContaining('socketTimeout=1800000ms'))
+    })
+
+    it('预算成立时不输出超时 warn（避免无条件 warn 回归）', () => {
+        vi.useFakeTimers()
+        runPlugin()
+        expect(logWarnMock).not.toHaveBeenCalledWith(expect.stringContaining('socketTimeout='))
     })
 
     it('未设置角色：照常注册，close 钩子清理定时器', () => {

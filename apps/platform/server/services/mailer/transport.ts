@@ -11,6 +11,15 @@ import type SMTPTransport from 'nodemailer/lib/smtp-transport'
  * - 凭据可选：未配 user/pass 时走匿名 SMTP relay（部分测试/内网 relay 支持）
  */
 
+/** SMTP 建连超时（TCP 握手；网络黑洞时避免 sendMail 永久悬挂） */
+export const SMTP_CONNECTION_TIMEOUT_MS = 60_000
+
+/** SMTP 问候超时（等待服务端 220 响应；≥60s，避免慢 relay 被误判） */
+export const SMTP_GREETING_TIMEOUT_MS = 60_000
+
+/** SMTP socket 空闲超时；必须小于周报检查节拍（见 timeout-budget.ts 的启动期断言） */
+export const SMTP_SOCKET_TIMEOUT_MS = 120_000
+
 export interface MailerTransportConfig {
     host: string
     port: number
@@ -50,6 +59,12 @@ export function createMailerTransport(config: MailerTransportConfig): MailerTran
         port: config.port,
         secure,
         auth,
+        // 显式超时：nodemailer 默认 socket 空闲超时为 10 分钟，SMTP 黑洞时一次 sendMail 会挂满
+        // 默认上界（并可能因多收件人顺序发送累计跨过节拍）；显式收紧并对节拍做启动期断言，
+        // 三值口径见 timeout-budget.ts
+        connectionTimeout: SMTP_CONNECTION_TIMEOUT_MS,
+        greetingTimeout: SMTP_GREETING_TIMEOUT_MS,
+        socketTimeout: SMTP_SOCKET_TIMEOUT_MS,
         // 不传 tls 选项：secure=true 隐式启用 TLS；secure=false 走 STARTTLS
         // pool 默认关闭：单次发送不需要池化；如未来需要批量发送再启用 pool: true
     }

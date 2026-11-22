@@ -8,7 +8,14 @@ vi.mock('nodemailer', () => ({
     },
 }))
 
-import { createMailerTransport, resetMailerTransportCache } from './transport'
+import {
+    SMTP_CONNECTION_TIMEOUT_MS,
+    SMTP_GREETING_TIMEOUT_MS,
+    SMTP_SOCKET_TIMEOUT_MS,
+    createMailerTransport,
+    resetMailerTransportCache,
+} from './transport'
+import { WEEKLY_DIGEST_CHECK_INTERVAL_MS } from '#server/services/notification/weekly-digest-schedule'
 
 describe('createMailerTransport', () => {
     afterEach(() => {
@@ -38,8 +45,19 @@ describe('createMailerTransport', () => {
             port: 587,
             secure: false, // 587 → STARTTLS（明文升级）
             auth: { user: 'noreply@example.com', pass: 'secret' },
+            connectionTimeout: 60_000,
+            greetingTimeout: 60_000,
+            socketTimeout: 120_000,
             // pool 不显式传（默认 false）；如未来需要批量发送再启用 pool: true
         })
+    })
+
+    it('显式超时三值存在且 socket 小于周报检查节拍', () => {
+        expect(SMTP_CONNECTION_TIMEOUT_MS).toBe(60_000)
+        expect(SMTP_GREETING_TIMEOUT_MS).toBe(60_000)
+        expect(SMTP_SOCKET_TIMEOUT_MS).toBe(120_000)
+        // 与周报检查节拍同源比较，避免测试与常量双写
+        expect(SMTP_SOCKET_TIMEOUT_MS).toBeLessThan(WEEKLY_DIGEST_CHECK_INTERVAL_MS)
     })
 
     it('port=465 → secure=true（TLS）', () => {

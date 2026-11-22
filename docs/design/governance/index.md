@@ -37,7 +37,7 @@
 | [PR 构建与部署信号采集设计](./pr-build-deploy-signals.md) | 专项设计（PR 构建 / 部署多源聚合：GitHub Checks + Commit Statuses + Deployments，可选 provider 日志富化） | ✅ 已实施（M43.2a/b 采集与持久化 + M45.6 关注集；2026-10-30 M51.2 增量：结论口径统一与同 ref 收敛 §3.10） |
 | [队列僵尸任务终结与去重键释放设计](./queue-stale-recovery.md) | 专项设计（宿主机重启后 pending/running 收敛 + BullMQ 去重键释放 + 触发自愈 + worker 慢重试） | ✅ 已落地（2026-10-18，Review Gate R2 Pass） |
 | [平台通知与邮件推送设计](./platform-notification.md) | 专项设计（事件分层 + 组织 / 个人配置 + 收件人分流 + 合并降噪；issue #190） | ✅ 已落地（2026-10-22 M46 归档；B1-B4 闭环，B5 已随 M47.5 进入规划） |
-| [平台可观测性设计](./platform-observability.md) | 专项设计（Sentry 事件 + uptime 探针 + provider 日志三通道；未配置零出网 + 必须脱敏） | ✅ Sentry 通道已落地（2026-11-22，M65.1）；uptime / provider 日志待落地 |
+| [平台可观测性设计](./platform-observability.md) | 专项设计（Sentry 事件 + uptime 探针 + provider 日志三通道；未配置零出网 + 必须脱敏） | ✅ Sentry 与 uptime 通道已落地（2026-11-22，M65.1 / M65.2）；provider 日志待落地 |
 | [验证链与目标仓库 CI 口径对齐设计](./verification-ci-alignment.md) | 专项设计（M47.1：workflow 命令口径解析 / 差异披露 / 默认分支健康预检） | ✅ 已落地（2026-10-23，M47.1；Review Gate R2 Pass） |
 | [平台本地日志通道统一设计](./platform-logging.md) | 专项设计（进程级日志统一 + 本地文件轮转 + 致命错误落盘） | ✅ 已实施（2026-10-28，M49 追加临时待办；Review Gate R3 Pass） |
 | [设计镜像清单（en-US）](../mirror-manifest.md) | 文档治理（en 镜像结构映射 / 未镜像分片登记） | ✅ 已落地（由 `docs:check:mirror` 机检，随 `gates:docs` 执行） |

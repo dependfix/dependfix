@@ -103,6 +103,26 @@ Compose reads `apps/platform/.env` and injects variables into the container. Cor
 >
 > Full variables (SMTP, OAuth, OIDC, Redis queue, ...) are in `apps/platform/.env.full.example` (full, sectioned) and [Configuration → Platform configuration](./configuration.md#platform-configuration-apps-platform).
 
+## Health probes (liveness / readiness)
+
+The platform image ships a `HEALTHCHECK` (`--interval=30s --timeout=5s --start-period=60s --retries=3`) that probes **liveness only**:
+
+- `GET /api/health`: process liveness plus build stamps (`version` / `commit` / `startedAt` / `schema`); it never touches the database. Use it for the container `HEALTHCHECK` and external "is it alive" monitoring.
+- `GET /api/health/ready`: dependency readiness (`SELECT 1`; connect + query share one 2s total timeout), `200 {"status":"ready","schema":"unknown"}` / `503 {"status":"not_ready","schema":"…"}`. Use it for orchestrator readinessProbe and external "dependency" monitoring. `schema` is independent of readiness (a fresh database reports `unknown`; drift does not block readiness).
+- Why two endpoints: a slow database or a running migration must not trigger a restart loop (liveness avoids the DB); when the database is unreadable the instance should be taken out of rotation (readiness 503), not restarted. Readiness returns only the two enums — no database type, path or error text; the probe logs nothing itself, while connection failures surface in the database layer logs.
+
+Manual checks:
+
+```bash
+curl -sS https://<host>/api/health
+curl -sS -o /dev/null -w '%{http_code}\n' https://<host>/api/health/ready
+docker inspect --format '{{.State.Health.Status}}' <container>
+```
+
+External uptime guidance (generic HTTP probes, no product lock-in): liveness on `/api/health` (200, alert after 2 consecutive failures, do not parse the body); readiness on `/api/health/ready` (200, alert after 3 consecutive failures). Interval ≥30s, timeout 5s; allow ≥150s of grace on first deploy (Docker tolerance = `start-period + retries × interval`; 60s alone false-alarms on large first migrations); both endpoints are `GET`-only (`HEAD` returns 404).
+
+Details: [platform observability design §5](https://github.com/dependfix/dependfix/blob/master/docs/design/governance/platform-observability.md).
+
 ## Volumes and permissions
 
 - `dependfix-data:/app/data`: SQLite database + startup backups (`/app/data/backups`)

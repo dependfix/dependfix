@@ -105,6 +105,26 @@ Compose 从 `apps/platform/.env` 读取变量并注入容器。核心项：
 >
 > SMTP、OAuth、OIDC、Redis 队列等完整变量见 `apps/platform/.env.full.example`（完整分节）与[配置说明 → 平台配置](./configuration.md#平台配置-apps-platform)。
 
+## 健康探针（liveness / readiness）
+
+镜像自带 `HEALTHCHECK`（`--interval=30s --timeout=5s --start-period=60s --retries=3`），**只探 liveness**：
+
+- `GET /api/health`：进程存活 + 产物标识（`version` / `commit` / `startedAt` / `schema`），不访问数据库——容器 `HEALTHCHECK` 与外部「存活」监控用它。
+- `GET /api/health/ready`：依赖就绪（`SELECT 1`，建连与查询共享 2s 总超时），`200 {"status":"ready","schema":"unknown"}` / `503 {"status":"not_ready","schema":"…"}`——编排器 readinessProbe 与外部「依赖」监控用它。`schema` 独立于 ready（新库为 `unknown`，漂移不阻塞就绪）。
+- 为什么分开：数据库慢或迁移中不得触发重启循环（liveness 不碰 DB）；库不可读时应摘流（readiness 503）而不是重启。readiness 只返回两个枚举字段，不含数据库类型 / 路径 / 错误正文；探针本身不额外记录日志，连接失败由数据库层日志体现。
+
+手动核对：
+
+```bash
+curl -sS https://<host>/api/health
+curl -sS -o /dev/null -w '%{http_code}\n' https://<host>/api/health/ready
+docker inspect --format '{{.State.Health.Status}}' <container>
+```
+
+外部 uptime 建议（通用 HTTP 探针，不绑定产品）：存活探 `/api/health`（200，连续 2 次失败告警，不解析正文）；依赖探 `/api/health/ready`（200，连续 3 次失败告警）。间隔 ≥30s、超时 5s；首次宽限 ≥150s（Docker 容忍窗口 = `start-period + retries × interval`，只按 60s 会在大库首次迁移时误报）；两端点只支持 `GET`（`HEAD` 为 404）。
+
+口径详见 [平台可观测性设计 §5](../design/governance/platform-observability.md#_5-uptime-探针通道-m65-2-已落地-2026-11-22)。
+
 ## 数据卷与权限
 
 - `dependfix-data:/app/data`：SQLite 数据库 + 启动期自动备份（`/app/data/backups`）

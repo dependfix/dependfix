@@ -1,6 +1,6 @@
 # 平台可观测性设计（Sentry / uptime 探针 / provider 日志）
 
-> **状态**：Sentry 通道已落地（M65.1，2026-11-22）；uptime 探针（M65.2）与 PR Check provider 日志（M65.4）为同阶段增量，落地后回填本文对应章节。
+> **状态**：Sentry 通道已落地（M65.1，2026-11-22）；uptime 探针已落地（M65.2，2026-11-22）；PR Check provider 日志（M65.4）待落地，落地后回填本文对应章节。
 > **定位**：把「平台出问题后靠人肉巡检」换成三条可复核的观测通道；本文件是三通道的**字段 / 关闭项 / 边界**权威，进程日志通道本身仍见 [platform-logging.md](./platform-logging.md)，PR 信号三源聚合见 [pr-build-deploy-signals.md](./pr-build-deploy-signals.md)。
 
 ## 1. 背景与目标
@@ -10,7 +10,7 @@
 | 通道 | 回答的问题 | 触发面 | 关闭判据 | 状态 |
 |:--|:--|:--|:--|:--|
 | Sentry | 哪条 API / worker 在报错？错误堆栈与分布？ | 未捕获异常、API 5xx、worker 异常、通知 / 执行失败、周报异常、Web Vitals | `SENTRY_DSN` / `NUXT_PUBLIC_SENTRY_DSN` 为空 | ✅ M65.1 落地 |
-| uptime 探针 | 进程 / 容器 / DB 是否还活着？ | 编排器 `HEALTHCHECK` + 外部 HTTP 探针 | 探针未配置 | ⏳ M65.2 |
+| uptime 探针 | 进程 / 容器 / DB 是否还活着？ | 编排器 `HEALTHCHECK` + 外部 HTTP 探针 | 探针未配置 | ✅ M65.2 落地 |
 | provider 日志 | 失败的那次 Vercel / Cloudflare 构建为什么失败？ | PR Check 失败信号 + provider 只读 token | 未配置 provider token | ⏳ M65.4 |
 
 **硬约束**：三条通道都必须满足「未配置 = 零出网」与「已配置 = 必脱敏」两向守卫（门禁落点见 §8，M65.5 补矩阵）。
@@ -91,11 +91,37 @@ release / commit 不设独立 env：复用构建期版本戳 `NUXT_BUILD_VERSION
 - 六类取证样例（token / Cookie / URL query / OAuth `code` / OAuth `state` / 请求体密码）逐类断言，见 `tests/unit/sentry-sanitize.test.ts`。
 - **已知边界**：未编码的 `@` / `/` 出现在 URL 凭据内部时只能部分遮蔽（与日志脱敏同一正则限制），不得依赖脱敏兜底不合规的 URL。
 
-## 5. uptime 探针通道（M65.2，待落地）
+## 5. uptime 探针通道（M65.2，已落地 2026-11-22）
 
-- 目标：进程死亡 / 容器未启动 / DB 不可读三类故障由编排器与外部 uptime 自动发现。
-- 约束：`HEALTHCHECK` 只探 liveness（DB 慢不得触发重启循环）；readiness 单独提供并检查 DB 可读；公开 `/api/health` 字段集合保持 `{version, commit, startedAt, schema}`，新增字段不得含凭据 / DB 明细。
-- 落地后在此补 `start-period` / `retries` 取值与外部探针示例。
+**目标**：进程死亡 / 容器未启动 / DB 不可读三类故障由编排器与外部 uptime 自动发现。
+
+### 5.1 端点分工（D2 决策：拆两个端点）
+
+| 端点 | 语义 | 是否访问 DB | 响应 | 使用方 |
+|:--|:--|:--|:--|:--|
+| `GET /api/health` | liveness（进程 + 产物标识） | 否 | `{version, commit, startedAt, schema}`（字段集合不变） | 容器 `HEALTHCHECK`、外部存活探测 |
+| `GET /api/health/ready` | readiness（依赖就绪） | 是（`SELECT 1`，两阶段共享 2s 总超时） | `200 {status:"ready", schema}` / `503 {status:"not_ready", schema}` | 编排器 readinessProbe、依赖告警 |
+
+- 两者都公开只读、无鉴权（探针无法携带 Cookie）；**不**返回数据库类型 / 路径 / 错误正文（探针本身不额外记录日志，数据库层仍会输出连接失败日志，探针间隔过密时需在日志侧降噪）。两者都只支持 `GET`，`HEAD` 返回 404，探针配置须用 GET。
+- readiness 的 `schema` 复用启动期漂移检测结果：`drift` 不阻塞 ready（库可读但迁移待执行）；漂移通过启动日志与 `/api/health` 的 `schema` 字段做人工 / 巡检核对（存活探针本身不解析正文）。
+
+### 5.2 容器 HEALTHCHECK
+
+- 只探 liveness：`--interval=30s --timeout=5s --start-period=60s --retries=3`；镜像无 curl，用 `node -e "fetch(...)"`。
+- **不探 DB**：DB 慢 / 迁移中不得触发重启循环（restart 只会放大故障）；依赖未就绪由 readiness 让编排器摘流。
+- `start-period` 覆盖启动 + 首次迁移窗口；Docker 实际容忍窗口为 `start-period + retries × interval = 150s`，外部监控的首次告警宽限应 ≥150s（只按 60s 会在大库首次迁移时误报）；探针失败只影响 `docker inspect` 的 Health 状态与编排器动作，不改变进程语义。探针必须用 `GET`（`HEAD` 不映射）。
+
+### 5.3 外部 uptime 接入
+
+- 存活监控 `GET /api/health`：期望 200，连续 2 次失败告警；不要解析正文（release / commit 变化会误报）。
+- 依赖监控 `GET /api/health/ready`：期望 200，连续 3 次失败告警（依赖故障通常跨多个周期）。
+- 探针间隔 ≥ 30s、超时 5s；首次告警宽限 ≥150s（Docker 容忍窗口 = `start-period + retries × interval`）。
+- 通用 HTTP 口径，不绑定具体 SaaS；反向代理后同样可探（无 Cookie / 无鉴权）。readiness 会触发一次 DB 查询，反代侧建议仅放行探针来源或加限流（探针间隔 ≥30s 已足以避免压力）。
+
+### 5.4 未证实边界
+
+- `docker inspect` 的 `healthy` 状态未在本机实跑（本地以产物进程 + 相同探针命令验证语义）；首次 CI / 真实容器启动时回填。
+- 真实外部 uptime / 编排器 readinessProbe 与反向代理链路未联调；`pg` / `mysql` 后端与「启动后数据库再失效」仅经单测覆盖。
 
 ## 6. provider 日志通道（M65.4，待落地）
 

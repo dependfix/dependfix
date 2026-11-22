@@ -44,7 +44,7 @@
 | 大条目 | 小条目 | 状态 | 提交 | 审计 | 容量 |
 |:--|:--|:--|:--|:--|:--|
 | M65.1 Sentry 错误 / 性能 / 日志接入 | — | ✅ 已闭环（2026-11-22） | `ca9cf8a6`..`02167df1`（9） | A deep R1 Reject → R2/R3 Pass；B standard R1 Reject → R2 Pass | 计划 5-7 commits / 11-16 files / 600-900 行；实际 9 commits / 39 files / +2376 行 |
-| M65.2 健康检查与外部 uptime 接入 | — | ⏳ 待开始 | — | — | 3-4 commits / 6-9 files / 200-320 行 |
+| M65.2 健康检查与外部 uptime 接入 | — | ✅ 已闭环（2026-11-22） | `52598aaa` / `5eaa2869` + 计划记录（3） | 代码 deep R1 Pass(4W) → R2 Pass；文档 standard R1 Reject → R2 Pass | 计划 3-4 commits / 6-9 files / 200-320 行；实际 3 commits / 13 files / +372 行 |
 | M65.3 邮件传输超时与周报节拍约束 | — | ⏳ 待开始 | — | — | 2 commits / 3-4 files / 100-160 行 |
 | M65.4 PR Check provider 原生日志富化 | M65.4.1 / M65.4.2 / M65.4.3 | ⏳ 待开始 | — | — | 5-7 commits / 9-14 files / 400-700 行 |
 | M65.5 可观测性门禁与脱敏测试矩阵 | — | ⏳ 待开始 | — | — | 2-3 commits / 5-7 files / 180-260 行 |
@@ -98,6 +98,13 @@
 - **依赖**：M57 schema 漂移检测已提供的 `schema` 字段；`docs/design/governance/platform-observability.md`（M65.1 首提交新建）。
 - **交付物**：3-4 commits / 6-9 files（Dockerfile + 端点与视图 + 用例 + 两处文档）/ 200-320 行。
 - **风险与缓解**：DB 慢触发重启循环 → HEALTHCHECK 只探 liveness，readiness 单独供编排 / uptime 使用；alpine 镜像无 curl → 用 `node -e "fetch(...)"`；外部服务差异 → 文档给出通用 HTTP 探针口径而非绑定产品。
+- **执行记录（2026-11-22 闭环）**：
+  - D2 决策：liveness 与 readiness 拆两个端点——`/api/health` 四键不变且不访问 DB；`/api/health/ready` 以 `SELECT 1` 判依赖（建连 + 查询共享 2s 总超时），200 / 503，正文仅 `{status, schema}`；`schema=drift` 不阻塞就绪。
+  - 容器：`HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3` 只探 liveness（node fetch，镜像无 curl）；Docker 容忍窗口 150s，外部监控首次宽限取同值。
+  - 验收：AC1 `docker inspect healthy` 未实跑（本机 Alpine 源不可达，按未证实登记），以产物进程 + 同款探针命令验证 exit 0 / 停机 exit 1；AC2 单测覆盖 not_ready 503 与「建连 100ms + 查询悬挂」判定（共享 deadline < 200ms），审计方另以 `DATABASE_PATH=/tmp` 实测 liveness 200 / readiness 503（11ms）；AC3 四键由既有端点用例锁定；AC4 指南含命令、外部 uptime 示例与 150s 宽限说明。
+  - 审计：代码 deep R1 Pass（4W）→ R2 Pass；文档 standard R1 Reject（状态三向互斥）→ R2 Pass。
+  - 偏差：实际 13 文件 / +372 行（计划 6-9 文件 / 200-320 行），由审计驱动的 readiness 模块拆分与三门禁用例导致；按 code / docs 两组提交（8 / 5 文件）。
+  - 残余：`docker inspect`、真实外部 uptime / readinessProbe、反向代理链路与 pg / mysql 后端未联调；探针自身不记录日志（连接失败看数据库层日志）。
 
 ### M65.3 邮件传输超时与周报节拍约束（P2 🛠️）
 

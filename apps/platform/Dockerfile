@@ -248,6 +248,13 @@ RUN SANDBOX_VERSION="$(node /app/sandbox/bin.mjs --version)" \
     && [ -s /app/sandbox/skills/dependfix-remediator/SKILL.md ] \
     && [ -s /app/sandbox/skills/dependfix-remediator/REFERENCES.md ] \
     && DEPENDFIX_SKILLS_DIR=/app/sandbox/skills node /app/sandbox/bin.mjs skills doctor
+# liveness 探针（只探进程 / HTTP 可用性，**不**探数据库）：
+# - DB 慢 / 迁移中就绪延迟不得触发容器重启循环；依赖就绪由 `/api/health/ready` 供编排器与外部 uptime 使用；
+# - 镜像无 curl，用 node 单行 fetch；非 2xx / 连接失败一律 exit 1；
+# - start-period 给足启动 + 首次迁移窗口；retries 容忍短抖动。
+# 口径见 docs/design/governance/platform-observability.md §5 与 docs/guide/deployment.md「健康探针」。
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
+    CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||3000)+'/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 ENTRYPOINT ["/usr/local/bin/dependfix-entrypoint.sh"]
 EXPOSE 3000
 CMD ["node", ".output/server/index.mjs"]

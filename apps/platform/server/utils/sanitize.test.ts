@@ -131,6 +131,11 @@ describe('sanitizeDeep', () => {
         expect(result.authorization).toBe('***')
     })
 
+    it('cookie 字段名替换为 ***（会话凭据）', () => {
+        expect(sanitizeDeep({ Cookie: 'session=abc', headers: { cookie: 'session=abc' } }))
+            .toEqual({ Cookie: '***', headers: { cookie: '***' } })
+    })
+
     it('credential 字段名替换为 ***', () => {
         const input = { credential: 'some-value' }
         const result = sanitizeDeep(input) as Record<string, string>

@@ -43,7 +43,7 @@
 
 | 大条目 | 小条目 | 状态 | 提交 | 审计 | 容量 |
 |:--|:--|:--|:--|:--|:--|
-| M65.1 Sentry 错误 / 性能 / 日志接入 | — | ✅ 已闭环（2026-11-22） | `ca9cf8a6`..`3deb3bf3` + 计划记录（8） | A deep R1 Reject → R2/R3 Pass；B standard R1 Reject → R2 Pass | 计划 5-7 commits / 11-16 files / 600-900 行；实际 8 commits / 38 files / +2361 行 |
+| M65.1 Sentry 错误 / 性能 / 日志接入 | — | ✅ 已闭环（2026-11-22） | `ca9cf8a6`..`02167df1`（9） | A deep R1 Reject → R2/R3 Pass；B standard R1 Reject → R2 Pass | 计划 5-7 commits / 11-16 files / 600-900 行；实际 9 commits / 39 files / +2376 行 |
 | M65.2 健康检查与外部 uptime 接入 | — | ⏳ 待开始 | — | — | 3-4 commits / 6-9 files / 200-320 行 |
 | M65.3 邮件传输超时与周报节拍约束 | — | ⏳ 待开始 | — | — | 2 commits / 3-4 files / 100-160 行 |
 | M65.4 PR Check provider 原生日志富化 | M65.4.1 / M65.4.2 / M65.4.3 | ⏳ 待开始 | — | — | 5-7 commits / 9-14 files / 400-700 行 |
@@ -76,7 +76,8 @@
   - 采集与关闭：v11 已移除 `sendDefaultPii`，改用 `dataCollection` 全关（userInfo / cookies / httpHeaders / urlQueryParams / httpBodies / graphQL / genAI / mcp / databaseQueryData / queues / stackFrameVariables）+ `beforeSend` / `beforeSendSpan` 双层脱敏；7 处转发点（启动 / API 5xx / worker / 执行失败 / 编排异常 / 通知 / 周报）。
   - 验收：AC1-AC4 由 `observability.test.ts` / `sentry-sanitize.test.ts` / `sentry-server-config.test.ts` / `sentry-config-guard.test.ts` / `observability-wiring-guard.test.ts` 覆盖；AC5 lint 0 error / typecheck 7 项目 / gates:docs 22 项 / 平台 test 2829 passed / build 通过。
   - 审计：A 代码分区 deep R1 Reject（RG-B01 采集面关闭项失效 + 性能通道不经脱敏）→ R2 Pass；B 文档分区 standard R1 Reject（tech-stack 状态互斥）→ R2 Pass。
-  - 偏差：实际 38 文件 / +2361 行（计划 11-16 文件 / 600-900 行，含 lockfile 改造），由「实现 + 入口 / 门禁测试 + 三面文档同步」共同导致；按 8 个 commit 分组（单 commit ≤8 文件）：`ca9cf8a6` 依赖与构建配置 / `49fef9ce` 共享逻辑与运行时 / `6285fac6` 转发点接线 / `55cc3537` 测试 / `4649250c` 治理文档 / `7c121e2c` 指南与规范 / `3deb3bf3` 部署配置 / 本计划记录。
+  - 偏差：实际 39 文件 / +2376 行（计划 11-16 文件 / 600-900 行，含 lockfile 改造），由「实现 + 入口 / 门禁测试 + 三面文档同步」共同导致；按 9 个 commit 分组（单 commit ≤8 文件）：`ca9cf8a6` 依赖与构建配置 / `49fef9ce` 共享逻辑与运行时 / `6285fac6` 转发点接线 / `55cc3537` 测试 / `4649250c` 治理文档 / `7c121e2c` 指南与规范 / `3deb3bf3` 部署配置 / 计划记录 / `02167df1` CI 修复。
+  - CI：首轮 Test 的 E2E 与视觉回归因 webServer 启动失败（Sentry 构建期插桩把 `pg` 链的 CJS 子路径提升为无扩展名 ESM import）→ 关闭 `buildTimeInstrumentation`（`02167df1`）→ 第二轮 Test / E2E / 视觉回归 / Coverage / CodeQL / VitePress / Docker 全绿。
   - 残余：真实 Sentry 送达与 Web Vitals 实采未做（无 DSN，按未证实登记）；worker `exit(1)` 崩溃路径仍可能丢尾部事件；`platform.md` 24,299 字符存量超健康线待下次压缩批次。
 
 ### M65.2 健康检查与外部 uptime 接入（P2 🚀）

@@ -11,6 +11,8 @@
         "app/**/*",
         "server/**/*",
         "i18n/**/*",
+        "sentry.client.config.ts",
+        "sentry.server.config.ts",
         "playwright.config.ts",
         "playwright.visual.config.ts",
         "vitest.config.ts",

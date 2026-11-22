@@ -33,7 +33,17 @@ export default defineNuxtConfig({
     modules: [
         'caomei-ui/nuxt',
         '@nuxtjs/i18n',
+        // 可观测性（Sentry）：未配置 DSN 时 SDK 不初始化（零出网），初始化口径见
+        // sentry.server.config.ts / sentry.client.config.ts 与 docs/design/governance/platform-observability.md
+        '@sentry/nuxt/module',
     ],
+    sentry: {
+        enabled: true,
+        // 不上传 source map（未提供 SENTRY_AUTH_TOKEN；同时避免构建期向 Sentry 出网）
+        sourcemaps: { disable: true },
+        // 构建插件默认会发送自身遥测事件；本项目的「未配置零出网」口径要求关闭
+        telemetry: false,
+    },
     // caomei-ui 主题接线：模块的 `theme` 只生成一条跨明暗的 `:root` 声明，
     // 因此这里只声明跨主题稳定的 token（实底色 / 亮色档）；
     // 随明暗自适应的 token（primary / bg / text / border）暗色档见 app/assets/styles/_caomei-tokens.scss。
@@ -161,6 +171,29 @@ export default defineNuxtConfig({
                 && process.env.OIDC_CLIENT_ID
                 && process.env.OIDC_CLIENT_SECRET
             ),
+            // 可观测性（浏览器端）：DSN / 环境 / release / commit / 两个采样率。
+            // 浏览器端无法读服务端私有 env，故统一走 public 通道；`NUXT_PUBLIC_` 前缀支持运行时覆盖。
+            // DSN 只认 public 专用变量：服务端 `SENTRY_DSN` 不回落到 public（避免把服务端 DSN 烘进浏览器产物，
+            // 浏览器采集必须显式开启）。浏览器端运行期覆盖名 = `NUXT_PUBLIC_` + snake_case(key)，如
+            // `sentryErrorsSampleRate` → `NUXT_PUBLIC_SENTRY_ERRORS_SAMPLE_RATE`。
+            // 口径见 docs/design/governance/platform-observability.md §3。
+            sentryDsn: process.env.NUXT_PUBLIC_SENTRY_DSN || '',
+            sentryEnvironment:
+                process.env.NUXT_PUBLIC_SENTRY_ENVIRONMENT
+                || process.env.SENTRY_ENVIRONMENT
+                || process.env.NODE_ENV
+                || 'development',
+            // @sentry/nuxt 模块读取的固定键名（客户端初始化与 globalThis.SENTRY_RELEASE 共用）
+            _sentryRelease: process.env.NUXT_BUILD_VERSION || 'unknown',
+            sentryCommit: process.env.NUXT_BUILD_COMMIT || 'unknown',
+            sentryErrorsSampleRate:
+                process.env.NUXT_PUBLIC_SENTRY_ERRORS_SAMPLE_RATE
+                || process.env.SENTRY_ERRORS_SAMPLE_RATE
+                || '',
+            sentryTracesSampleRate:
+                process.env.NUXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE
+                || process.env.SENTRY_TRACES_SAMPLE_RATE
+                || '',
         },
     },
     vite: {

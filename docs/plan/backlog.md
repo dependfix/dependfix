@@ -55,15 +55,13 @@
 
 ### 候选评估中（待评估 / 本阶段延后项）
 
-> **候选池概览（2026-11-21 M65 规划后复算）**：本区 **28 项**（`### 候选评估中` 段内 `^- \*\*` 逐行计数；M65 上收 4 条 + 规划模型 v1 验证候选闭环移除 1 条后由 33 复算）；每次上收 / 新增 / 移出后按段内实测更新本句与首行，不保留历史链路。P 标签覆盖不全（未标注者评估时补，不默认升级）；1.0 分档见 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)。
+> **候选池概览（2026-11-23 M66 规划后复算）**：本区 **22 项**（`### 候选评估中` 段内 `^- \*\*` 逐行计数；M66 上收 6 条后由 28 复算）；每次上收 / 新增 / 移出后按段内实测更新本句与首行，不保留历史链路。P 标签覆盖不全（未标注者评估时补，不默认升级）；1.0 分档见 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)。
 > **1.0 门槛与分档**：分档、门槛判定与批次计划单点声明于 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)（2026-10-30 冻结口径，不随候选上收收缩；本文件不重复维护数字）。
 
 - **备份 `.tmp` 清扫缺年龄门槛（P3 🛠️，2026-10-31 M53.2 收口登记）** —— `cleanupOldBackups` 对 `*.bak.tmp` 无条件回收；单实例串行路径不可达冲突，但并发 `db:restore` 或多实例共卷启动时可能删掉对端正在写的临时文件（rename ENOENT → 该轮快照丢失，fail-open 后仅剩日志）。待评估：加入 `mtime < now - 10min` 年龄门槛或按 PID 命名临时文件。触发：启用多实例 / 多容器共享数据卷，或出现并发恢复需求时。
 - **`check:release-security` 输出缺少采集时点（P3 🛠️，2026-11-03 预发布检查发现；2026-11-08 复核）** —— 告警汇总行与 PASS / FAIL 行都不带采集时间，落盘为发布证据时无法自证时点（只能靠文件 mtime 推断）；脚本当前无 `--json` 模式。**范围**：输出首行加 ISO 时间戳。**验收**：输出含采集时点，单测锁定。**不做**：不改告警判定与 fail-closed 语义、不新增 `--json`。**触发条件**：下次改动该脚本，或再次需要以该输出作为发布证据。
 - **镜像构建冗余（P2 🚀，2026-11-07）** —— ① 每架构对三 registry 各构建一次（digest 相同，冷缓存最慢 41m32s）；② 发布提交被 push 与派发各构建一次。待评估：单次多 name 推送 / 复用 digest / push 腿跳过 release 提交。
 - **PR 回环有界重试（P2 🚀，2026-10-30 M51.3 用户裁定延后）** —— 设计稿 `pr-feedback-loop.md` §8 保留 `FeedbackRetryDispatcher` 契约（同 PR 失败后重新触发既有修复链，需配额与触发面）；平台当前无「同 PR 重试」入口，`retryFailed` 开启时每仓库每进程只 warn 一次。待评估：补触发面（API / UI）+ 配额后再实施。触发：出现「PR 红后无人处理、需自动重试」的实际需求时。
-- **门户面板左缘亚像素抖动（P2 🧪，2026-10-31 M52.4 收口登记）** —— `dialog-select-open-dark` 基线在连续 `--update-snapshots=all` 下约 1/10 轮出现 99 px / maxΔ2 的边缘窄带差异（bbox x 476-483 × y 303-723，位于门户面板左缘），低于门禁（`maxDiffPixels` 100 / `threshold` 0.1 → maxDelta 352）但仅剩 1 px 预算。已排除「update 落帧不稳定」这一主因（`waitForVisualStable` 已加两帧一致检查，全量集合 3/3 恒定）。待评估：定位面板定位的亚像素来源（门户定位取整 / 滚动条宽度），或对该基线改用元素级取景。触发：该基线偶发红，或差异放大到接近 / 超过 100 px。
-- **验证跳过的交付可观测性（残余：`deliverySkips` 家族登记；P3 🎨，2026-11-09 更新）** —— 报告 `Verification Skipped` 段 + Summary 行、平台运行详情「验证跳过」与按原因 tooltip 已落地（`budget` / `no-write` 可区分），「修了 N 条、交付 0 条」可从报告与详情直接判读。残余：是否需要在 `deliverySkips` 家族里登记该跳过原因（当前独立 `verificationSkippedByReason`）。触发：出现「跳过原因需在交付载体（issue / 草稿 PR）中体现」的反馈时。
 - **平台侧交付载体（issue / 草稿 PR，P2 🎨）** —— 引擎 `fix-and-pr` 已按基线红档位产出载体（issue / 草稿 PR），平台执行链（`fix + commit` + `platform-delivery`）目前只记录 `summary.deliverySkipped*` 并在运行列表 / 详情展示；待评估：平台在交付决策处复用同一失败指纹开 issue / 创建草稿 PR，并补仓库级配置写入面（当前仅 env `DEPENDFIX_ON_BASELINE_RED`，UI / API 不暴露）。触发：平台用户反馈「基线红只有标签、没有可跟踪载体」时。口径见 [pr-delivery-closure.md §16.7](../design/governance/pr-delivery-closure-history.md#_16-7-已知边界)。
 - **批次续跑并发原子性（P3 🛠️，2026-11-21 M64.4 登记）** —— `POST /api/batch-runs/[id]/resume` 的「无进行中子项 / 无 running 派生批次」为读后写检查，两个并发请求可同时通过（async 由队列 jobId 去重兜底为 `SCAN_PENDING_MERGED`，sync 会重复执行一轮）。触发：出现并发续跑导致的重复执行，或引入多实例调度；处置方向：事务内条件插入 / 部分唯一索引 / advisory lock。
 - **镜像脚本只覆盖根 scripts 单一形态**（M48.2 边界）—— `pnpm --filter` / 递归 / env 前缀 / corepack 钉定只披露不执行；触发：目标仓库 CI 大量使用这些形态导致「本地假绿」再现。
@@ -90,7 +88,7 @@
   - **按 [规划规范 §3.1](../standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
 
 - **独立 installer 容器 / runtime 工具链移出（待评估，P2 🛡️ 安全 / 🚀 体积）** —— 背景（2026-10-18）：runtime 阶段补 `python3 make g++` 以支持目标仓库原生模块的 `node-gyp` 回退；审计实测同 digest 基础镜像下 content size +约 110MB、`docker images` disk +约 421MB（`/usr` +约 303MB），同时扩大了不可信仓库可用的编译面。工具链本身也不是充分条件：node headers / prebuild 源需可达，部分模块另需 `linux-headers`（当前未装）。
-  - **待评估点**：① 是否把安装依赖拆到独立 installer 容器 / 阶段（只在该阶段保留工具链，主 runtime 仍只含 `.output`）；② 若保留在 runtime，是否补 `linux-headers` / 预置 node-gyp headers 缓存，并加镜像体积门禁；③ 与 pnpm store 持久化事项（本阶段已上收）的卷 / 缓存策略联动。
+  - **待评估点**：① 是否把安装依赖拆到独立 installer 容器 / 阶段（只在该阶段保留工具链，主 runtime 仍只含 `.output`）；② 若保留在 runtime，是否补 `linux-headers` / 预置 node-gyp headers 缓存，并加镜像体积门禁；③ 与 pnpm store 持久化的卷 / 缓存策略联动。
   - **触发条件**：镜像体积 / 安全评审要求收敛编译面；或再次出现「预编译包下载失败 + 缺 headers / 工具链」的原生构建失败。
   - **按 [规划规范 §3.1](../standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
 
@@ -99,7 +97,7 @@
   - **触发条件**：单仓安装次数成为主要耗时；或回滚粒度仍不足。
   - **按 [规划规范 §3.1](../standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
 
-**2026-10-27 决策**：本地日志已上收 M49 追加临时待办（不占编号）；Sentry 官方 SaaS（已随 2026-11-21 M65.1 上收）；Axiom 后续；其余 1.0 后。P 标签仅表优先级，新增 P1 未纳入 1.0 分档。
+**2026-10-27 决策**：Axiom 后续评估；其余 1.0 后。P 标签仅表优先级，新增 P1 未纳入 1.0 分档。
 
 - **Axiom 远程日志聚合（P2 🛠️，1.0 后）** —— 详见 [评估](../research/2026-10-27-third-party-observability-evaluation.md)。**目标**：本地日志统一后按需把 warn/error 与关键事件推到 Axiom。**范围**：`@axiomhq/winston`、动态 import、Axiom env、异常转发、runId / jobId、脱敏单测。**验收**：① 未配置零出网；② 配置后可按 runId / jobId 检索；③ 不重复推送 `MemoryLogger`；④ 脱敏通过。**不做**：不重做本地日志；不迁移全部 console。**依赖**：本地日志统一完成；Axiom 账号。**交付物**：3-5 commits / 8-12 files / 300-500 行。**风险**：成本 → 只推 warn/error；ESM → 动态 import。
 
@@ -109,18 +107,6 @@
 
 - **契约抽取器覆盖 `@Column(() => X)` 嵌入列与 env 解构（P3 🛠️，2026-10-31 M53.1 收口登记）** —— `check-contract-freeze` 的实体抽取覆盖 `@Column` 系列 / `@ManyToOne`+`@JoinColumn` / `@Entity`，遇到 `@Embedded`、`@ManyToMany` join table、env 解构与非字面量 `readEnv` 实参已 fail-closed（`extractor-coverage`），但**无 `@Embedded` 的 `@Column(() => X)` 嵌入列**未进哨兵：抽取会产出错误列名并与清单产生差异（响亮失败，不会静默漏键）。待评估：扩展抽取器（递归嵌入类型 / `getMetadataArgsStorage` 元数据）或把该形态纳入 fail-closed 哨兵。触发：仓库首次引入嵌入实体或该形态列。
 - **en-US 设计文档全量镜像（P2 📚，2026-10-30 M52 规划登记）** —— 现状：en 设计镜像仅 4 篇，zh 设计文档 67 篇（含 M44.4 拆分分片）；M52.3 只做「结构映射 + 索引补全」，不重译全文。待评估：1.0 后是否按「分片 → 镜像」逐篇补齐（成本随拆分增加、双维护风险高），或长期维持映射清单 + 关键路径翻译。触发：1.0 后文档国际化需求，或用户反馈英文站信息不足时。
-
-**2026-11-13 运行日志复盘派生**（来源：`runs-logs-20261113-045612.txt` 第 1 页；不占阶段编号）：
-
-- **peer-only 同 major 修复回退到 manifest 直接依赖（P2 🛠️，2026-11-13 登记）** —— 现象：`rss-to-memos-sync` 的 vite 8.3.1 → ^8.3.3 属同 major，经 versioned overrides 应用后验证提示 `peer-only instances do not follow pnpm overrides`，回滚并按「无写入」收尾；`sharp-cloud-uploader` 在 2026-11-06 同一形态（8.1.0 < 8.1.6，override 未生效）。现有路径只在 overrides 层面尝试，未回退到「提升声明该包的 manifest 直接依赖」，因此同 major 可修告警也交付不了。**待评估点**：① override 未覆盖 peer-only 时改为提升根 / 成员 manifest 的直接依赖（含锁定范围与回滚单元）；② 或稳定输出「需人工」并附具体文件与版本建议；③ 与 `peer-only` / `override-protected` skipped 口径及「无写入」结论的关系。**触发条件**：再次出现同 major 可修但 overrides 失效（peer-only / 非依赖树可达）。
-
-**2026-11-16 运行日志复盘派生**（来源：`runs-logs-20261116-043236.txt` 第 1 页 50 条运行，1 次 `push_failed` + 1 次 `execution_timeout` + 1 次 `sandbox_unavailable`；不占阶段编号）：
-
-- **无补丁版本告警与 advisory 区间口径（P3 🛠️，2026-11-16 登记）** —— 现象：`deepmerge` 在 dependfix / push-all-in-cloud / momei / caomei-ui / rss-impact-server 反复出现，`first_patched_version=null`、range 4.2.0–4.3.1，升级永远修不了；另 `belowTarget` 含 advisory 范围外实例（minimatch 3.1.5 / 3.1.4、5.1.9 低于 >=7.0.0 下界），当前不影响结论但污染跳过计数。**待评估点**：① 为 `first_patched_version=null` 提供「无修复版本」结论 / 建议 dismiss，而不是每天 blocked；② 与报告「未修复」明细的关系（`belowTarget` 的 advisory 区间过滤已随 M62.3 上收，本候选不重复验收）。**验收标准（草案）**：① 无补丁版本告警有稳定结论且不重复刷屏；② 报告可判读。**不做**：不自动 dismiss 上游告警（需用户策略）。**触发条件**：同包无补丁告警连续多轮出现。
-
-- **checkpoint `unknown` 失败的重试与证据（P3 🛠️，2026-11-16 登记）** —— 现象：dependfix ×3 + sharp-cloud-uploader 均报 `unknown — git stash create exited with code 1`，probe 未发现 index.lock / 权限 / 磁盘问题；已知 `git stash create` 对索引锁会静默 exit 1，probe 在失败后才跑，锁可能已释放。影响：仅失去单元级回滚（本页相关 run 多为 0 写入）。**待评估点**：① `unknown` 先重试一次（250ms 后）再降级；② 证据补 `git version` / 并发 git 提示；③ 与 checkpoint 降级口径的关系。**验收标准（草案）**：① 瞬时索引竞争不再落 `unknown`；② 真降级仍可判读；③ 选择性回滚用例零回归。**不做**：不把 `unknown` 升级为 abort。**触发条件**：`unknown` 连续出现或伴随真实回滚失败。
-
-- **关闭 PR 的修复分支清理与 `push_failed` 细分（P2 🛠️，2026-11-16 登记）** —— 现象：本次 P0 已让同指纹残留分支可 lease 覆盖，但关闭 / supersede 的 PR 仍保留 `dependfix/auto-fix-*` 分支，持续占用远端命名；`push_failed` 继续固定 `deliver` + `unknown`（[run-failure-taxonomy §7](../design/governance/run-failure-taxonomy.md#_7-风险与开放问题) 决策），non-FF / auth / network 不可区分，需人工翻 `error.message`。**待评估点**：① PR 关闭 / supersede 时自动删除自有分支（或纳入 `cleanup-branches-auto` 的清理批次）；② push stderr 按 non-FF / auth / network 细分（仅在明确前缀时映射，避免脆弱解析）；③ 与「关闭 PR 不消耗尝试额度」口径的关系。**验收标准（草案）**：① 关闭 PR 后无残留自有分支（或有清理记录）；② `push_failed` 至少区分 non-FF / auth / network 三类；③ 非自有分支零误删。**不做**：不自动关闭 / 合并 PR；不解析非自有分支。**触发条件**：再次出现同指纹残留分支，或 `push_failed` 连续两轮仍需人工翻日志。
 
 **2026-11-13 阶段容量再平衡移出**（来源：M59 同日三批插队命中 §3.1.1 阈值 1，用户确认移出；不占阶段编号）：
 
@@ -163,7 +149,7 @@
 
 - **管理端代他人重发验证邮件（admin-only + 操作者审计）**（P2 🛠️，**2026-11-13 用户决定延后**）—— 背景：better-auth `/send-verification-email` 在有会话时要求 `session.user.email === body.email`（否则 400 `EMAIL_MISMATCH`），管理端代发无法复用原生端点；当前用户列表只展示未验证标签，用户到登录页自助重发。**延后原因**：用户判断「代他人触发邮件」的逻辑仍需重新推敲（权限、滥用面、与自助恢复的边界）。恢复条件：用户完成方案思考并明确授权；届时按「admin-only 端点 + 操作者审计 + 双维度限流」评估。手动置位 `email_verified` 已另行决定**不提供**（2026-11-13）。
 
-- **T705 生产级部署**（PostgreSQL + Helm；Sentry 已随 2026-11-21 M65.1 上收）—— 2026-08-12 用户指示暂缓排期
+- **T705 生产级部署**（PostgreSQL + Helm）—— 2026-08-12 用户指示暂缓排期
 - **自托管 Umami 流量统计**（P3 🎨，1.0 后暂缓）—— 管理台用户量小；M65.1 落地后 Sentry 路由 transaction 可覆盖页面访问与性能，流量来源 / 留存价值不足以抵消额外服务与脚本成本（届时按 Sentry 实际数据重新评估）。触发：需要产品级使用分析且 Sentry 数据不足，或平台转为多租户 SaaS。详见 [评估](../research/2026-10-27-third-party-observability-evaluation.md)。
 - **T703 跨平台 Git**（GitLab + Bitbucket）—— 2026-08-12 用户指示暂缓排期
 - **ScanResult 数据层去重（upsert 唯一索引）** —— 决策暂缓：应用层去重（fingerprint + occurrenceCount / firstSeenAt / lastSeenAt / affectedRunIds）已实施且满足当前业务需求；恢复条件：出现"fix 复用同一 `scan_run_id` 跨次刷新"或"历史 fixStatus 跨次保留"需求时迁移到数据层 upsert
@@ -437,8 +423,8 @@
 
 | 内容类型 | 位置 |
 |:--|:--|
-| 当前阶段活跃任务 | 无活跃阶段（M65 已于 2026-11-23 归档；下一阶段按候选池评估后由用户决策）；插队容量治理见 [planning.md §3.1.1](../standards/planning.md#_3-1-1-插队后的阶段容量再平衡-hard-requirement-2026-10-19) |
-| 下一阶段（未规划） | 按本文件候选池重新评估（28 条候选 + 3 条待上收）；M59 / M60 / M63 / M65 残余留在本文件；**1.1.0 已于 2026-11-15 发布**，定时发布启用仍在「待上收候选」段等待观察窗口 |
+| 当前阶段活跃任务 | M66 执行结果可信与失败归因（2026-11-23 规划，6 原子，见 [todo.md](todo.md)）；插队容量治理见 [planning.md §3.1.1](../standards/planning.md#_3-1-1-插队后的阶段容量再平衡-hard-requirement-2026-10-19) |
+| 下一阶段（未规划） | 按本文件候选池重新评估（22 条候选 + 3 条待上收）；M59 / M60 / M63 / M65 残余留在本文件；**1.1.0 已于 2026-11-15 发布**，定时发布启用仍在「待上收候选」段等待观察窗口 |
 | 已完成阶段归档 | [todo-archive.md](todo-archive.md)（阶段索引 + [archive/](archive/) 分片） |
 | 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M0-M65 已归档） |
 | 长期主线 / 候选 / 待人工验收 / 已知边界 | 本文档（按四象限结构） |

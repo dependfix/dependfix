@@ -71,6 +71,13 @@
 
 **合规核验**：本条由 review 阶段执行，详见 [code-reviewer skill](../../.github/skills/code-reviewer/SKILL.md) + [code-quality-checklist §todo.md 子任务详细度审计](../../.github/skills/code-reviewer/references/code-quality-checklist.md) + Code Auditor 主责边界「todo.md 子任务详细度审计」。
 
+### 2.6 用户可达性与 UI 交付判定（hard requirement，2026-11-24）
+
+- **先判定交付形态**：任何面向用户的能力（配置、凭据、观测、触发、结果查看）在规划时必须显式选择 **UI**（入口页面 / 导航 / 空态 / 错误态）或 **API-only**，并写明理由。
+- **API-only 的准入**：仅当满足至少一条才可免除 Web UI——① 只被机器 / CI / 外部集成消费（附调用方 / 工作流证据）；② 已由既有界面完整承载（给出入口）；③ 交付形态本身即界面（CLI / Action / MCP：命令帮助、输出与错误提示、非交互 / CI 可用、凭据不回显）。**「接口先做、UI 后补」不是理由**；仅交付接口且无上述理由 → 规划 Reject。
+- **UI 原子的验收下限**：入口位置与权限可见性；主路径「创建 / 配置 → 使用 → 撤销 / 删除」闭环；空态、错误态与一次性凭据不落盘；e2e / 组件或浏览器证据覆盖主路径。**UI 原子仅有接口单测通过不算功能可用**。验收按能力类型取适用项：只读能力以筛选 / 分页 / 空态 / 错误态替代撤销 / 删除；无凭据能力跳过一次性凭据项。
+- **规划与审查联动**：阶段规划、插队与归档审计都须回答「这个功能需要 UI 吗？UI 真的可用吗？」；review 检查点见 [code-quality-checklist「用户可达性」](../../.github/skills/code-reviewer/references/code-quality-checklist.md#用户可达性-必查项)。
+
 ## 3. 迭代中途新增事项分流
 
 1. **范围核对**：先检查是否已在 `todo.md` / `roadmap.md` 当前阶段或 `todo-archive.md` 中。

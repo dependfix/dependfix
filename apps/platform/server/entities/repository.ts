@@ -156,6 +156,27 @@ export class Repository extends BaseEntity {
     prCheckFocus!: string | null
 
     // ---------------------------------------------------------------------
+    // Provider 日志富化目标（可选；`null` = 该 provider 不启用日志富化）
+    //
+    // 仅用于 PR Check 失败时拉取 provider 原生构建日志尾部（Layer 5），
+    // 不参与三源聚合 / 告警判定。口径见
+    // [pr-build-deploy-signals.md §3.12](../../../../docs/design/governance/pr-build-deploy-signals.md)。
+    // 缺目标 = 零请求（不猜项目名），与未配置凭据等价。
+    // ---------------------------------------------------------------------
+
+    /** Vercel 项目 id（`prj_...`；配合 `vercel-token` 凭据使用） */
+    @Column({ type: 'varchar', length: 64, nullable: true })
+    vercelProjectId!: string | null
+
+    /** Cloudflare account id（配合 `cloudflare-token` 凭据使用） */
+    @Column({ type: 'varchar', length: 64, nullable: true })
+    cloudflareAccountId!: string | null
+
+    /** Cloudflare Workers 脚本名 / tag（Cloudflare Builds API 必需，与 account id 成对配置） */
+    @Column({ type: 'varchar', length: 128, nullable: true })
+    cloudflareWorkerTag!: string | null
+
+    // ---------------------------------------------------------------------
     // 仓库级执行预算与超时（2026-11-08；`null` = 继承全局）
     //
     // 口径见 [repo-execution-limits.md](../../../../docs/design/governance/repo-execution-limits.md) §4.1：

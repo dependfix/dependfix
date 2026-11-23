@@ -9,18 +9,28 @@ import { BaseEntity } from './base-entity'
 import { Organization } from './organization'
 
 /**
- * 凭据类型：GitHub 访问凭据。
+ * 凭据类型。
  * - classic-pat：经典 PAT（全仓库级，scope 由 token 自身决定）
  * - fine-grained-pat：细粒度 PAT（按仓库授权，权限最小化）
  * - github-app：GitHub App（installation token 模式；M18.3 接入实施，详见 docs/design/governance/c22-pat-backward-compat.md §4.5）
+ * - vercel-token：Vercel 只读 token（组织级；仅用于 PR Check 失败日志富化，不参与扫描 / 交付）
+ * - cloudflare-token：Cloudflare 只读 token（组织级；同上）
  */
-export type CredentialType = 'classic-pat' | 'fine-grained-pat' | 'github-app'
+export type CredentialType = 'classic-pat' | 'fine-grained-pat' | 'github-app' | 'vercel-token' | 'cloudflare-token'
 
 /** 凭据类型枚举（API 校验用） */
 export const CREDENTIAL_TYPES: readonly CredentialType[] = [
     'classic-pat',
     'fine-grained-pat',
     'github-app',
+    'vercel-token',
+    'cloudflare-token',
+] as const
+
+/** Provider 日志富化凭据类型（只读用途；与 `ProviderLogProvider` 一一对应，映射见 provider-log-collector） */
+export const PROVIDER_LOG_CREDENTIAL_TYPES: readonly CredentialType[] = [
+    'vercel-token',
+    'cloudflare-token',
 ] as const
 
 /** GitHub 平台凭据：token 加密存储（AES-256-GCM，ENCRYPTION_KEY 平台级密钥） */

@@ -170,6 +170,19 @@ export class PRCheck extends BaseEntity {
     failureSourcesJson!: string | null
 
     /**
+     * Provider 原生构建日志富化结果（JSON 字符串）。
+     *
+     * 形态：`{ available, provider, tail?, truncated?, reason?, status?, fetchedAt }`；
+     * `null` = 未采集 / 未配置 provider 凭据 / 上一轮不是失败态（成功与 pending 会清空该列，
+     * 避免旧日志残留）。`tail` 已由引擎按 8 KB 截尾并脱敏。
+     *
+     * 只用于失败详情的展示富化，**不参与** `overallStatus` / `failureSources` / 告警状态机
+     * （口径见 [pr-build-deploy-signals.md §3.12](../../../../docs/design/governance/pr-build-deploy-signals.md)）。
+     */
+    @Column({ type: 'text', nullable: true })
+    providerLogsJson!: string | null
+
+    /**
      * 是否触发 alerts firing。
      * 状态机（关键决策 D3，详见 docs/plan/todo.md §M24.1）：失败时 firing=true → 用户 ack 或回归 success 自动 ack → firing=false。
      * 默认 false；service 在 INSERT/UPDATE 时根据 `conclusion` 推断：

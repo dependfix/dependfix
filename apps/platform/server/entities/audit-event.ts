@@ -34,6 +34,9 @@ import { ScanRun } from './scan-run'
  *   变更影响运行预算与锁窗口，必须留痕
  * - major_upgrade_policy_update：Repository 跨大版本升级授权变更（repo-execution-limits 同批决策）
  * - batch_run_resumed：批次级「继续执行未完成项」派生新批次（来源链路可追溯）
+ * - provider_log_credential_update：组织级 provider 只读凭据（vercel-token / cloudflare-token）的
+ *   创建 / 更新 / 删除（[pr-build-deploy-signals.md §3.12](../design/governance/pr-build-deploy-signals.md)）——
+ *   凭据面扩大但用途限定只读日志富化，写入必须留痕
  * - pr_feedback_commented / pr_feedback_closed：PR 回环对交付 PR 的评论与自动关闭
  *   （[pr-feedback-loop.md](../design/governance/pr-feedback-loop.md)）——不可逆 / 对外可见，必须留痕
  *
@@ -59,6 +62,7 @@ export type AuditEventType =
     | 'pr_feedback_commented'
     | 'pr_feedback_closed'
     | 'batch_run_resumed'
+    | 'provider_log_credential_update'
 
 /** 审计事件类型枚举（API 校验用） */
 export const AUDIT_EVENT_TYPES: readonly AuditEventType[] = [
@@ -75,6 +79,7 @@ export const AUDIT_EVENT_TYPES: readonly AuditEventType[] = [
     'pr_feedback_commented',
     'pr_feedback_closed',
     'batch_run_resumed',
+    'provider_log_credential_update',
 ] as const
 
 /** 审计事件严重级别（与 alerts.severity 解耦：审计事件是系统信号，告警是业务信号） */

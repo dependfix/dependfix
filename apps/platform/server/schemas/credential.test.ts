@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { credentialSchema, credentialUpdateSchema } from './credential'
 
+/** discriminated union 窄化：provider 类型分支没有 ownerLogin 字段 */
+const ownerLoginOf = (data: unknown): unknown =>
+    data && typeof data === 'object' && 'ownerLogin' in data ? (data as { ownerLogin?: unknown }).ownerLogin : undefined
+
 describe('credentialSchema + ownerLogin 字段', () => {
     describe('credentialSchema 创建路径', () => {
         it('classic-pat 接受 ownerLogin（可选）', () => {
@@ -12,7 +16,7 @@ describe('credentialSchema + ownerLogin 字段', () => {
             })
             expect(result.success).toBe(true)
             if (result.success) {
-                expect(result.data.ownerLogin).toBe('octocat')
+                expect(ownerLoginOf(result.data)).toBe('octocat')
             }
         })
 
@@ -24,7 +28,7 @@ describe('credentialSchema + ownerLogin 字段', () => {
             })
             expect(result.success).toBe(true)
             if (result.success) {
-                expect(result.data.ownerLogin).toBeUndefined()
+                expect(ownerLoginOf(result.data)).toBeUndefined()
             }
         })
 
@@ -46,7 +50,7 @@ describe('credentialSchema + ownerLogin 字段', () => {
             })
             expect(result.success).toBe(true)
             if (result.success) {
-                expect(result.data.ownerLogin).toBe('my-org')
+                expect(ownerLoginOf(result.data)).toBe('my-org')
             }
         })
 
@@ -61,7 +65,7 @@ describe('credentialSchema + ownerLogin 字段', () => {
             })
             expect(result.success).toBe(true)
             if (result.success) {
-                expect(result.data.ownerLogin).toBe('my-org')
+                expect(ownerLoginOf(result.data)).toBe('my-org')
             }
         })
 
@@ -74,6 +78,29 @@ describe('credentialSchema + ownerLogin 字段', () => {
             })
             expect(result.success).toBe(false)
         })
+
+        it('vercel-token / cloudflare-token 只接受 name / type / token / note，拒绝 ownerLogin', () => {
+            for (const type of ['vercel-token', 'cloudflare-token'] as const) {
+                const ok = credentialSchema.safeParse({ name: `${type}-cred`, type, token: 'readonly-token' })
+                expect(ok.success, type).toBe(true)
+                if (ok.success) {
+                    expect(ok.data).toEqual({ name: `${type}-cred`, type, token: 'readonly-token' })
+                }
+
+                const rejected = credentialSchema.safeParse({
+                    name: `${type}-cred`,
+                    type,
+                    token: 'readonly-token',
+                    ownerLogin: 'octocat',
+                })
+                expect(rejected.success, `${type}:ownerLogin`).toBe(false)
+            }
+        })
+
+        it('vercel-token 缺少 token → 失败；未知类型 → 失败', () => {
+            expect(credentialSchema.safeParse({ name: 'v', type: 'vercel-token' }).success).toBe(false)
+            expect(credentialSchema.safeParse({ name: 'x', type: 'provider-token', token: 't' }).success).toBe(false)
+        })
     })
 
     describe('credentialUpdateSchema 更新路径', () => {
@@ -83,7 +110,7 @@ describe('credentialSchema + ownerLogin 字段', () => {
             })
             expect(result.success).toBe(true)
             if (result.success) {
-                expect(result.data.ownerLogin).toBe('new-owner')
+                expect(ownerLoginOf(result.data)).toBe('new-owner')
             }
         })
 
@@ -97,6 +124,12 @@ describe('credentialSchema + ownerLogin 字段', () => {
         it('ownerLogin 省略表示不修改', () => {
             const result = credentialUpdateSchema.safeParse({})
             expect(result.success).toBe(true)
+        })
+
+        it('type 枚举含 provider 日志富化两种类型', () => {
+            expect(credentialUpdateSchema.safeParse({ type: 'vercel-token' }).success).toBe(true)
+            expect(credentialUpdateSchema.safeParse({ type: 'cloudflare-token' }).success).toBe(true)
+            expect(credentialUpdateSchema.safeParse({ type: 'unknown-token' }).success).toBe(false)
         })
     })
 })

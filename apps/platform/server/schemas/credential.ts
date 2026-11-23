@@ -31,6 +31,7 @@ const githubAppCredentialFields = {
  * - type='classic-pat' → 必填 token；ownerLogin 可选（运行时通过 GET /user + GET /user/orgs 自动发现）
  * - type='fine-grained-pat' → 必填 token + ownerLogin（Fine-grained PAT 绑定单一 owner 运行时无法动态发现）
  * - type='github-app' → 必填 appId/encryptedPrivateKey/installationId + token 禁用；ownerLogin 可选（可从 installationId 经 GET /app/installations/{id} 自动解析后填充）
+ * - type='vercel-token' / 'cloudflare-token' → 必填 token；组织级只读凭据，仅用于 PR Check 失败日志富化，不接受 ownerLogin
  * - `.strict()` 拒绝未声明字段（防止 PAT 路径误传 App 字段或反之）
  *
  * Resource owner 抽象（todo.md §M26.2 + backlog.md §C67）：
@@ -59,6 +60,18 @@ export const credentialSchema = z.discriminatedUnion('type', [
         ownerLogin: z.string().trim().min(1, 'Resource owner 登录名').max(100).optional(),
         note: z.string().max(500).nullable().optional(),
     }).strict(),
+    z.object({
+        name: z.string().trim().min(1, '名称不能为空').max(100),
+        type: z.literal('vercel-token'),
+        ...patCredentialFields,
+        note: z.string().max(500).nullable().optional(),
+    }).strict(),
+    z.object({
+        name: z.string().trim().min(1, '名称不能为空').max(100),
+        type: z.literal('cloudflare-token'),
+        ...patCredentialFields,
+        note: z.string().max(500).nullable().optional(),
+    }).strict(),
 ])
 
 /**
@@ -68,7 +81,7 @@ export const credentialSchema = z.discriminatedUnion('type', [
  */
 export const credentialUpdateSchema = z.object({
     name: z.string().trim().min(1, '名称不能为空').max(100).optional(),
-    type: z.enum(['classic-pat', 'fine-grained-pat', 'github-app']).optional(),
+    type: z.enum(['classic-pat', 'fine-grained-pat', 'github-app', 'vercel-token', 'cloudflare-token']).optional(),
     /** PAT token 省略/空串 = 不修改；提供非空值才重新加密 */
     token: z.string().trim().max(10000).optional(),
     // GitHub App 路径字段（全部可选；省略 = 不修改）

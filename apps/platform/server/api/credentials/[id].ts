@@ -3,6 +3,7 @@ import { Credential } from '#server/entities/credential'
 import { ensureDatabaseInitialized } from '#server/database'
 import { credentialUpdateSchema } from '#server/schemas/credential'
 import { encryptToken, getEncryptionKey } from '#server/services/credential.service'
+import { isProviderLogCredentialType, recordProviderLogCredentialAudit } from '#server/services/credential-audit'
 import { requireAuth, requireOrgResource, requireRole } from '#server/utils/guard'
 import { createLocalizedError } from '#server/utils/localized-error'
 
@@ -60,6 +61,49 @@ const updateCredential = async (event: H3Event, id: string) => {
 
     const encryptionKey = getEncryptionKey()
 
+    // 审计需要变更前的类型（provider 凭据 ↔ 其它类型的切换同样留痕）
+    const previousType = found.type
+
+    const nextType = parsed.data.type ?? found.type
+
+    // 类型切换必须提供新凭据材料：否则会把旧类型的密文当作新类型使用
+    // （GitHub PAT 被发往 Vercel / Cloudflare，或反向），与 D4-A「只读 token」假设冲突。
+    if (parsed.data.type !== undefined && parsed.data.type !== found.type) {
+        if (nextType === 'github-app') {
+            const privateKey = typeof parsed.data.encryptedPrivateKey === 'string'
+                ? parsed.data.encryptedPrivateKey.trim()
+                : ''
+            if (privateKey === '') {
+                throw createLocalizedError(event, {
+                    statusCode: 400,
+                    code: 'CREDENTIAL_VALIDATION_FAILED',
+                    data: { reason: 'PRIVATE_KEY_REQUIRED' },
+                })
+            }
+        } else {
+            const token = typeof parsed.data.token === 'string' ? parsed.data.token.trim() : ''
+            if (token === '') {
+                throw createLocalizedError(event, {
+                    statusCode: 400,
+                    code: 'CREDENTIAL_VALIDATION_FAILED',
+                    data: { reason: 'TOKEN_REQUIRED' },
+                })
+            }
+        }
+    }
+    // provider 只读凭据不接受 GitHub App / ownerLogin 字段（含同类型更新，避免残留字段）
+    if (isProviderLogCredentialType(nextType)) {
+        const forbidden = ['ownerLogin', 'appId', 'installationId', 'encryptedPrivateKey', 'botLogin']
+            .filter((key) => body[key] !== undefined)
+        if (forbidden.length > 0) {
+            throw createLocalizedError(event, {
+                statusCode: 400,
+                code: 'CREDENTIAL_VALIDATION_FAILED',
+                data: { fields: forbidden },
+            })
+        }
+    }
+
     if (parsed.data.name !== undefined) {
         found.name = parsed.data.name
     }
@@ -87,6 +131,15 @@ const updateCredential = async (event: H3Event, id: string) => {
         found.note = parsed.data.note
     }
     const saved = await repo.save(found)
+    // provider 只读凭据（日志富化）写入留痕：任一侧属于 provider 类型即登记（含改成 / 改出该类型）
+    const providerType = isProviderLogCredentialType(saved.type) ? saved.type : previousType
+    if (isProviderLogCredentialType(providerType)) {
+        await recordProviderLogCredentialAudit(ds, {
+            action: 'updated',
+            credentialId: saved.id,
+            providerType,
+        })
+    }
     return { id: saved.id, updated: true }
 }
 
@@ -101,7 +154,16 @@ const deleteCredential = async (event: H3Event, id: string) => {
         throw createLocalizedError(event, { statusCode: 404, code: 'CREDENTIAL_NOT_FOUND' })
     }
     await requireOrgResource(event, found.organizationId)
+    const deletedId = found.id
+    const deletedType = found.type
     await repo.remove(found)
+    if (isProviderLogCredentialType(deletedType)) {
+        await recordProviderLogCredentialAudit(ds, {
+            action: 'deleted',
+            credentialId: deletedId,
+            providerType: deletedType,
+        })
+    }
     return { id, deleted: true }
 }
 

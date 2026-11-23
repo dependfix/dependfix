@@ -3,6 +3,8 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vites
 import { expectError, makeEvent, setupMemoryDatabase, teardownMemoryDatabase } from '../../../tests/api-helper'
 import credentialsIdHandler from './[id]'
 import credentialsHandler from './index'
+import { AuditEvent } from '#server/entities/audit-event'
+import { ensureDatabaseInitialized } from '#server/database'
 
 // todo.md §M16.5 三角色鉴权：mock 改为可重写（默认 admin）
 const { mockRequireAuth, mockRequireRole, mockRequireOrgResource } = vi.hoisted(() => ({
@@ -176,6 +178,118 @@ describe('/api/credentials/[id] 错误响应 i18n（todo.md §M17.2）', () => {
 })
 
 /**
+ * provider 日志富化凭据（vercel-token / cloudflare-token）写入审计：
+ * 创建 / 更新 / 删除必须登记 `provider_log_credential_update`，payload 不含 token；
+ * 其它凭据类型不产生该类事件（行为不变）。
+ */
+describe('provider 日志凭据写入审计', () => {
+    const findProviderAudits = async (credentialId: string) => {
+        const ds = await ensureDatabaseInitialized()
+        const events = await ds.getRepository(AuditEvent).find({
+            where: { type: 'provider_log_credential_update' },
+            order: { createdAt: 'DESC' },
+        })
+        return events
+            .map((event) => ({
+                event,
+                payload: JSON.parse(event.payloadJson ?? '{}') as Record<string, unknown>,
+            }))
+            .filter(({ payload }) => payload.credentialId === credentialId)
+    }
+
+    beforeAll(() => {
+        setupMemoryDatabase()
+    })
+
+    afterAll(() => {
+        teardownMemoryDatabase()
+    })
+
+    beforeEach(() => {
+        vi.clearAllMocks()
+    })
+
+    it('创建 vercel-token → action=created，payload 只含 action / credentialId / providerType', async () => {
+        const created = await callIndex('POST', '/api/credentials', {
+            name: 'vercel-readonly',
+            type: 'vercel-token',
+            token: 'vercel-secret-token-abc',
+        }) as { id: string }
+
+        const audits = await findProviderAudits(created.id)
+        expect(audits).toHaveLength(1)
+        expect(audits[0]!.payload).toEqual({
+            action: 'created',
+            credentialId: created.id,
+            providerType: 'vercel-token',
+        })
+        expect(audits[0]!.event.severity).toBe('info')
+        expect(audits[0]!.event.repositoryId).toBeNull()
+        expect(audits[0]!.event.payloadJson).not.toContain('vercel-secret-token-abc')
+    })
+
+    it('GitHub 类型凭据不产生 provider 审计（行为不变）', async () => {
+        const created = await callIndex('POST', '/api/credentials', {
+            name: 'plain-pat',
+            type: 'classic-pat',
+            token: 'ghp_plain-token',
+        }) as { id: string }
+
+        expect(await findProviderAudits(created.id)).toHaveLength(0)
+    })
+
+    it('更新为 cloudflare-token（从 GitHub 类型）→ action=updated，providerType 取新类型', async () => {
+        const created = await callIndex('POST', '/api/credentials', {
+            name: 'switch-to-cloudflare',
+            type: 'classic-pat',
+            token: 'ghp_switch-token',
+        }) as { id: string }
+
+        // 跨类型切换必须同时提供新 token（禁止把旧 GitHub PAT 当作 provider 凭据继续使用）
+        await expectError(
+            callId('PUT', `/api/credentials/${created.id}`, { type: 'cloudflare-token' }, { id: created.id }),
+            400,
+        )
+        await callId('PUT', `/api/credentials/${created.id}`, { type: 'cloudflare-token', token: 'cf-readonly-token' }, { id: created.id })
+
+        const audits = await findProviderAudits(created.id)
+        expect(audits).toHaveLength(1)
+        expect(audits[0]!.payload).toEqual({
+            action: 'updated',
+            credentialId: created.id,
+            providerType: 'cloudflare-token',
+        })
+    })
+
+    it('切换为 provider 类型时携带 GitHub App / ownerLogin 字段 → 400', async () => {
+        const created = await callIndex('POST', '/api/credentials', {
+            name: 'switch-with-extra-fields',
+            type: 'classic-pat',
+            token: 'ghp_switch-token',
+        }) as { id: string }
+
+        await expectError(callId('PUT', `/api/credentials/${created.id}`, {
+            type: 'vercel-token',
+            token: 'vercel-readonly-token',
+            ownerLogin: 'someone',
+        }, { id: created.id }), 400)
+    })
+
+    it('删除 cloudflare-token → action=deleted', async () => {
+        const created = await callIndex('POST', '/api/credentials', {
+            name: 'cloudflare-delete',
+            type: 'cloudflare-token',
+            token: 'cf-secret-token',
+        }) as { id: string }
+
+        await callId('DELETE', `/api/credentials/${created.id}`, undefined, { id: created.id })
+
+        const audits = await findProviderAudits(created.id)
+        expect(audits.map(({ payload }) => payload.action)).toEqual(['deleted', 'created'])
+    })
+})
+
+/**
  * GitHub App 类型凭据分支覆盖（todo.md §M20.5）
  * 覆盖 credentials/[id].ts 中 type === 'github-app' 的分支
  */
@@ -251,6 +365,7 @@ describe('/api/credentials/[id] GitHub App 类型分支覆盖', () => {
         // 分支覆盖：parsed.data.type !== undefined
         const result = await callId('PUT', `/api/credentials/${githubAppId}`, {
             type: 'fine-grained-pat',
+            token: 'github_pat_new-type-token',
         }, { id: githubAppId }) as { updated: boolean }
         expect(result).toEqual({ id: githubAppId, updated: true })
     })

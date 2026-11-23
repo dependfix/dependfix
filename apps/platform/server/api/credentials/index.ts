@@ -3,6 +3,7 @@ import { Credential } from '#server/entities/credential'
 import { ensureDatabaseInitialized } from '#server/database'
 import { credentialSchema } from '#server/schemas/credential'
 import { encryptToken, getEncryptionKey } from '#server/services/credential.service'
+import { isProviderLogCredentialType, recordProviderLogCredentialAudit } from '#server/services/credential-audit'
 import { requireAuth, requireRole } from '#server/utils/guard'
 import { createLocalizedError } from '#server/utils/localized-error'
 import { resolveOrganizationId } from '#server/utils/organization'
@@ -98,6 +99,14 @@ const createCredential = async (event: H3Event) => {
     }
 
     const saved = await repo.save(entity)
+    // provider 只读凭据（日志富化）写入留痕；其它类型保持原有「不审计」行为
+    if (isProviderLogCredentialType(saved.type)) {
+        await recordProviderLogCredentialAudit(ds, {
+            action: 'created',
+            credentialId: saved.id,
+            providerType: saved.type,
+        })
+    }
     return toView(saved)
 }
 

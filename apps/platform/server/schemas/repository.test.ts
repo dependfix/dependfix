@@ -439,4 +439,42 @@ describe('repository schemas', () => {
             expect(repositoryUpdateSchema.safeParse({ prCheckFocus: { names: ['Test'] } }).success).toBe(true)
         })
     })
+
+    describe('provider 日志富化目标（vercelProjectId / cloudflareAccountId / cloudflareWorkerTag）', () => {
+        it('创建：缺省 / null / 空串 → success（未启用）', () => {
+            expect(repositorySchema.safeParse({ owner: 'a', name: 'b' }).success).toBe(true)
+            expect(repositorySchema.safeParse({
+                owner: 'a',
+                name: 'b',
+                vercelProjectId: null,
+                cloudflareAccountId: null,
+                cloudflareWorkerTag: null,
+            }).success).toBe(true)
+            expect(repositorySchema.safeParse({ owner: 'a', name: 'b', vercelProjectId: '' }).success).toBe(true)
+        })
+
+        it('创建：逐字段 trim，超长 → fail（64 / 64 / 128）', () => {
+            const ok = repositorySchema.safeParse({
+                owner: 'a',
+                name: 'b',
+                vercelProjectId: '  prj_1  ',
+                cloudflareAccountId: '  acc  ',
+                cloudflareWorkerTag: '  worker  ',
+            })
+            expect(ok.success).toBe(true)
+            expect(ok.success && ok.data.vercelProjectId).toBe('prj_1')
+            expect(ok.success && ok.data.cloudflareAccountId).toBe('acc')
+            expect(ok.success && ok.data.cloudflareWorkerTag).toBe('worker')
+
+            expect(repositorySchema.safeParse({ owner: 'a', name: 'b', vercelProjectId: 'x'.repeat(65) }).success).toBe(false)
+            expect(repositorySchema.safeParse({ owner: 'a', name: 'b', cloudflareAccountId: 'x'.repeat(65) }).success).toBe(false)
+            expect(repositorySchema.safeParse({ owner: 'a', name: 'b', cloudflareWorkerTag: 'x'.repeat(129) }).success).toBe(false)
+        })
+
+        it('更新：partial 语义（undefined 不修改 / null 清空）', () => {
+            expect(repositoryUpdateSchema.safeParse({}).success).toBe(true)
+            expect(repositoryUpdateSchema.safeParse({ vercelProjectId: null }).success).toBe(true)
+            expect(repositoryUpdateSchema.safeParse({ cloudflareAccountId: '' }).success).toBe(true)
+        })
+    })
 })

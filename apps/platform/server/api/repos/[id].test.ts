@@ -203,6 +203,52 @@ describe('GET /api/repos/[id]', () => {
         expect(await readFocus()).toBeNull()
     })
 
+    it('persists provider 日志富化目标 via PUT（trim / undefined 不修改 / 空串清空）', async () => {
+        const readTargets = async () => {
+            const detail = await callId('GET', `/api/repos/${id}`, undefined, { id }) as Record<string, unknown>
+            return {
+                vercelProjectId: detail.vercelProjectId,
+                cloudflareAccountId: detail.cloudflareAccountId,
+                cloudflareWorkerTag: detail.cloudflareWorkerTag,
+            }
+        }
+        expect(await readTargets()).toEqual({
+            vercelProjectId: null,
+            cloudflareAccountId: null,
+            cloudflareWorkerTag: null,
+        })
+
+        await callId('PUT', `/api/repos/${id}`, {
+            vercelProjectId: '  prj_123  ',
+            cloudflareAccountId: 'acc-1',
+            cloudflareWorkerTag: 'worker-app',
+        }, { id })
+        expect(await readTargets()).toEqual({
+            vercelProjectId: 'prj_123',
+            cloudflareAccountId: 'acc-1',
+            cloudflareWorkerTag: 'worker-app',
+        })
+
+        // 未传字段 → 不修改
+        await callId('PUT', `/api/repos/${id}`, { note: 'unrelated' }, { id })
+        expect(await readTargets()).toEqual({
+            vercelProjectId: 'prj_123',
+            cloudflareAccountId: 'acc-1',
+            cloudflareWorkerTag: 'worker-app',
+        })
+
+        // 空串 / null → 清空该 provider 的启用
+        await callId('PUT', `/api/repos/${id}`, {
+            vercelProjectId: '   ',
+            cloudflareAccountId: null,
+        }, { id })
+        expect(await readTargets()).toEqual({
+            vercelProjectId: null,
+            cloudflareAccountId: null,
+            cloudflareWorkerTag: 'worker-app',
+        })
+    })
+
     it('records verify_commands_update audit only when commands actually change', async () => {
         const ds = await ensureDatabaseInitialized()
         const auditRepo = ds.getRepository(AuditEvent)

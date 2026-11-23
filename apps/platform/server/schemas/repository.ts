@@ -118,6 +118,19 @@ export const repositoryFieldShape = {
         ).max(MAX_PR_CHECK_FOCUS_ENTRIES, `关注集 kind 最多 ${MAX_PR_CHECK_FOCUS_ENTRIES} 项`).optional(),
     }).strict().nullable().optional(),
     // -----------------------------------------------------------------
+    // Provider 原生构建日志富化的仓库级目标（可选；空 / null = 该 provider 不启用）
+    // 语义见 pr-build-deploy-signals.md §3.12：缺目标即零请求，不猜项目名
+    // -----------------------------------------------------------------
+    /** Vercel 项目 id（配合 `vercel-token` 凭据） */
+    vercelProjectId: z.string().trim()
+        .max(64, 'Vercel 项目 ID 最长 64 字符').nullable().optional(),
+    /** Cloudflare account id（配合 `cloudflare-token` 凭据） */
+    cloudflareAccountId: z.string().trim()
+        .max(64, 'Cloudflare Account ID 最长 64 字符').nullable().optional(),
+    /** Cloudflare Workers 脚本名 / tag（Builds API 必需，与 account id 成对配置） */
+    cloudflareWorkerTag: z.string().trim()
+        .max(128, 'Cloudflare Worker Tag 最长 128 字符').nullable().optional(),
+    // -----------------------------------------------------------------
     // 仓库级执行预算与超时（毫秒；null / undefined = 继承全局）
     // 运行期优先级与封顶见 server/utils/execution-limits.ts
     // -----------------------------------------------------------------

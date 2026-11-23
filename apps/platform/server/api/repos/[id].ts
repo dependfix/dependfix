@@ -116,6 +116,17 @@ const updateRepository = async (event: H3Event, id: string) => {
         prCheckFocusValue = normalized ? JSON.stringify(normalized) : null
     }
 
+    // provider 日志富化目标（undefined=不修改 / null 或空串=清空该 provider 的启用）
+    const vercelProjectIdValue = parsed.data.vercelProjectId !== undefined
+        ? parsed.data.vercelProjectId || null
+        : found.vercelProjectId
+    const cloudflareAccountIdValue = parsed.data.cloudflareAccountId !== undefined
+        ? parsed.data.cloudflareAccountId || null
+        : found.cloudflareAccountId
+    const cloudflareWorkerTagValue = parsed.data.cloudflareWorkerTag !== undefined
+        ? parsed.data.cloudflareWorkerTag || null
+        : found.cloudflareWorkerTag
+
     // 变更前的跨大版本授权（审计用；Object.assign 会原地修改 found）
     const previousAllowMajorUpgrade = found.allowMajorUpgrade
 
@@ -142,6 +153,9 @@ const updateRepository = async (event: H3Event, id: string) => {
         sandboxImage: sandboxImageValue,
         verifyCommands: verifyCommandsValue,
         prCheckFocus: prCheckFocusValue,
+        vercelProjectId: vercelProjectIdValue,
+        cloudflareAccountId: cloudflareAccountIdValue,
+        cloudflareWorkerTag: cloudflareWorkerTagValue,
         executionTimeoutMs: parsed.data.executionTimeoutMs !== undefined ? parsed.data.executionTimeoutMs : found.executionTimeoutMs,
         verifyCommandTimeoutMs: parsed.data.verifyCommandTimeoutMs !== undefined ? parsed.data.verifyCommandTimeoutMs : found.verifyCommandTimeoutMs,
         installTimeoutMs: parsed.data.installTimeoutMs !== undefined ? parsed.data.installTimeoutMs : found.installTimeoutMs,

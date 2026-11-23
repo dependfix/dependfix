@@ -103,6 +103,11 @@ const createRepository = async (event: H3Event) => {
     // prCheckFocus 对象 → JSON 字符串列（三维全空归一为 null = 未配置；规范化负责 trim / 去重 / 小写）
     const prCheckFocusValue = normalizePRCheckFocus(parsed.data.prCheckFocus)
 
+    // provider 日志富化目标：空串归一为 null（= 该 provider 不启用，采集零请求）
+    const vercelProjectId = parsed.data.vercelProjectId || null
+    const cloudflareAccountId = parsed.data.cloudflareAccountId || null
+    const cloudflareWorkerTag = parsed.data.cloudflareWorkerTag || null
+
     // 新建仓库默认值：平台部署可通过 ALLOW_MAJOR_UPGRADE_DEFAULT / NUXT_PUBLIC_ALLOW_MAJOR_UPGRADE_DEFAULT
     // 统一开启；请求体显式值优先（表单编辑既有仓库时始终显式提交当前开关状态）
     const allowMajorUpgradeDefault = resolveAllowMajorUpgradeDefault(event)
@@ -123,6 +128,9 @@ const createRepository = async (event: H3Event) => {
         sandboxImage: normalizeDockerImage(parsed.data.sandboxImage),
         verifyCommands: verifyCommandsValue,
         prCheckFocus: prCheckFocusValue ? JSON.stringify(prCheckFocusValue) : null,
+        vercelProjectId,
+        cloudflareAccountId,
+        cloudflareWorkerTag,
         executionTimeoutMs: parsed.data.executionTimeoutMs ?? null,
         verifyCommandTimeoutMs: parsed.data.verifyCommandTimeoutMs ?? null,
         installTimeoutMs: parsed.data.installTimeoutMs ?? null,

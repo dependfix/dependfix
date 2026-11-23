@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { unauthenticatedApiContext } from './helpers/unauthenticated-api.helper'
+import { waitForHydration } from './helpers/hydration.helper'
 
 /**
  * v1 API key 端到端：创建（一次性明文）→ 无 Cookie 的 Bearer 访问 → 列表只出前缀 → 吊销立即失效。
@@ -87,6 +88,53 @@ test.describe('/api/v1/keys 与 API key 鉴权', () => {
         try {
             const response = await context.request.get('/api/v1/keys')
             expect(response.status()).toBe(401)
+        } finally {
+            await context.close()
+        }
+    })
+})
+
+test.describe('API 密钥管理页面', () => {
+    test('创建 -> 一次性明文 -> 列表 -> 吊销闭环', async ({ page }) => {
+        const name = `ui-key-${Date.now()}`
+        await page.goto('/api-keys')
+        await waitForHydration(page)
+        await expect(page.locator('h2')).toContainText('API 密钥', { timeout: 15000 })
+
+        await page.locator('button:has-text("创建密钥")').click()
+        await expect(page.locator('.caomei-dialog__header')).toContainText('创建 API 密钥', { timeout: 15000 })
+        await page.locator('input#api-key-name').fill(name)
+        await page.locator('.caomei-dialog__content button:has-text("新建")').click()
+
+        await expect(page.locator('.caomei-dialog__header')).toContainText('密钥已创建', { timeout: 15000 })
+        const secret = (await page.locator('.api-keys__secret-value').innerText()).trim()
+        expect(secret.startsWith('dfk_')).toBe(true)
+        expect(secret.length).toBeGreaterThan(20)
+
+        // 关闭后明文不再出现在 DOM（只存在一次性弹窗的内存里）
+        await page.locator('.caomei-dialog__close').click()
+        await expect(page.locator('.api-keys__secret-value')).toHaveCount(0)
+        expect(await page.content()).not.toContain(secret)
+
+        // 列表可见新 key（只显示前缀 / 名称）
+        await expect(page.locator('.caomei-data-table')).toContainText(name, { timeout: 15000 })
+
+        // 吊销：二次确认后从列表消失
+        const row = page.locator('.caomei-data-table__row', { hasText: name })
+        await row.locator('button[aria-label="吊销"]').click()
+        await page.locator('.caomei-confirm-dialog__footer button').last().click()
+        await expect(page.locator('.caomei-message--success')).toContainText('密钥已吊销', { timeout: 15000 })
+        await expect(page.locator('.caomei-data-table')).not.toContainText(name)
+    })
+
+    test('viewer 直接访问显示无权限且无创建入口', async ({ browser }) => {
+        const context = await browser.newContext({ storageState: 'tests/e2e/.auth/viewer.json' })
+        const page = await context.newPage()
+        try {
+            await page.goto('/api-keys')
+            await waitForHydration(page)
+            await expect(page.locator('text=当前账号无 API 密钥管理权限')).toBeVisible({ timeout: 15000 })
+            await expect(page.locator('button:has-text("创建密钥")')).toHaveCount(0)
         } finally {
             await context.close()
         }

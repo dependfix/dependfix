@@ -12,6 +12,7 @@
             "notifications": "Notifications",
             "batchRuns": "Batch Runs",
             "credentials": "Credentials",
+            "apiKeys": "API keys",
             "users": "Users",
             "settings": "Settings",
             "logout": "Log out",
@@ -804,7 +805,41 @@
         "typeExecutionLimitsUpdate": "Execution limits update",
         "typeMajorUpgradePolicyUpdate": "Major upgrade policy update",
         "typeDeliveryBranchCleanup": "Delivery branch cleanup",
-        "typeProviderLogCredentialUpdate": "Provider log credential update"
+        "typeProviderLogCredentialUpdate": "Provider log credential update",
+    },
+    "apiKeys": {
+        "title": "API keys",
+        "subtitle": "Used by the read-only API and MCP remote; the plaintext key is shown only once at creation",
+        "add": "Create key",
+        "empty": "No API keys yet, create one from the top right",
+        "colName": "Name",
+        "colPrefix": "Prefix",
+        "colCreatedAt": "Created",
+        "colExpiresAt": "Expires",
+        "colLastRequest": "Last used",
+        "colActions": "Actions",
+        "neverUsed": "Never used",
+        "revoke": "Revoke",
+        "createTitle": "Create API key",
+        "nameLabel": "Name",
+        "namePlaceholder": "e.g. mcp / ci",
+        "createHint": "The plaintext key is shown once. It is bound to the current organization, scope read, expires in 90 days.",
+        "createdTitle": "API key created",
+        "createdHint": "Copy it now; it cannot be viewed again after closing.",
+        "copy": "Copy",
+        "copied": "Copied",
+        "revokeConfirm": "Revoke key \"{name}\"? It takes effect immediately and cannot be undone.",
+        "success": {
+            "created": "API key created",
+            "revoked": "API key revoked"
+        },
+        "errors": {
+            "loadFailed": "Failed to load API keys: {message}",
+            "createFailed": "Failed to create: {message}",
+            "revokeFailed": "Failed to revoke: {message}",
+            "forbidden": "This account cannot manage API keys (admin / org_admin required)",
+            "copyFailed": "Copy failed, select the text manually"
+        }
     },
     "credentials": {
         "title": "Credentials",

@@ -28,6 +28,8 @@ const logout = async () => {
 // nav 守卫（DRY：env-events / pr-checks / schedules 三处同款「非 viewer 可见」复用）：
 // 与 admin-only 守卫（仅 L100 单处使用）区分，canAccessAdmin 表达「可访问管理面板」。
 const canAccessAdmin = computed(() => session.value?.user?.role !== 'viewer')
+// API 密钥管理仅 admin / org_admin（服务端 requireRole 为准）
+const canManageApiKeys = computed(() => ['admin', 'org_admin'].includes(session.value?.user?.role ?? ''))
 </script>
 
 <template>
@@ -116,6 +118,14 @@ const canAccessAdmin = computed(() => session.value?.user?.role !== 'viewer')
                     active-class="platform__nav-link--active"
                 >
                     {{ t('common.nav.credentials') }}
+                </NuxtLink>
+                <NuxtLink
+                    v-if="canManageApiKeys"
+                    to="/api-keys"
+                    class="platform__nav-link"
+                    active-class="platform__nav-link--active"
+                >
+                    {{ t('common.nav.apiKeys') }}
                 </NuxtLink>
                 <NuxtLink
                     v-if="session?.user?.role === 'admin'"

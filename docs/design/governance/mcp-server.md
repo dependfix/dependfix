@@ -38,7 +38,8 @@
 ### 2.1 Remote 后端（M63.5）
 
 `DEPENDFIX_MCP_BACKEND=local|remote|auto`（默认 `auto`）；`auto` 在
-`DEPENDFIX_PLATFORM_URL` + `DEPENDFIX_PLATFORM_API_KEY` 齐备时启用 remote：
+`DEPENDFIX_PLATFORM_URL` + `DEPENDFIX_PLATFORM_API_KEY` 齐备时启用 remote。
+key 在平台「API 密钥」页（`/api-keys`，admin / org_admin）创建，明文仅显示一次；不要下发到前端。
 
 | 工具 | remote 行为 |
 |:--|:--|
@@ -133,7 +134,7 @@ MCP Server 不依赖 CLI args 解析，直接走程序化 API。这要求 `Depen
 
 ### 4.3 认证
 
-MCP Server 本身不管理凭据。`GITHUB_TOKEN` / `DEPENDFIX_AI_API_KEY` / `DEPENDFIX_PLATFORM_API_KEY`（remote 还需 `DEPENDFIX_PLATFORM_URL`）从环境变量读取：
+MCP Server 本身不管理凭据。`GITHUB_TOKEN` / `DEPENDFIX_AI_API_KEY` / `DEPENDFIX_PLATFORM_API_KEY`（remote 还需 `DEPENDFIX_PLATFORM_URL`）从环境变量读取；平台 key 从 `/api-keys` 页面创建（一次性明文）：
 
 ```
 mcpServer.connect(transport)

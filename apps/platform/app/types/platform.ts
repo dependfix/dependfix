@@ -197,3 +197,16 @@ export interface BatchRunRun {
     summary: Record<string, unknown> | null
     error: { code: string, message: string } | null
 }
+
+/** API key 列表视图（只含前缀与元数据，不含明文 / 哈希） */
+export interface ApiKeyView {
+    id: string
+    name: string | null
+    prefix: string | null
+    start: string | null
+    enabled: boolean
+    scopes: string[]
+    createdAt: string
+    expiresAt: string | null
+    lastRequest: string | null
+}

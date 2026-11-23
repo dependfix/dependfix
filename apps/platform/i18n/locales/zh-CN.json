@@ -12,6 +12,7 @@
             "notifications": "通知",
             "batchRuns": "批量运行",
             "credentials": "凭据",
+            "apiKeys": "API 密钥",
             "users": "用户",
             "settings": "个人设置",
             "logout": "退出登录",
@@ -804,7 +805,41 @@
         "typeExecutionLimitsUpdate": "执行预算更新",
         "typeMajorUpgradePolicyUpdate": "跨大版本策略更新",
         "typeDeliveryBranchCleanup": "交付分支清理",
-        "typeProviderLogCredentialUpdate": "Provider 日志凭据更新"
+        "typeProviderLogCredentialUpdate": "Provider 日志凭据更新",
+    },
+    "apiKeys": {
+        "title": "API 密钥",
+        "subtitle": "用于只读观测 API 与 MCP remote；明文仅在创建时显示一次",
+        "add": "创建密钥",
+        "empty": "暂无密钥，点击右上角创建",
+        "colName": "名称",
+        "colPrefix": "前缀",
+        "colCreatedAt": "创建时间",
+        "colExpiresAt": "过期时间",
+        "colLastRequest": "最近使用",
+        "colActions": "操作",
+        "neverUsed": "从未使用",
+        "revoke": "吊销",
+        "createTitle": "创建 API 密钥",
+        "nameLabel": "名称",
+        "namePlaceholder": "例如 mcp / ci",
+        "createHint": "创建后仅显示一次明文；key 绑定当前组织，scope 为 read，90 天后过期。",
+        "createdTitle": "密钥已创建",
+        "createdHint": "请立即复制保存；关闭后将无法再次查看。",
+        "copy": "复制",
+        "copied": "已复制",
+        "revokeConfirm": "确定吊销密钥「{name}」？吊销后立即失效，且不可恢复。",
+        "success": {
+            "created": "密钥已创建",
+            "revoked": "密钥已吊销"
+        },
+        "errors": {
+            "loadFailed": "加载密钥失败：{message}",
+            "createFailed": "创建失败：{message}",
+            "revokeFailed": "吊销失败：{message}",
+            "forbidden": "当前账号无 API 密钥管理权限（需 admin / org_admin）",
+            "copyFailed": "复制失败，请手动选择文本复制"
+        }
     },
     "credentials": {
         "title": "凭据管理",

@@ -1,6 +1,6 @@
-# 经验归档分片（§七十九 - §九十一）：运维实测与发布链沉淀
+# 经验归档分片（§七十九 - §九十三）：运维实测与发布链沉淀
 
-> 本分片为 [§70-§85 索引](./experience-archive-§70-§99-delivery-platform.md) 的第二片（原分片按 `^##` H2 边界拆分，章节编号与锚点不变；自 §八十六 起只更新范围标签与 H1，**文件名沿用建立时规划上界** `-§79-§85-`；实测内容范围 §七十九-§九十一）；正文只写结论与落点。
+> 本分片为 [§70-§85 索引](./experience-archive-§70-§99-delivery-platform.md) 的第二片（原分片按 `^##` H2 边界拆分，章节编号与锚点不变；自 §八十六 起只更新范围标签与 H1，**文件名沿用建立时规划上界** `-§79-§85-`；实测内容范围 §七十九-§九十三）；正文只写结论与落点。
 
 ## 七十九、M53.2 运维实测批次经验沉淀（惰性单例启动点 / WAL 备份 / 早退守卫）
 
@@ -391,3 +391,10 @@
   - **落点**：`packages/engine/src/config/index.ts` + `packages/engine/src/config/index.test.ts`（解析在 `packages/cli/src/cli/index.ts`）。
 - **安装源预检要「退出码 + 哨兵」双条件，且旧镜像要有独立失败码**：只认哨兵会被仓库日志伪造；只认退出码无法区分「registry 不可达」与「预检命令不存在」。做法：预检失败 `exit 3 + FAILED 哨兵` → `registry_unreachable`；旧镜像输出 `UNAVAILABLE 哨兵` → `sandbox_probe_unavailable`（确定性、需换镜像）；哨兵解析限定 `transportExitCode===3`。
   - **落点**：`packages/core/src/runtime/registry-probe.ts` + `apps/platform/server/services/executor/sandbox-executor.ts` + [run-failure-taxonomy.md §5.13](run-failure-taxonomy.md#_5-13-沙箱安装源快速失败与预算透传-m64-3)。
+
+## 九十三、M65 归档批次经验沉淀（容器健康读数 / 受限网络构建 / 取证时点）
+> **批次**：M65 平台可观测性与健康（2026-11-21 规划 / 2026-11-23 归档）。**准入依据**：② 复现（Health 读数归档前复测）+ ④ 环境陷阱（Alpine 源不可达）+ ⑤ 审计驱动修正。
+
+- **容器 Health 是瞬态读数**：liveness-only `HEALTHCHECK` 在 DB 不可读时仍转 `healthy`，启动早期 `starting` 不代表持续状态；判「不重启」用 `RestartCount`，判依赖用 readiness。
+- **受限网络构建直接用仓库内置 `APK_MIRROR`**：`executor-base` 的 apk 源替换会被后续阶段继承，临时 Dockerfile 副本会让「与正式构建一致」成为未验证断言；**证据时延口径**要覆盖多轮实测区间（首版 2s 取样得 `starting`，复测 5.5–13s 才 `healthy`），写「数秒内 + 区间」或只留终态计数。
+- **落点**：docs/design/governance/platform-observability.md §5.4、apps/platform/Dockerfile（68-79 / 83-93 / 96-108 三处 `APK_MIRROR`）、apps/platform/docker/smoke-test.sh、docs/plan/archive/todo-archive-phases-m65.md。

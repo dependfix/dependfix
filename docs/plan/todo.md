@@ -101,10 +101,10 @@
 - **执行记录（2026-11-22 闭环）**：
   - D2 决策：liveness 与 readiness 拆两个端点——`/api/health` 四键不变且不访问 DB；`/api/health/ready` 以 `SELECT 1` 判依赖（建连 + 查询共享 2s 总超时），200 / 503，正文仅 `{status, schema}`；`schema=drift` 不阻塞就绪。
   - 容器：`HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3` 只探 liveness（node fetch，镜像无 curl）；Docker 容忍窗口 150s，外部监控首次宽限取同值。
-  - 验收：AC1 `docker inspect healthy` 未实跑（本机 Alpine 源不可达，按未证实登记），以产物进程 + 同款探针命令验证 exit 0 / 停机 exit 1；AC2 单测覆盖 not_ready 503 与「建连 100ms + 查询悬挂」判定（共享 deadline < 200ms），审计方另以 `DATABASE_PATH=/tmp` 实测 liveness 200 / readiness 503（11ms）；AC3 四键由既有端点用例锁定；AC4 指南含命令、外部 uptime 示例与 150s 宽限说明。
+  - 验收：AC1 于 2026-11-23 本机实测回填——以 HEAD `2ecc4120` 与仓库 Dockerfile 构建镜像（仅传 `APK_MIRROR` 镜像源构建参数，仓库文件未改），`smoke-test.sh` PASS（`/api/health` = 1.2.0 / 2ecc4120 / 17 表），`docker inspect` 启动后数秒内转 `healthy`（本机复现 5.5–13s，`FailingStreak=0`、`RestartCount=0`）；`DATABASE_PATH=/tmp` 时 liveness 200 / readiness 503，`docker inspect` 仍报 `healthy`（HEALTHCHECK 只探 liveness，DB 故障只由 readiness 体现）。AC2 单测覆盖 not_ready 503 与「建连 100ms + 查询悬挂」判定（共享 deadline < 200ms），审计方另以 `DATABASE_PATH=/tmp` 实测 liveness 200 / readiness 503（11ms）；AC3 四键由既有端点用例锁定；AC4 指南含命令、外部 uptime 示例与 150s 宽限说明。
   - 审计：代码 deep R1 Pass（4W）→ R2 Pass；文档 standard R1 Reject（状态三向互斥）→ R2 Pass。
   - 偏差：实际 13 文件 / +372 行（计划 6-9 文件 / 200-320 行），由审计驱动的 readiness 模块拆分与三门禁用例导致；按 code / docs 两组提交（8 / 5 文件）。
-  - 残余：`docker inspect`、真实外部 uptime / readinessProbe、反向代理链路与 pg / mysql 后端未联调；探针自身不记录日志（连接失败看数据库层日志）。
+  - 残余：真实外部 uptime / readinessProbe、反向代理链路与 pg / mysql 后端未联调；探针自身不记录日志（连接失败看数据库层日志）。
 
 ### M65.3 邮件传输超时与周报节拍约束（P2 🛠️）
 

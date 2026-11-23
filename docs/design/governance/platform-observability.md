@@ -1,6 +1,6 @@
 # 平台可观测性设计（Sentry / uptime 探针 / provider 日志）
 
-> **状态**：Sentry 通道已落地（M65.1，2026-11-22）；uptime 探针已落地（M65.2，2026-11-22）；PR Check provider 日志（M65.4）待落地，落地后回填本文对应章节。
+> **状态**：Sentry 通道已落地（M65.1，2026-11-22）；uptime 探针已落地（M65.2，2026-11-22）；PR Check provider 日志已落地（M65.4，2026-11-23），三通道字段与边界见本文对应章节。
 > **定位**：把「平台出问题后靠人肉巡检」换成三条可复核的观测通道；本文件是三通道的**字段 / 关闭项 / 边界**权威，进程日志通道本身仍见 [platform-logging.md](./platform-logging.md)，PR 信号三源聚合见 [pr-build-deploy-signals.md](./pr-build-deploy-signals.md)。
 
 ## 1. 背景与目标
@@ -11,7 +11,7 @@
 |:--|:--|:--|:--|:--|
 | Sentry | 哪条 API / worker 在报错？错误堆栈与分布？ | 未捕获异常、API 5xx、worker 异常、通知 / 执行失败、周报异常、Web Vitals | `SENTRY_DSN` / `NUXT_PUBLIC_SENTRY_DSN` 为空 | ✅ M65.1 落地 |
 | uptime 探针 | 进程 / 容器 / DB 是否还活着？ | 编排器 `HEALTHCHECK` + 外部 HTTP 探针 | 探针未配置 | ✅ M65.2 落地 |
-| provider 日志 | 失败的那次 Vercel / Cloudflare 构建为什么失败？ | PR Check 失败信号 + provider 只读 token | 未配置 provider token | ⏳ M65.4 |
+| provider 日志 | 失败的那次 Vercel / Cloudflare 构建为什么失败？ | PR Check 失败信号 + provider 只读 token | 未配置 provider token | ✅ M65.4 落地 |
 
 **硬约束**：三条通道都必须满足「未配置 = 零出网」与「已配置 = 必脱敏」两向守卫（门禁落点见 §8，M65.5 补矩阵）。
 
@@ -118,9 +118,9 @@ release / commit 不设独立 env：复用构建期版本戳 `NUXT_BUILD_VERSION
 - 探针间隔 ≥ 30s、超时 5s；首次告警宽限 ≥150s（Docker 容忍窗口 = `start-period + retries × interval`）。
 - 通用 HTTP 口径，不绑定具体 SaaS；反向代理后同样可探（无 Cookie / 无鉴权）。readiness 会触发一次 DB 查询，反代侧建议仅放行探针来源或加限流（探针间隔 ≥30s 已足以避免压力）。
 
-### 5.4 未证实边界
+### 5.4 验证边界
 
-- `docker inspect` 的 `healthy` 状态未在本机实跑（本地以产物进程 + 相同探针命令验证语义）；首次 CI / 真实容器启动时回填。
+- `docker inspect` 的 `healthy` 状态已在本机实测回填（2026-11-23，HEAD `2ecc4120`）：以仓库 Dockerfile + 受支持的 `APK_MIRROR` 构建参数构建（仓库文件未改），`smoke-test.sh` 通过；容器启动后数秒内转 `healthy`（本机复现 5.5–13s，`FailingStreak=0`、`RestartCount=0`）。`DATABASE_PATH=/tmp` 时 liveness 200 / readiness 503，`docker inspect` 仍报 `healthy`——`HEALTHCHECK` 只探 liveness，DB 故障只由 readiness 体现，这是设计意图而非缺陷。
 - 真实外部 uptime / 编排器 readinessProbe 与反向代理链路未联调；`pg` / `mysql` 后端与「启动后数据库再失效」仅经单测覆盖。
 
 ## 6. provider 日志通道（M65.4，已落地 2026-11-23）

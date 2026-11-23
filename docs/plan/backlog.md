@@ -272,6 +272,13 @@
 
 - 需真实平台实例 + `dfk_` key（read scope）与被纳管仓库，验证 `fetch_alerts` / `history` / `get_last_report` / `get_run_logs` 的 remote 结果、组织隔离与真实 429；M63 的 mcp 测试仅覆盖 mock HTTP。
 
+### M65 可观测性真实联调（2026-11-23 归档登记）
+
+- **Sentry**：需真实 DSN / 项目，验证事件送达、配额与 Web Vitals 实采；当前仅覆盖「未配置零出网」与封装后的脱敏 / 信封字段用例。
+- **provider 日志**：需真实 Vercel / Cloudflare 只读 token + 项目目标，验证日志尾部、401 / 429 / 超时降级与配额；Vercel 跨团队需 `teamId`、Cloudflare 预览构建可能不在列表首页（已知边界）。
+- **uptime / 反向代理**：真实外部 HTTP 探针与编排器 readinessProbe 未联调；`pg` / `mysql` 后端 readiness 与迁移未实测（当前为 SQLite 单测 + 本机容器取证）。
+- **SMTP**：真实黑洞（接受连接不响应）与多收件人累计时长未实测；当前仅锁定 transport 三超时取值与周报节拍断言。
+
 ### M62 真实仓库 baseline 对比（2026-11-19 归档登记）
 
 - 需 `github.com` 出站可达环境，按 M62.1 同命令集对 momei / rss-impact-server 复跑基线与短路链，核对 AC①（≥50%）真实读数；现有读数为本地夹具 81.9%。
@@ -416,13 +423,23 @@
 - **归档链接**：`check:docs` 的 links 面已覆盖 `docs/plan/archive/**` 并修净 file-dead / 锚点形态，但仍有两类盲区：① 目标在 `docs/` 之外的相对链接在 GitHub 可跳转、VitePress 产物 404（`links` 只核磁盘路径）；② 链接文字点名已迁出章节（如 `§M7.2` / `C66-C`）而目标仅为文件顶部，门禁只看目标存在性。处置：下次归档批次或文档站治理时统一改为 GitHub 绝对 URL 或在规范声明源码路径以仓库视图为准；全归档面同类外链未逐一计数。
 - **MCP `get_last_report`**：实现取报告目录字典序最后一个 `.json`，标准归档布局下恒为顶层 `index.json`（趋势索引），不是最近 RunResult；REFERENCES 已按实际行为描述。需要单次 RunResult 时改为跳过 `index.json` 并递归取最新 `summary.json`，同步补月目录用例与断言行。
 
+### 设计文档「文件级指针」漂移（2026-11-23 登记，持续观察）
+
+- 现象：设计稿写「见 `todo.md` Mxx 执行记录」但阶段归档后该段已迁出；`check:docs` 只核文件存在，核不出内容指针漂移。本批已修 `pr-build-deploy-signals.md` 一处，另有 `platform-page-decomposition.md` / `override-protect-policy.md` / `sandbox-security-governance.md` / `c22-manifest-flow-feasibility.md` / `architecture.md` 等存量指针待复扫。
+- 处置：下次归档批次或文档治理批次按「`todo.md` + 段号文本（无 `#`）」形态全仓复扫并改指归档分片；评估把该形态写入 §4.4 第 2 / 19 条复扫清单。
+
+### 可观测性尾部事件与规范文档预算（2026-11-23 登记，持续观察）
+
+- **Sentry 尾部事件**：worker `exit(1)` 崩溃路径可能丢尾部事件——进程在事件入队后立即退出时未等待 flush；当前无复现样本，恢复条件为出现崩溃 run 缺尾部事件。
+- **规范文档预算**：`docs/standards/platform.md` 字符数超 24,000 健康线（2026-11-23 实测仍超；M65.1 时点为 24,299），随下一次规范压缩批次等量压缩，不靠调高阈值绕过。
+
 ## 文档位置速查
 
 | 内容类型 | 位置 |
 |:--|:--|
-| 当前阶段活跃任务 | M65 平台可观测性与健康（2026-11-21 规划，5 原子，见 [todo.md](todo.md)）；插队容量治理见 [planning.md §3.1.1](../standards/planning.md#_3-1-1-插队后的阶段容量再平衡-hard-requirement-2026-10-19) |
-| 下一阶段（未规划） | 按本文件候选池重新评估（28 条候选 + 3 条待上收）；M59 / M60 / M63 残余留在本文件；**1.1.0 已于 2026-11-15 发布**，定时发布启用仍在「待上收候选」段等待观察窗口 |
+| 当前阶段活跃任务 | 无活跃阶段（M65 已于 2026-11-23 归档；下一阶段按候选池评估后由用户决策）；插队容量治理见 [planning.md §3.1.1](../standards/planning.md#_3-1-1-插队后的阶段容量再平衡-hard-requirement-2026-10-19) |
+| 下一阶段（未规划） | 按本文件候选池重新评估（28 条候选 + 3 条待上收）；M59 / M60 / M63 / M65 残余留在本文件；**1.1.0 已于 2026-11-15 发布**，定时发布启用仍在「待上收候选」段等待观察窗口 |
 | 已完成阶段归档 | [todo-archive.md](todo-archive.md)（阶段索引 + [archive/](archive/) 分片） |
-| 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M0-M64 已归档，M65 规划中） |
+| 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M0-M65 已归档） |
 | 长期主线 / 候选 / 待人工验收 / 已知边界 | 本文档（按四象限结构） |
 | 历史归档索引 | [archive/index.md](archive/index.md) |

@@ -16,6 +16,7 @@
 import { computed, reactive, ref } from 'vue'
 import type { DataTableColumn, DataTableSortMeta } from 'caomei-ui'
 import type { PRCheckConclusion, PRCheckPrState } from '#server/entities/pr-check'
+import type { PRCheckProviderLogsView } from '~/types/platform'
 import {
     PR_CHECK_CONCLUSION_VALUES,
     checkAttributionI18nKey,
@@ -76,6 +77,8 @@ interface PRCheckView {
     signals: PRCheckSignalView[] | null
     /** 失败源清单（null = 未采集 / 无失败源） */
     failureSources: PRCheckFailureSourceView[] | null
+    /** provider 原生日志尾部或不可用原因（null = 未采集 / 未配置 provider 凭据） */
+    providerLogs: PRCheckProviderLogsView | null
     /** 该仓库是否配置了关注集（false = 全量告警；true = 只有命中信号参与告警） */
     focusConfigured: boolean
     checkRunId: string | null
@@ -637,6 +640,10 @@ const handleAck = async (row: PRCheckView) => {
                                 </a>
                             </li>
                         </ul>
+                        <provider-log-block
+                            v-if="row.providerLogs"
+                            :logs="row.providerLogs"
+                        />
                     </div>
                 </template>
                 <template #cell-actions="{row}">

@@ -35,6 +35,12 @@ export interface RepoView {
     verifyCommands: string[]
     /** PR Check 告警关注集（null = 未配置 = 全量只报警不阻断；见设计稿 §9） */
     prCheckFocus: PRCheckFocusView | null
+    /** Provider 日志富化：Vercel 项目 id（null = 不启用；见设计稿 §3.12） */
+    vercelProjectId: string | null
+    /** Provider 日志富化：Cloudflare account id（null = 不启用） */
+    cloudflareAccountId: string | null
+    /** Provider 日志富化：Cloudflare Worker tag（与 account id 成对配置） */
+    cloudflareWorkerTag: string | null
     /** 仓库级执行上限（毫秒；null = 继承全局，见 repo-execution-limits.md） */
     executionTimeoutMs: number | null
     /** 仓库级验证命令超时（毫秒；null = 继承全局） */
@@ -54,6 +60,17 @@ export interface RepoView {
     updatedAt: string
 }
 
+/** provider 原生构建日志富化结果（服务端已解析；null = 未采集 / 未启用） */
+export interface PRCheckProviderLogsView {
+    available: boolean
+    provider: string
+    tail?: string
+    truncated?: boolean
+    reason?: string
+    status?: number
+    fetchedAt: string
+}
+
 /** 凭据视图（server/api/credentials 返回结构，token 永不返回）
  *
  * GitHub App 路径（type='github-app'）下额外包含 appId / installationId / botLogin 公开信息。
@@ -61,7 +78,7 @@ export interface RepoView {
 export interface CredentialView {
     id: string
     name: string
-    type: 'classic-pat' | 'fine-grained-pat' | 'github-app'
+    type: 'classic-pat' | 'fine-grained-pat' | 'github-app' | 'vercel-token' | 'cloudflare-token'
     note: string | null
     lastUsedAt: string | null
     createdAt: string

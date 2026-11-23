@@ -62,7 +62,11 @@ const fetchData = () => withRefresh(async () => {
         repos.value = repoRes as RepoView[]
         // 刷新生成新对象：按 id 把已选集合映射过去，避免「计数仍在、勾选态消失」
         selectedRows.value = remapSelectionById(selectedRows.value, repos.value)
-        credentials.value = credRes as { id: string, name: string, type: string }[]
+        // 仓库关联凭据只能是 GitHub 凭据；provider 日志富化 token（vercel-token / cloudflare-token）
+        // 属组织级只读配置，不参与仓库关联（见 pr-build-deploy-signals.md §3.12）
+        const repositoryCredentialTypes = new Set(['classic-pat', 'fine-grained-pat', 'github-app'])
+        credentials.value = (credRes as { id: string, name: string, type: string }[])
+            .filter((credential) => repositoryCredentialTypes.has(credential.type))
     } catch (e: any) {
         error.value = t('repos.errors.loadFailed', { message: e?.data?.message ?? e?.message ?? t('common.errors.unknown') })
     } finally {

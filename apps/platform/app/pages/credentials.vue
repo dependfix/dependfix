@@ -20,7 +20,7 @@ const triggerPemFileUpload = () => {
 
 interface CredentialForm {
     name: string
-    type: 'classic-pat' | 'fine-grained-pat' | 'github-app'
+    type: 'classic-pat' | 'fine-grained-pat' | 'github-app' | 'vercel-token' | 'cloudflare-token'
     /** PAT 路径：明文 token（仅创建时提交） */
     token: string
     /** GitHub App 路径：明文 PEM 私钥（仅创建时提交） */
@@ -36,6 +36,8 @@ const saving = ref(false)
 const credentials = ref<CredentialView[]>([])
 const dialogVisible = ref(false)
 const editingId = ref<string | null>(null)
+/** 编辑态原始类型：跨类型切换时必须重新提供 token / PEM（与后端规则一致） */
+const editingType = ref<string | null>(null)
 const error = ref('')
 const success = ref('')
 
@@ -74,10 +76,30 @@ const typeLabel = (type: string) => ({
     'classic-pat': t('credentials.typeClassicPat'),
     'fine-grained-pat': t('credentials.typeFineGrainedPat'),
     'github-app': t('credentials.typeGithubApp'),
+    'vercel-token': t('credentials.typeVercelToken'),
+    'cloudflare-token': t('credentials.typeCloudflareToken'),
 })[type] ?? type
+
+/** provider 日志富化凭据：只读用途，token 提示不含 GitHub PAT 链接 */
+const isProviderLogType = computed(() => form.value.type === 'vercel-token' || form.value.type === 'cloudflare-token')
+
+/** 编辑时是否已切换类型（切换后旧密文不可继续使用） */
+const typeChanged = computed(() => editingId.value !== null && editingType.value !== null && form.value.type !== editingType.value)
+/** token 必填：新建、或跨类型切换到非 GitHub App 类型 */
+const tokenRequired = computed(() => !editingId.value || (typeChanged.value && form.value.type !== 'github-app'))
+/** PEM 必填：新建 GitHub App、或跨类型切换为 GitHub App */
+const privateKeyRequired = computed(() => !editingId.value || (typeChanged.value && form.value.type === 'github-app'))
+/** 跨类型切换时的字段标题：明确「必填」而不是「留空不修改」 */
+const tokenLabel = computed(() => (editingId.value
+    ? (typeChanged.value ? t('credentials.fieldTokenSwitchRequired') : t('credentials.fieldTokenEdit'))
+    : t('credentials.fieldTokenNew')))
+const privateKeyLabel = computed(() => (editingId.value
+    ? (typeChanged.value ? t('credentials.fieldPrivateKeySwitchRequired') : t('credentials.fieldPrivateKeyEdit'))
+    : t('credentials.fieldPrivateKey')))
 
 const openCreate = () => {
     editingId.value = null
+    editingType.value = null
     form.value = emptyForm()
     pemParseResult.value = null
     dialogVisible.value = true
@@ -85,6 +107,7 @@ const openCreate = () => {
 
 const openEdit = (credential: CredentialView) => {
     editingId.value = credential.id
+    editingType.value = credential.type
     form.value = {
         name: credential.name,
         type: credential.type,
@@ -102,6 +125,7 @@ const openEdit = (credential: CredentialView) => {
 const closeDialog = () => {
     dialogVisible.value = false
     editingId.value = null
+    editingType.value = null
     pemParseResult.value = null
 }
 
@@ -189,7 +213,14 @@ const submit = async () => {
         dialogVisible.value = false
         await fetchData()
     } catch (e: any) {
-        error.value = t('credentials.errors.saveFailed', { message: e?.data?.message ?? e?.message ?? t('common.errors.unknown') })
+        const reason = e?.data?.data?.reason
+        if (reason === 'TOKEN_REQUIRED') {
+            error.value = t('credentials.errors.tokenRequired')
+        } else if (reason === 'PRIVATE_KEY_REQUIRED') {
+            error.value = t('credentials.errors.privateKeyRequired')
+        } else {
+            error.value = t('credentials.errors.saveFailed', { message: e?.data?.message ?? e?.message ?? t('common.errors.unknown') })
+        }
     } finally {
         saving.value = false
     }
@@ -343,30 +374,38 @@ watch(toastMessage, (v) => {
                         :options="[
                             {label: t('credentials.typeClassicPat'), value: 'classic-pat'},
                             {label: t('credentials.typeFineGrainedPat'), value: 'fine-grained-pat'},
-                            {label: t('credentials.typeGithubApp'), value: 'github-app'}
+                            {label: t('credentials.typeGithubApp'), value: 'github-app'},
+                            {label: t('credentials.typeVercelToken'), value: 'vercel-token'},
+                            {label: t('credentials.typeCloudflareToken'), value: 'cloudflare-token'}
                         ]"
                         option-label="label"
                         option-value="value"
                     />
                 </div>
                 <div class="credential-form__field">
-                    <label for="token">{{ editingId ? t('credentials.fieldTokenEdit') : t('credentials.fieldTokenNew') }}</label>
+                    <label for="token">{{ tokenLabel }}</label>
                     <!-- Token / 私钥类字段：强度指示无意义，不开启 feedback（库默认关闭） -->
                     <CaomeiPassword
                         id="token"
                         v-model="form.token"
                         :placeholder="editingId ? t('credentials.fieldTokenPlaceholderEdit') : t('credentials.fieldTokenPlaceholderNew')"
-                        :required="!editingId"
+                        :required="tokenRequired"
                     />
+                    <small v-if="typeChanged" class="text-muted">{{ t('credentials.switchTypeHint') }}</small>
                     <small class="text-muted">
-                        {{ t('credentials.howToGet') }}
-                        <a
-                            href="https://docs.github.com/zh/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                        >
-                            {{ t('credentials.githubDocs') }}
-                        </a>
+                        <template v-if="isProviderLogType">
+                            {{ t('credentials.providerTokenHint') }}
+                        </template>
+                        <template v-else>
+                            {{ t('credentials.howToGet') }}
+                            <a
+                                href="https://docs.github.com/zh/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                            >
+                                {{ t('credentials.githubDocs') }}
+                            </a>
+                        </template>
                     </small>
                 </div>
 
@@ -398,7 +437,7 @@ watch(toastMessage, (v) => {
                     </div>
                     <div class="credential-form__field">
                         <label for="privateKey">
-                            {{ editingId ? t('credentials.fieldPrivateKeyEdit') : t('credentials.fieldPrivateKey') }}
+                            {{ privateKeyLabel }}
                         </label>
                         <!-- 用 `@update:model-value` 而非 `@input`：caomei Input/Textarea 的 v-model 由
                              `vModelDynamic` / `vModelText` 指令在 created 阶段注册监听，晚于透传的
@@ -408,7 +447,7 @@ watch(toastMessage, (v) => {
                             v-model="form.privateKey"
                             :rows="6"
                             :placeholder="t('credentials.fieldPrivateKeyPlaceholder')"
-                            :required="!editingId"
+                            :required="privateKeyRequired"
                             @update:model-value="handlePemInput"
                         />
                         <div class="credential-form__pem-actions">

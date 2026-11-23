@@ -42,6 +42,10 @@ interface RepoForm {
     focusNames: string
     /** 关注集来源类型（空数组 = 不限） */
     focusKinds: string[]
+    /** Provider 日志富化目标（空 = 不启用该 provider；只影响失败日志富化） */
+    vercelProjectId: string
+    cloudflareAccountId: string
+    cloudflareWorkerTag: string
     /** 执行预算（可读时长文本，如 30m / 1h；空 = 继承全局。库内仍存毫秒） */
     executionTimeout: string
     verifyCommandTimeout: string
@@ -62,6 +66,9 @@ type FieldKey = 'owner'
     | 'focusProviders'
     | 'focusNames'
     | 'focusKinds'
+    | 'vercelProjectId'
+    | 'cloudflareAccountId'
+    | 'cloudflareWorkerTag'
     | 'tags'
     | 'note'
     | 'executionTimeout'
@@ -81,6 +88,9 @@ const FIELD_INPUT_IDS: Record<FieldKey, string> = {
     focusProviders: 'focusProviders',
     focusNames: 'focusNames',
     focusKinds: 'focusKinds',
+    vercelProjectId: 'vercelProjectId',
+    cloudflareAccountId: 'cloudflareAccountId',
+    cloudflareWorkerTag: 'cloudflareWorkerTag',
     tags: 'tags',
     note: 'note',
     executionTimeout: 'executionTimeout',
@@ -98,6 +108,9 @@ const ISSUE_PATH_FIELDS: Record<string, FieldKey> = {
     executorKind: 'executorKind',
     sandboxImage: 'sandboxImage',
     verifyCommands: 'verifyCommands',
+    vercelProjectId: 'vercelProjectId',
+    cloudflareAccountId: 'cloudflareAccountId',
+    cloudflareWorkerTag: 'cloudflareWorkerTag',
     tags: 'tags',
     note: 'note',
     executionTimeoutMs: 'executionTimeout',
@@ -119,6 +132,13 @@ const DURATION_FIELDS = new Set<FieldKey>([
     'verifyCommandTimeout',
     'installTimeout',
     'cloneTimeout',
+])
+
+/** Provider 日志目标字段（校验失败时自动展开折叠区）。 */
+const PROVIDER_LOG_FIELDS = new Set<FieldKey>([
+    'vercelProjectId',
+    'cloudflareAccountId',
+    'cloudflareWorkerTag',
 ])
 
 /** 关注集来源类型选项（与 server/utils/pr-check-focus.ts 的 PR_CHECK_FOCUS_KINDS 同值域） */
@@ -149,6 +169,9 @@ const emptyForm = (): RepoForm => ({
     focusProviders: '',
     focusNames: '',
     focusKinds: [],
+    vercelProjectId: '',
+    cloudflareAccountId: '',
+    cloudflareWorkerTag: '',
     executionTimeout: '',
     verifyCommandTimeout: '',
     installTimeout: '',
@@ -164,6 +187,8 @@ const fieldErrors = ref<Partial<Record<FieldKey, string>>>({})
 const formError = ref('')
 /** 执行预算折叠区展开状态（错误定位到预算字段时自动展开）。 */
 const limitsOpen = ref(false)
+/** Provider 日志目标折叠区展开状态（错误定位到目标字段时自动展开）。 */
+const providerLogsOpen = ref(false)
 
 /** 执行方式选项：sandbox 仅 report-only 真实执行（fix 模式由编排层降级容器并留原因码） */
 const executorOptions = computed(() => [
@@ -257,6 +282,9 @@ const resolveIssueField = (path: (string | number)[] | undefined): FieldKey | un
 const revealLimitsIfNeeded = (key: FieldKey) => {
     if (DURATION_FIELDS.has(key)) {
         limitsOpen.value = true
+    }
+    if (PROVIDER_LOG_FIELDS.has(key)) {
+        providerLogsOpen.value = true
     }
 }
 
@@ -410,6 +438,7 @@ watch(() => props.visible, (open) => {
     fieldErrors.value = {}
     formError.value = ''
     limitsOpen.value = false
+    providerLogsOpen.value = false
     const repo = props.repo
     form.value = repo
         ? {
@@ -427,6 +456,9 @@ watch(() => props.visible, (open) => {
                 focusProviders: (repo.prCheckFocus?.providers ?? []).join(', '),
                 focusNames: (repo.prCheckFocus?.names ?? []).join(', '),
                 focusKinds: [...(repo.prCheckFocus?.kinds ?? [])],
+                vercelProjectId: repo.vercelProjectId ?? '',
+                cloudflareAccountId: repo.cloudflareAccountId ?? '',
+                cloudflareWorkerTag: repo.cloudflareWorkerTag ?? '',
                 executionTimeout: formatDurationInput(repo.executionTimeoutMs),
                 verifyCommandTimeout: formatDurationInput(repo.verifyCommandTimeoutMs),
                 installTimeout: formatDurationInput(repo.installTimeoutMs),
@@ -466,6 +498,9 @@ const submit = async () => {
                 .map((line) => line.trim())
                 .filter(Boolean),
             prCheckFocus: buildFocusPayload(),
+            vercelProjectId: form.value.vercelProjectId.trim() || null,
+            cloudflareAccountId: form.value.cloudflareAccountId.trim() || null,
+            cloudflareWorkerTag: form.value.cloudflareWorkerTag.trim() || null,
             executionTimeoutMs: parseDurationInput(form.value.executionTimeout).ms,
             verifyCommandTimeoutMs: parseDurationInput(form.value.verifyCommandTimeout).ms,
             installTimeoutMs: parseDurationInput(form.value.installTimeout).ms,
@@ -733,6 +768,49 @@ const submit = async () => {
                 </div>
                 <small class="text-muted">{{ t('repos.fieldPrCheckFocusHint') }}</small>
             </div>
+            <details
+                class="repo-form__limits"
+                :open="providerLogsOpen"
+                @toggle="providerLogsOpen = ($event.target as HTMLDetailsElement).open"
+            >
+                <summary class="repo-form__limits-summary">
+                    {{ t('repos.providerLogsTitle') }}
+                    <span class="text-muted">{{ t('repos.providerLogsSummary') }}</span>
+                </summary>
+                <div class="repo-form__limits-grid">
+                    <div class="repo-form__field">
+                        <label for="vercelProjectId">{{ t('repos.fieldVercelProjectId') }}</label>
+                        <CaomeiInput
+                            id="vercelProjectId"
+                            v-model="form.vercelProjectId"
+                            :placeholder="t('repos.fieldVercelProjectIdPlaceholder')"
+                            :invalid="!!fieldErrors.vercelProjectId"
+                        />
+                        <small v-if="fieldErrors.vercelProjectId" class="text-danger">{{ fieldErrors.vercelProjectId }}</small>
+                    </div>
+                    <div class="repo-form__field">
+                        <label for="cloudflareAccountId">{{ t('repos.fieldCloudflareAccountId') }}</label>
+                        <CaomeiInput
+                            id="cloudflareAccountId"
+                            v-model="form.cloudflareAccountId"
+                            :placeholder="t('repos.fieldCloudflareAccountIdPlaceholder')"
+                            :invalid="!!fieldErrors.cloudflareAccountId"
+                        />
+                        <small v-if="fieldErrors.cloudflareAccountId" class="text-danger">{{ fieldErrors.cloudflareAccountId }}</small>
+                    </div>
+                    <div class="repo-form__field">
+                        <label for="cloudflareWorkerTag">{{ t('repos.fieldCloudflareWorkerTag') }}</label>
+                        <CaomeiInput
+                            id="cloudflareWorkerTag"
+                            v-model="form.cloudflareWorkerTag"
+                            :placeholder="t('repos.fieldCloudflareWorkerTagPlaceholder')"
+                            :invalid="!!fieldErrors.cloudflareWorkerTag"
+                        />
+                        <small v-if="fieldErrors.cloudflareWorkerTag" class="text-danger">{{ fieldErrors.cloudflareWorkerTag }}</small>
+                    </div>
+                </div>
+                <small class="repo-form__limits-hint text-muted">{{ t('repos.providerLogsHint') }}</small>
+            </details>
             <div class="repo-form__field">
                 <label for="note">{{ t('repos.fieldNote') }}</label>
                 <CaomeiTextarea

@@ -7,6 +7,7 @@ import { createLocalizedError } from '#server/utils/localized-error'
 import { ApiKey } from '#server/entities/api-key'
 import { API_KEY_PREFIX, API_KEY_SCOPE_READ, generateApiKey, hashApiKey } from '#server/utils/api-key'
 import { recordApiAccess } from '#server/utils/api-key-guard'
+import { recordApiKeyAudit } from '#server/services/api-key-audit'
 
 /**
  * POST /api/v1/keys：创建当前组织的只读 API key（会话 + admin / org_admin）。
@@ -74,6 +75,12 @@ export default defineEventHandler(async (event) => {
         metadata: JSON.stringify({ scopes: [API_KEY_SCOPE_READ] }),
     }))
 
+    await recordApiKeyAudit(ds, {
+        action: 'created',
+        keyId: saved.id,
+        keyName: saved.name ?? '',
+        keyPrefix: saved.start ?? '',
+    })
     await recordApiAccess(event, { keyId: saved.id, organizationId, statusCode: 200 })
 
     return {

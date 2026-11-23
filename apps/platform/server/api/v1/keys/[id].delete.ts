@@ -3,6 +3,7 @@ import { requireRole } from '#server/utils/guard'
 import { resolveOrganizationId } from '#server/utils/organization'
 import { createLocalizedError } from '#server/utils/localized-error'
 import { ApiKey } from '#server/entities/api-key'
+import { recordApiKeyAudit } from '#server/services/api-key-audit'
 
 /**
  * DELETE /api/v1/keys/{id}：吊销当前组织的 API key（会话 + admin / org_admin）。
@@ -25,5 +26,11 @@ export default defineEventHandler(async (event) => {
     }
 
     await repo.delete({ id })
+    await recordApiKeyAudit(ds, {
+        action: 'deleted',
+        keyId: target.id,
+        keyName: target.name ?? '',
+        keyPrefix: target.start ?? '',
+    })
     return { deleted: true }
 })

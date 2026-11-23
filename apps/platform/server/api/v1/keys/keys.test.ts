@@ -8,6 +8,7 @@ import { ensureDatabaseInitialized } from '#server/database'
 import { resolveOrganizationId } from '#server/utils/organization'
 import { ApiKey } from '#server/entities/api-key'
 import { ApiRequestLog } from '#server/entities/api-request-log'
+import { AuditEvent } from '#server/entities/audit-event'
 import { Organization } from '#server/entities/organization'
 import { hashApiKey, readApiKeyScopes, verifyApiKeyHash } from '#server/utils/api-key'
 
@@ -83,6 +84,12 @@ describe('/api/v1/keys key 管理', () => {
 
         const logs = await ds.getRepository(ApiRequestLog).find({ where: { apiKeyId: body.id } })
         expect(logs.some((log) => log.statusCode === 200)).toBe(true)
+
+        const audit = await ds.getRepository(AuditEvent).find({ where: { type: 'api_key_created' } })
+        const created = audit.find((event) => (event.payloadJson ?? '').includes(body.id))
+        expect(created).toBeTruthy()
+        expect(created!.payloadJson).not.toContain(body.key)
+        expect(created!.payloadJson).not.toContain(stored.key)
     })
 
     it('创建接口限流：超限返回 429 且写访问日志', async () => {
@@ -118,6 +125,8 @@ describe('/api/v1/keys key 管理', () => {
         const body = await deleteHandler(makeEvent('DELETE', `/api/v1/keys/${seeded.id}`, undefined, {}, { id: seeded.id })) as Record<string, unknown>
         expect(body).toEqual({ deleted: true })
         const ds = await ensureDatabaseInitialized()
+        const audit = await ds.getRepository(AuditEvent).find({ where: { type: 'api_key_deleted' } })
+        expect(audit.some((event) => (event.payloadJson ?? '').includes(seeded.id))).toBe(true)
         expect(await ds.getRepository(ApiKey).findOne({ where: { id: seeded.id } })).toBeNull()
     })
 

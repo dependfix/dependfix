@@ -116,6 +116,16 @@ test.describe('API 密钥管理页面', () => {
         await expect(page.locator('.api-keys__secret-value')).toHaveCount(0)
         expect(await page.content()).not.toContain(secret)
 
+        // 刷新后仍不可再取，且未落入 Web Storage
+        await page.reload()
+        await waitForHydration(page)
+        expect(await page.content()).not.toContain(secret)
+        const storage = await page.evaluate(() => JSON.stringify({
+            local: Object.entries(localStorage),
+            session: Object.entries(sessionStorage),
+        }))
+        expect(storage).not.toContain(secret)
+
         // 列表可见新 key（只显示前缀 / 名称）
         await expect(page.locator('.caomei-data-table')).toContainText(name, { timeout: 15000 })
 
@@ -134,9 +144,56 @@ test.describe('API 密钥管理页面', () => {
             await page.goto('/api-keys')
             await waitForHydration(page)
             await expect(page.locator('text=当前账号无 API 密钥管理权限')).toBeVisible({ timeout: 15000 })
+            await expect(page.locator('text=仅 admin / org_admin 可查看与管理 API 密钥')).toBeVisible({ timeout: 15000 })
             await expect(page.locator('button:has-text("创建密钥")')).toHaveCount(0)
+            expect(await page.content()).not.toContain('点击右上角创建')
         } finally {
             await context.close()
         }
+    })
+})
+
+test.describe('导航布局（API 密钥入口）', () => {
+    test('1440 视口导航单行、不溢出 header', async ({ page }) => {
+        await page.setViewportSize({ width: 1440, height: 900 })
+        await page.goto('/api-keys')
+        await waitForHydration(page)
+        const geometry = await page.evaluate(() => {
+            const header = document.querySelector('.platform__header') as HTMLElement
+            const nav = document.querySelector('.platform__nav') as HTMLElement
+            const navRect = nav.getBoundingClientRect()
+            const headerRect = header.getBoundingClientRect()
+            return {
+                navHeight: navRect.height,
+                navTop: navRect.top,
+                navBottom: navRect.bottom,
+                headerHeight: headerRect.height,
+                scrollWidth: nav.scrollWidth,
+                clientWidth: nav.clientWidth,
+            }
+        })
+        expect(geometry.navHeight).toBeLessThanOrEqual(40)
+        expect(geometry.navTop).toBeGreaterThanOrEqual(-0.5)
+        expect(geometry.navBottom).toBeLessThanOrEqual(geometry.headerHeight + 0.5)
+        expect(geometry.scrollWidth).toBeLessThanOrEqual(geometry.clientWidth + 1)
+    })
+
+    test('1280 窄屏导航可横向滚动且 API 密钥入口可达', async ({ page }) => {
+        await page.setViewportSize({ width: 1280, height: 900 })
+        await page.goto('/api-keys')
+        await waitForHydration(page)
+        const geometry = await page.evaluate(() => {
+            const nav = document.querySelector('.platform__nav') as HTMLElement
+            return {
+                scrollWidth: nav.scrollWidth,
+                clientWidth: nav.clientWidth,
+                overflowX: getComputedStyle(nav).overflowX,
+            }
+        })
+        expect(geometry.overflowX).toBe('auto')
+        expect(geometry.scrollWidth).toBeGreaterThan(geometry.clientWidth)
+        const link = page.locator('.platform__nav-link', { hasText: 'API 密钥' })
+        await link.scrollIntoViewIfNeeded()
+        await expect(link).toBeVisible()
     })
 })

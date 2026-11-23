@@ -4,6 +4,7 @@ import { Copy, Plus, Trash } from '@lucide/vue'
 import type { DataTableColumn } from 'caomei-ui'
 import type { ApiKeyView } from '~/types/platform'
 
+// 故意不加 roles meta：viewer 直访时在页内显示 403 提示，而不是被重定向（AC3）
 definePageMeta({
     middleware: 'auth',
 })
@@ -19,9 +20,12 @@ const canManage = computed(() => {
 
 const loading = ref(true)
 const creating = ref(false)
+const revokingId = ref<string | null>(null)
 const keys = ref<ApiKeyView[]>([])
 const error = ref('')
 const success = ref('')
+const createError = ref('')
+const secretError = ref('')
 
 const createOpen = ref(false)
 const name = ref('')
@@ -66,6 +70,7 @@ const columns = computed<DataTableColumn<ApiKeyView>[]>(() => [
 
 const openCreate = () => {
     name.value = ''
+    createError.value = ''
     error.value = ''
     createOpen.value = true
 }
@@ -75,6 +80,7 @@ const submit = async () => {
         return
     }
     creating.value = true
+    createError.value = ''
     error.value = ''
     try {
         const res = await $fetch<{ key: string }>('/api/v1/keys', {
@@ -82,23 +88,28 @@ const submit = async () => {
             body: { name: name.value.trim() },
         })
         createdKey.value = res.key
+        secretError.value = ''
         createOpen.value = false
         success.value = t('apiKeys.success.created')
         await fetchData()
     } catch (e: any) {
-        error.value = t('apiKeys.errors.createFailed', { message: e?.data?.message ?? e?.message ?? t('common.errors.unknown') })
+        createError.value = t('apiKeys.errors.createFailed', { message: e?.data?.message ?? e?.message ?? t('common.errors.unknown') })
     } finally {
         creating.value = false
     }
 }
 
 const revoke = async (key: ApiKeyView) => {
+    if (revokingId.value) {
+        return
+    }
     if (!await confirm.open({
         title: t('apiKeys.revokeConfirm', { name: key.name || key.start || key.id }),
         tone: 'danger',
     })) {
         return
     }
+    revokingId.value = key.id
     error.value = ''
     try {
         await $fetch(`/api/v1/keys/${key.id}`, { method: 'DELETE' })
@@ -106,6 +117,8 @@ const revoke = async (key: ApiKeyView) => {
         await fetchData()
     } catch (e: any) {
         error.value = t('apiKeys.errors.revokeFailed', { message: e?.data?.message ?? e?.message ?? t('common.errors.unknown') })
+    } finally {
+        revokingId.value = null
     }
 }
 
@@ -120,9 +133,11 @@ const copyKey = async () => {
             copied.value = false
         }, 2000)
     } catch {
-        error.value = t('apiKeys.errors.copyFailed')
+        secretError.value = t('apiKeys.errors.copyFailed')
     }
 }
+
+const emptyText = computed(() => (canManage.value ? t('apiKeys.empty') : t('apiKeys.viewerHint')))
 
 const toastMessage = computed(() => success.value)
 watch(toastMessage, (value) => {
@@ -172,7 +187,7 @@ watch(toastMessage, (value) => {
                 :columns="columns"
                 row-key="id"
                 striped
-                :empty-text="t('apiKeys.empty')"
+                :empty-text="emptyText"
             >
                 <template #cell-name="{row}">
                     {{ row.name || '—' }}
@@ -197,6 +212,7 @@ watch(toastMessage, (value) => {
                         size="sm"
                         tone="danger"
                         :label="t('apiKeys.revoke')"
+                        :loading="revokingId === row.id"
                         @click="revoke(row)"
                     >
                         <template #icon>
@@ -216,6 +232,13 @@ watch(toastMessage, (value) => {
             modal
             :style="{width: '440px'}"
         >
+            <CaomeiMessage
+                v-if="createError"
+                tone="danger"
+                :closable="false"
+            >
+                {{ createError }}
+            </CaomeiMessage>
             <form class="api-keys__form" @submit.prevent="submit">
                 <div class="api-keys__field">
                     <label for="api-key-name">{{ t('apiKeys.nameLabel') }}</label>
@@ -223,6 +246,7 @@ watch(toastMessage, (value) => {
                         id="api-key-name"
                         v-model="name"
                         :placeholder="t('apiKeys.namePlaceholder')"
+                        maxlength="32"
                         required
                     />
                 </div>
@@ -235,8 +259,8 @@ watch(toastMessage, (value) => {
                     >
                         {{ t('common.actions.cancel') }}
                     </CaomeiButton>
-                    <CaomeiButton type="submit" :disabled="creating">
-                        {{ creating ? t('common.empty.loading') : t('common.actions.create') }}
+                    <CaomeiButton type="submit" :loading="creating">
+                        {{ t('common.actions.create') }}
                     </CaomeiButton>
                 </div>
             </form>
@@ -249,6 +273,13 @@ watch(toastMessage, (value) => {
             :style="{width: '520px'}"
         >
             <p>{{ t('apiKeys.createdHint') }}</p>
+            <CaomeiMessage
+                v-if="secretError"
+                tone="danger"
+                :closable="false"
+            >
+                {{ secretError }}
+            </CaomeiMessage>
             <div class="api-keys__secret">
                 <code class="api-keys__secret-value">{{ createdKey }}</code>
                 <CaomeiButton
@@ -266,8 +297,17 @@ watch(toastMessage, (value) => {
     </div>
 </template>
 
-<style scoped>
+<style scoped lang="scss">
 .api-keys__header {
+    h2 {
+        margin: 0 0 $space-1;
+    }
+
+    p {
+        margin: 0;
+        font-size: $font-size-sm;
+    }
+
     display: flex;
     align-items: flex-start;
     justify-content: space-between;

@@ -813,6 +813,7 @@
         "title": "API 密钥",
         "subtitle": "用于只读观测 API 与 MCP remote；明文仅在创建时显示一次",
         "add": "创建密钥",
+        "viewerHint": "仅 admin / org_admin 可查看与管理 API 密钥",
         "empty": "暂无密钥，点击右上角创建",
         "colName": "名称",
         "colPrefix": "前缀",

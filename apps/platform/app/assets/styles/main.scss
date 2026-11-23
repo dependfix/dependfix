@@ -82,15 +82,23 @@ a {
 
     &__nav {
         display: flex;
+        flex-wrap: nowrap;
         align-items: center;
-        gap: $space-4;
-        margin-left: $space-6;
+        gap: $space-2;
+        margin-left: $space-3;
+        min-width: 0;
+        overflow-x: auto;
+
+        // 保留细滚动条作为窄屏「还有入口」的可见提示；纵向 padding 避免 focus 环被裁剪容器裁掉
+        padding-block: 2px;
+        margin-block: -2px;
     }
 
     &__nav-link {
         font-size: $font-size-base;
+        white-space: nowrap;
         color: $color-text-muted;
-        padding: $space-1 $space-2;
+        padding: $space-1;
         border-radius: $radius-sm;
 
         &:hover {

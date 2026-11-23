@@ -813,6 +813,7 @@
         "title": "API keys",
         "subtitle": "Used by the read-only API and MCP remote; the plaintext key is shown only once at creation",
         "add": "Create key",
+        "viewerHint": "Only admin / org_admin can view and manage API keys",
         "empty": "No API keys yet, create one from the top right",
         "colName": "Name",
         "colPrefix": "Prefix",

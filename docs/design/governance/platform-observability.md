@@ -123,11 +123,11 @@ release / commit 不设独立 env：复用构建期版本戳 `NUXT_BUILD_VERSION
 - `docker inspect` 的 `healthy` 状态未在本机实跑（本地以产物进程 + 相同探针命令验证语义）；首次 CI / 真实容器启动时回填。
 - 真实外部 uptime / 编排器 readinessProbe 与反向代理链路未联调；`pg` / `mysql` 后端与「启动后数据库再失效」仅经单测覆盖。
 
-## 6. provider 日志通道（M65.4，待落地）
+## 6. provider 日志通道（M65.4，已落地 2026-11-23）
 
 - 目标：PR Check 失败详情在配置 provider 只读 token 时可看日志尾部（≤8 KB、脱敏），未配置时行为与现状完全等价。
 - 约束：不改变三源归一化与 `overallStatus` / `failureSources`；拉取失败降级为「不可用 + 原因」。
-- 落地后在此补 Layer 5 契约、凭据承载（D4）与配额边界，并在 [pr-build-deploy-signals.md](./pr-build-deploy-signals.md) 新增对应章节。
+- 落地：Layer 5 契约 / 凭据承载（D4-A）/ 目标字段 / 失败降级与未证实边界见 [pr-build-deploy-signals.md §3.12](./pr-build-deploy-signals.md#_3-12-layer-5-provider-日志富化落地-2026-11-23)。
 
 ## 7. 未证实边界
 
@@ -151,3 +151,4 @@ release / commit 不设独立 env：复用构建期版本戳 `NUXT_BUILD_VERSION
 | SDK 自动采集面关闭（dataCollection）| `server/utils/observability.test.ts`（`SENTRY_DATA_COLLECTION` 断言） |
 | 采样率由 env 控制（含非法值回退 + warn） | `shared/observability` 用例 + `readObservabilityEnv` 用例 |
 | worker 角色不注册 HTTP 错误钩子 | `server/plugins/observability.test.ts` |
+| 三通道矩阵：未配置零出网 + 已配置必脱敏（13 例） | `tests/unit/external-channels.test.ts`（Sentry / uptime / provider 日志） |

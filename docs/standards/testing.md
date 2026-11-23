@@ -156,6 +156,14 @@
 - **确认框类名独立于普通 Dialog**：caomei-ui 的 `CaomeiConfirmDialog` 渲染 `.caomei-confirm-dialog__*`（`__confirm` 仅 danger 态），`.caomei-dialog__content` 匹配不到；用 `.caomei-confirm-dialog__footer button` 最后一项或角色选择器，并在修复后实跑取证。
 - **成功路径与拒绝路径都要覆盖**：只断言「按钮可见 / 禁用」不足以证明交互闭环；可续跑场景要断言「点击 → 确认 → 派生记录 → 终态」。
 
+### 6.17 外部通道测试口径（未配置零出网 + 已配置必脱敏）
+
+- 外部通道（Sentry / uptime 探针 / provider 日志）必须同时覆盖两向：未配置（DSN / token / 目标为空）→ 初始化与请求计数为 0；已配置 → 信封字段与脱敏断言。只测「已配置」会漏掉默认出网与默认采集面。
+- 采集面关闭要断言**机制**而非文案：如 Sentry v11 已移除 `sendDefaultPii`，必须断言 `dataCollection` 常量 / 选项；错误与 span 分别经 `beforeSend` / `beforeSendSpan`。
+- 脱敏用真实生成值批量取样（`ghp_` / `dfk_` / URL 内嵌凭据 / Cookie / Bearer 各多例），不用手写单例；同时断言字节级截断上限。
+- 失败路径（401 / 429 / 超时 / 非 JSON）必须断言降级结果对象且不抛错。
+- 注入方式用依赖注入 stub（fetch / init / sink），不引入全局网络拦截。
+
 ## 7. 测试代码质量
 
 - 测试代码本身也需通过 lint + typecheck；测试描述（`it('does X')`）聚焦业务行为、使用清晰语言；避免过度耦合内部实现细节。

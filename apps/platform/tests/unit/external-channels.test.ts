@@ -126,15 +126,18 @@ describe('Sentry 通道', () => {
         for (const sample of generated.bearer) {
             const redacted = JSON.stringify(sanitizeSentryEvent({ message: sample.line }))
             expect(redacted).not.toContain(sample.token)
+            expect(redacted).not.toContain(sample.token.slice(-12))
         }
         for (const sample of generated.cookie) {
             // Cookie 头只在 request.headers 采集面出现（该面整体丢弃，保留白名单头）
             const redacted = JSON.stringify(sanitizeSentryEvent({ request: { headers: { Cookie: sample.line } } }))
             expect(redacted).not.toContain(sample.value)
+            expect(redacted).not.toContain(sample.value.slice(-12))
         }
         for (const sample of generated.url) {
             const redacted = JSON.stringify(sanitizeSentryEvent({ message: sample.line }))
             expect(redacted).not.toContain(sample.password)
+            expect(redacted).not.toContain(sample.password.slice(-12))
         }
         const event = sanitizeSentryEvent({
             request: {

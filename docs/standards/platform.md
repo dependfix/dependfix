@@ -55,7 +55,7 @@ Nuxt 4（全栈 SSR + API Routes，`app/` + `server/`）/ TypeScript strict / UI
 ## 5. 凭据安全规范（T602 起生效）
 
 - 平台级密钥 `NUXT_ENCRYPTION_KEY`（AES-256-GCM，32 字节 base64 或 hex）；未配置时**禁用凭据功能并明确报错**（不静默降级为明文）。服务经 `useRuntimeConfig().encryptionKey` 读取（无 inline fallback）。
-- Credential 实体字段：`type`（classic-pat / fine-grained-pat / github-app）、`encryptedToken` / `encryptedPrivateKey`、`appId` / `installationId` / `botLogin`、`name`、`repoId`。
+- Credential 实体字段：`type`（classic-pat / fine-grained-pat / github-app / vercel-token / cloudflare-token；后两者为组织级只读日志富化凭据，见 [pr-build-deploy-signals.md §3.12](../design/governance/pr-build-deploy-signals.md)）、`encryptedToken` / `encryptedPrivateKey`、`appId` / `installationId` / `botLogin`、`name`、`repoId`。
 - 加解密（`server/services/credential.service.ts`）：AES-256-GCM + 随机 IV（12 字节），密文 `{iv}.{authTag}.{ciphertext}`；解密仅在执行时 worker 内存中，用完即弃（算法细节与审计必查项见 [security.md §5.5](./security.md#_5-5-凭据加密存储-c28-已闭环-2026-08-20)）。
 - **禁止** token / privateKey 明文落库、进日志、进前端响应（API 只返回 `hasToken` 布尔）；Dependabot alerts 读取必须显式凭据（`GITHUB_TOKEN` 不可用）；测试用独立随机密钥。
 

@@ -1,6 +1,6 @@
 # PR 构建与部署信号采集设计（设计先行稿）
 
-> **状态**：✅ 已上收 **M43.2**（2026-10-12 用户决策方案 A）——契约与数据模型作为实现依据；**§5 决策点已于 2026-10-12 裁定**（D1 = Option A 扩展 `PRCheck` / D2 = 不做日志富化 / D3 = 全量只报警不阻断 / D4 = 本批不涉及）；按 §7 拆分子任务推进：**M43.2a 采集层已闭环（2026-10-12，见 [§3.7](#_3-7-实现期细化-m43-2a-2026-10-12)）**、**M43.2b 持久化与 API 已闭环（2026-10-13，见 [§3.8](#_3-8-m43-2b-落地-持久化与-api-2026-10-13)）**，M43.2c 待推进。**§9 告警关注集已随 M45.6 落地（2026-10-19）**——在 §5 D3「不引入配置面」之上增量引入仓库级白名单（只降噪，不改阻断语义）。
+> **状态**：✅ 已上收 **M43.2**（2026-10-12 用户决策方案 A）——契约与数据模型作为实现依据；**§5 决策点已于 2026-10-12 裁定**（D1 = Option A 扩展 `PRCheck` / D2 = 不做日志富化 / D3 = 全量只报警不阻断 / D4 = 本批不涉及）；按 §7 拆分子任务推进：**M43.2a 采集层已闭环（2026-10-12，见 [§3.7](#_3-7-实现期细化-m43-2a-2026-10-12)）**、**M43.2b 持久化与 API 已闭环（2026-10-13，见 [§3.8](#_3-8-m43-2b-落地-持久化与-api-2026-10-13)）**，M43.2c 待推进。**§9 告警关注集已随 M45.6 落地（2026-10-19）**——在 §5 D3「不引入配置面」之上增量引入仓库级白名单（只降噪，不改阻断语义）。**Layer 5 日志富化已落地（2026-11-23，M65.4，见 [§3.12](#_3-12-layer-5-provider-日志富化落地-2026-11-23)）**——D2 / D4 在本条内翻转为「已做 / D4-A 凭据类型扩展 + 仓库级目标」，不改三源聚合与告警判据。
 > **范围**：`apps/platform`（PR Check 采集 / 聚合 / 展示）+ 可选 provider 日志富化；不改引擎修复与验证逻辑。
 > **目标**：把「修复 PR 的构建 / 部署错误」从单一 `Test` check 扩展为多源聚合，第一时间发现 CI 与预览部署失败。
 > **关联**：[定时扫描与批量处理设计](./platform-scheduled-batch.md)、[运行失败分类与筛选设计](./run-failure-taxonomy.md)、[平台规范](../../standards/platform.md)、`apps/platform/server/services/monitor/`
@@ -123,7 +123,7 @@ interface UnifiedBuildSignal {
 ### 3.6 凭据模型
 
 - **状态采集**：仅需 `repo` scope PAT —— 现有 pr-check 路径已具备，**零新增凭据**。
-- **日志富化（可选）**：需为 provider 配 token（Vercel token ↔ project / Cloudflare account token）。涉及 `credential` 类型扩展或仓库级 extra config，属 §5 决策点。
+- **日志富化（可选）**：需为 provider 配 token（Vercel token ↔ project / Cloudflare account token）。涉及 `credential` 类型扩展或仓库级 extra config，属 §5 决策点（**已于 M65.4 裁定 D4-A，见 §3.12**）。
 
 ### 3.7 实现期细化（M43.2a，2026-10-12）
 
@@ -279,6 +279,78 @@ interface UnifiedBuildSignal {
 - `down()` 用原始索引名 + `DROP INDEX IF EXISTS`，与仓库既有迁移同形态；非默认前缀下若索引因「同列异名」被跳过创建，SQLite 的 `DROP COLUMN` 可能因残留索引失败（已知边界，未在本批收敛）。
 - 不引入 webhook 实时通道，不改 per-PR-head 数据模型。
 
+### 3.12 Layer 5 provider 日志富化落地（2026-11-23）
+
+**目标**：失败信号除 provider 名与 GitHub 摘要外，在配置了 provider 只读凭据时展示原生构建日志尾部（≤ 8 KB、已脱敏）；未配置时行为与改动前完全等价。
+
+**契约（单一事实源 `packages/engine/src/github/pr-check-logs/`）**：
+
+- 入口 `fetchProviderLog(request, deps?)`；`request = { provider, token, headSha, targets, maxBytes? }`，
+  `targets = { vercelProjectId?, cloudflareAccountId?, cloudflareWorkerTag? }`。
+- 结果二态：`{ available: true, provider, tail, truncated }` 或
+  `{ available: false, provider, reason, status? }`；`reason` 为稳定枚举（UI 逐项映射文案）：
+  `token_missing` / `invalid_request` / `unsupported_provider` / `unsupported_target` / `not_found` /
+  `unauthorized` / `rate_limited` / `timeout` / `http_error` / `unsupported_response` / `empty`。
+- provider 归一化与三源一致（去空白 / 小写 / 去 `<安装号>+` 前缀与 `[bot]` 后缀）；仅 `vercel` / `cloudflare`
+  有 adapter，其余 provider 不消耗请求。**别名**：Cloudflare check run 的 `app.slug` 实为
+  `cloudflare-workers-and-pages`（2026-11-23 实测），归一化时映射到 `cloudflare`。
+- 尾部上限 8 KB（按 UTF-8 字节裁尾，避免切半个多字节字符）、单请求超时 8 s、脱敏在引擎内完成
+  （调用方 token 原文 + `ghp_` / `dfk_` / `Bearer` / URL 内嵌凭据 / Cookie / 常见 `token=` 赋值）。
+
+**凭据承载（D4-A，用户 2026-11-23 授权）**：
+
+- `Credential.type` 扩展 `vercel-token` / `cloudflare-token`：**组织级、AES-256-GCM 加密、只读用途**，
+  与 GitHub 凭据同表同加密路径；不接受 `ownerLogin`（不对应 GitHub Resource owner）。
+- 采集侧按「仓库 `organizationId` + 对应类型」取最新一条凭据；无凭据 / 解密失败 / 空 token → 零请求、
+  不写记录（按「未配置」处理，不猜测）。
+- **写入审计**：两种 provider 类型的创建 / 更新 / 删除登记 `AuditEvent.type='provider_log_credential_update'`
+  （severity `info`，payload 仅 `{ action, credentialId, providerType }`，不含 token 或密文）；
+  其它凭据类型行为不变（不新增审计噪声）。仓库编辑页的「关联凭据」选择器只列 GitHub 类型，
+  provider 凭据不出现在仓库关联面。
+
+**仓库级目标（`Repository` 新列，迁移 `AddProviderLogTargets3500000000000`）**：
+
+- `vercelProjectId`（varchar(64), nullable）/ `cloudflareAccountId`（varchar(64), nullable）/
+  `cloudflareWorkerTag`（varchar(128), nullable）。全部 `null` 或空串 = 该 provider 不启用；
+  Cloudflare 必须 account id 与 worker tag **成对**配置（缺一即不启用）。
+- 目标缺失时引擎返回 `unsupported_target` 且**零请求**（不按仓库名猜项目 / 脚本名）。
+- 写入沿用 `PUT /api/repos/[id]` 的 partial 语义（`undefined` = 不修改 / `null` 或空串 = 清空）；
+  不额外登记仓库审计（与 `prCheckFocus` / `tags` 同口径：非执行面）。
+
+**采集与持久化（`apps/platform/server/services/monitor/provider-log-collector.ts`）**：
+
+- 触发条件：本轮聚合状态 `overallStatus === 'failure'` **且**存在失败信号（`state ∈ {failure, error}`）。
+- 只对**第一条**「provider 可识别 + 目标齐备」的失败信号调用一次 `fetchProviderLog`；
+  无目标 / 无凭据 / 非失败轮次 → 返回 `null`（**零请求**）。
+- 结果写入 `PRCheck.providerLogsJson`：`{ available, provider, tail?, truncated?, reason?, status?, fetchedAt }`；
+  成功 / pending 轮次与「失败但无可采集信号」一律写 `null`，避免上一轮旧日志残留。
+- **不改变** `overallStatus` / `conclusion` / `failureSources` / `checkRunId` / `errorMessage` /
+  `alertFiring` 与生命周期状态机；采集异常（含凭据读取失败）只降级为不可用或 `null`，不阻断落库。
+- 请求面：每 PR 每轮最多 1 个 provider。Vercel 固定 2 次 GET（v7 部署定位 + v3 事件，`direction=backward`
+  取回后反转成时间正序）；Cloudflare 为构建列表 + 日志，日志按官方 `cursor` 分页最多跟随 3 页
+  （单轮 ≤ 4 次 GET）。不做重试与跨轮退避（下一轮轮询自然重试）；单轮串行等待上限约 4 × 8 s。
+
+**展示与 v1 边界**：
+
+- 内部视图 `GET /api/pr-checks` 增 `providerLogs`（解析失败 / 历史行回退 `null`）；UI 失败详情展开区
+  在 `providerLogs` 非空时展示：可用 → `<pre>` 限高滚动的 tail + 截断提示；不可用 → 原因文案 + HTTP 状态。
+  `null` 时不渲染该块，与改动前的失败详情逐像素等价。
+- `/api/v1/pr-checks` **只返回 `providerLogs` 元数据**（`available` / `provider` / `truncated` / `reason` /
+  `status` / `fetchedAt`），**不含 `tail`**：第三方构建日志是自由文本，v1 面向自动化消费，不扩大外部暴露面。
+
+**未证实边界**：
+
+1. 真实 Vercel / Cloudflare token 未提供：adapter 请求形态按官方文档实现，未做真实联调；
+   Vercel 的「按 `projectId + sha` 定位部署」与 Cloudflare Builds 的响应字段（含 `build_trigger_metadata`）
+   随 provider 版本变化的风险由降级路径吸收（表现为 `not_found` / `unsupported_response`）。
+2. 配额 / 限流：只在单次失败轮次发起 2 次 GET；provider 侧配额上限与 429 后的恢复节奏未实测。
+3. Cloudflare 构建列表未做时间窗 / 分页参数：默认取 API 首页，历史久远的构建可能落入 `not_found`；
+   日志虽跟随 cursor 分页，但单轮上限 3 页，超长日志只保留前几页再按 8 KB 截尾。
+   另：Vercel 团队项目需在 token 所属默认团队范围内（本实现未传 `teamId`），跨团队部署会落入 `not_found`。
+4. 日志可能仍含 provider 自定义格式的敏感值（脱敏为形态匹配，不是语义分类）；展示面限定在已登录平台页面。
+5. 服务端未强制校验「仓库 `credentialId` 必须是 GitHub 类型」：正常 UI 已过滤 provider 凭据，
+   但直接调 API 仍可把 provider 凭据挂到仓库上（表现为 GitHub 认证失败，不影响 provider 日志采集）。
+
 ## 4. 数据模型（两个选项）
 
 现有 `PRCheck` 是 `(repositoryId, prNumber, headSha)` 一行、单 `conclusion`。扩展有两种路径：
@@ -299,9 +371,9 @@ interface UnifiedBuildSignal {
 | 编号 | 决策点 | 裁定 |
 |:---|:---|:---|
 | D1 | 数据模型 | **Option A**（扩展 `PRCheck` 三列；`conclusion` 保留为最坏派生态） |
-| D2 | 日志富化是否首批 | **不做**（留后续增量 / backlog；Layer 5 不在本批） |
+| D2 | 日志富化是否首批 | **不做**（留后续增量 / backlog；Layer 5 不在本批）；**M65.4（2026-11-23）翻转**：Layer 5 已落地，见 §3.12 |
 | D3 | 「阻断关注集」配置形态 | **全量只报警不阻断**（任一归一化信号失败即 firing，不引入配置面）；**M45.6（2026-10-19）增量**：仓库级白名单「关注集」只降噪（见 §9），不改本条阻断语义 |
-| D4 | provider 凭据承载 | **本批不涉及**（与 D2 联动） |
+| D4 | provider 凭据承载 | **本批不涉及**（与 D2 联动）；**M65.4（2026-11-23）裁定 D4-A**：扩展 `Credential` 类型 `vercel-token` / `cloudflare-token`（组织级只读）+ `Repository` 三个目标字段，见 §3.12 |
 
 ## 6. 风险与缓解
 
@@ -319,7 +391,7 @@ interface UnifiedBuildSignal {
 1. **M43.2a 采集层**：GitHub 三源聚合 SyncSource + 归一化 + `nock` 单测（✅ 2026-10-12）。
 2. **M43.2b 持久化与 API**：`PRCheck` 扩展三列 + migration + 监控器落库（含终态静默窗口跳过）+ `GET /api/pr-checks` 视图字段 + 单测（✅ 2026-10-13）。
 3. **M43.2c UI 展示**：`pr-checks` 多源详情（失败源清单 + 各信号状态 / 链接）+ i18n + e2e + 视觉基线。
-4. **日志富化（可选）**：provider adapter（Vercel 先行）—— 后续增量（D2 裁定本批不做）。
+4. **日志富化（可选）**：provider adapter（Vercel / Cloudflare）—— **已落地（M65.4，2026-11-23，见 §3.12）**。
 5. **告警关注集（M45.6，2026-10-19）**：仓库级白名单 + 聚合 / 告警层过滤 + 未关注信号标注（见 §9）。
 
 ## 8. 验收标准
@@ -331,6 +403,7 @@ interface UnifiedBuildSignal {
 - [x] 无 Deployments / 无 status 的仓库不报错（fail-open）（M43.2a）。
 - [x] 未配置关注集时行为与现状完全一致；已配置时只有命中信号进入告警面，未命中信号仍全量落库并可在 UI 查看（M45.6，§9）。
 - [x] **结论口径统一**：同一 fixture（`completed + conclusion=null`）平台与 CLI 同判失败；**同一 workflow run 的重跑**「旧 failure + 新 success」两侧均聚合 `success`，而**同名不同 run**（push 与 pull_request 触发）两侧均保留并判失败；`neutral` / `skipped` 仍不计失败；关注集外的信号仍不参与 `overallStatus`（M51.2，§3.10）。
+- [x] **provider 日志富化（M65.4，§3.12）**：未配置 token / 目标时零额外请求且聚合与告警不变；配置后可看到 ≤ 8 KB 脱敏 tail 或不可用原因；拉取失败不改变 `overallStatus` / `failureSources`；provider 凭据写入产生审计事件。
 
 ## 9. 告警关注集（M45.6，2026-10-19）
 

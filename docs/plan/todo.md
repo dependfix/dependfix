@@ -47,7 +47,7 @@
 | M65.2 健康检查与外部 uptime 接入 | — | ✅ 已闭环（2026-11-22） | `52598aaa` / `5eaa2869` + 计划记录（3） | 代码 deep R1 Pass(4W) → R2 Pass；文档 standard R1 Reject → R2 Pass | 计划 3-4 commits / 6-9 files / 200-320 行；实际 3 commits / 13 files / +372 行 |
 | M65.3 邮件传输超时与周报节拍约束 | — | ✅ 已闭环（2026-11-22） | `087c9450` / `27b459d5` + 计划记录（3） | standard R1 Pass(3W) → R2 Pass | 计划 2 commits / 3-4 files / 100-160 行；实际 3 commits / 10 files / +147 行 |
 | M65.4 PR Check provider 原生日志富化 | M65.4.1 / M65.4.2 / M65.4.3 | ✅ 已闭环（2026-11-23） | `c9cc3989`..`851b9922`（10） | 引擎 deep R1 Reject → R2 Pass；平台后端 deep R1 Reject → R2 Pass；前端 / v1 / 文档 standard R1 Reject → R2 Pass | 计划 5-7 commits / 9-14 files / 400-700 行；实际 10 commits / 56 files / +2691 行 |
-| M65.5 可观测性门禁与脱敏测试矩阵 | — | ⏳ 待开始 | — | — | 2-3 commits / 5-7 files / 180-260 行 |
+| M65.5 可观测性门禁与脱敏测试矩阵 | — | ✅ 已闭环（2026-11-23） | `5003c945` / `590d6361` + 计划记录（3） | standard R1 Reject → R2 Reject（取样退化）→ 修复 + mutation 标定 | 计划 2-3 commits / 5-7 files / 180-260 行；实际 3 commits / 5 files / +273 行 |
 
 > `提交` 列为首末 commit 区间与**该条目自身** commit 数（交错执行时小于区间内提交总数；归档批次可再精修）；`审计` 列为 Review Gate 轮次结论；小条目列在原子内拆分子任务时填写；小条目交付物区间为原子内重叠估算（文件量与行数均与大条目有交集），不重复计入容量基线。
 
@@ -199,6 +199,12 @@
 - **依赖**：M65.1 / M65.4 接口落地（顺序在最后）。
 - **交付物**：2-3 commits / 5-7 files（用例 + 规范条款 + 检查点矩阵）/ 180-260 行。
 - **风险与缓解**：测试注入过度 → 用依赖注入的 stub transport，不用全局 mock；门禁误伤正常请求 → 断言只在 test env 生效；矩阵与条款双写漂移 → 矩阵行引用条款锚点，不复制正文。
+- **执行记录（2026-11-23 闭环）**：
+  - 矩阵用例：`tests/unit/external-channels.test.ts` 13 例——Sentry（未配置零初始化 / `dataCollection` 全键 / 六类样例 / span 脱敏）、uptime（liveness 四键 / readiness 两键 / DB 不可读 not_ready）、provider 日志（无 token / 无目标 / 不支持 provider 零请求、8 KB 截断、逐例脱敏、401/429 降级）、通道开关判定。
+  - 脱敏取样：每类 5 例真实长度 payload（含 `-` / `_` 判别字符），逐例断言 payload 与随机尾段不出现、占位符仍在；mutation 标定：引擎 `[\w-]+ → [\w]+` 与 `[\w]+ → [\w]{5}` 两档均使用例变红，还原后 13 例全绿。
+  - 规范与矩阵：`testing.md §6.17` 外部通道测试口径；检查点矩阵新增一行（指向条款）；设计稿 §8 增矩阵落点；§6 provider 通道状态改「已落地」。
+  - 审计：standard R1 Reject（AC2 未批量取样）→ R2 Reject（生成器退化、断言拦不住部分脱敏）→ 修复后定向 13 例 + mutation 标定通过（R3 quick 复核以提交态为准）。
+  - 残余：矩阵用例与 M65.1/M65.4 既有用例存在重叠（AC3 要求新增 ≥12，保留并强化断言）；Sentry 采集面不含自由文本 Cookie（Cookie 只在 request.headers，已按丢弃面断言）。
 
 ### 追加临时待办（不占阶段条目编号）
 

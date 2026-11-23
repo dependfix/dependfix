@@ -31,7 +31,7 @@
 >
 > **容量基线（逐原子交付物求和，规划轮估算）**：commits 19-27 / files 36-59 / 行 1,370-2,520（含 2026-11-23 插队 M66.7；行 = diff 改动量含删除；测量方 = 规划角色）。
 > 类型（按主类型计数）：🛠️4（M66.1-M66.4）+ 🎨2（M66.5 / M66.7）+ 🧪1（M66.6）；🛡️ 内嵌 M66.4 与 API 安全审计临时批、🚀 内嵌 M66.1 / M66.2 / M66.7（交付能力）。
-> **插队（2026-11-23 用户授权，可用性例外）**：M66.7 API 密钥管理入口（3-4 commits / 5-8 files / 200-350 行）+「API 安全审计闭环」临时批（2-3 / 4-6 / 120-220）。插队合计约占原阶段容量 26%-30%，累计 2 批（< 阈值 3）、低于 50%，**不触发 §3.1.1 再平衡**；含插队的执行预算 21-30 commits / 40-65 files / 1,490-2,740 行。
+> **插队（2026-11-23 用户授权，可用性例外）**：M66.7 API 密钥管理入口（3-4 commits / 5-8 files / 200-350 行）+「API 安全审计闭环」临时批（2-3 / 4-6 / 120-220）。插队合计约占原阶段容量 26%-30%，累计 2 批（< 阈值 3）、低于 50%，**不触发 §3.1.1 再平衡**；含插队的执行预算 21-30 commits / 40-65 files / 1,490-2,740 行。**两批已于 2026-11-24 闭环**（M66.7 + 安全审计配套）。
 >
 > **执行顺序**：M66.7（可用性插队，先做）→「API 安全审计闭环」临时批 → M66.1 → M66.2 → M66.3 → M66.4 → M66.5 → M66.6（先恢复 MCP remote 可用性与审计，再修可修性 / 交付证据；M66.6 放最后，避免 UI / 基线连带）。
 >
@@ -49,7 +49,7 @@
 | M66.4 平台分支回收与 `push_failed` 细分 | — | ⬜ 待开始 | — | — | 3-4 commits / 6-10 files / 250-450 行 |
 | M66.5 验证跳过的交付可观测性 | — | ⬜ 待开始 | — | — | 3-4 commits / 5-8 files / 200-350 行 |
 | M66.6 门户面板左缘亚像素抖动 | — | ⬜ 待开始 | — | — | 2-3 commits / 4-6 files / 150-250 行 |
-| M66.7 API 密钥管理入口（插队） | — | ⬜ 待开始 | — | — | 3-4 commits / 5-8 files / 200-350 行 |
+| M66.7 API 密钥管理入口（插队） | — | ✅ 已闭环（2026-11-24） | `382b782a`..`9f4da628`（5，含安全审计配套） | UI deep R1/R2 Reject → R3 Pass；服务端 deep R1/R2 Reject → R3 Pass | 计划 3-4 commits / 5-8 files / 200-350 行；实际 5 commits / 38 files（含 19 张视觉基线）/ +807 −19 |
 
 > `提交` 列为首末 commit 区间与**该条目自身** commit 数；`审计` 列为 Review Gate 轮次结论；小条目列在原子内拆分子任务时填写。
 
@@ -186,4 +186,4 @@
 
 ### 追加临时待办（不占阶段条目编号）
 
-- **API 安全审计闭环（2026-11-23 用户授权插队；可用性修复配套）** —— 目标：key 创建 / 吊销落 AuditEvent；无效 key 的 401 尝试按 IP 限速记录（同 IP + keyHint 去重、每 IP 每分钟最多 5 条）；会话回退边界写入文档。范围：`apps/platform/server/entities/audit-event.ts`（新增 `api_key_created` / `api_key_deleted` 类型）、`apps/platform/server/services/api-key-audit.ts`、`api/v1/keys/index.post.ts` 与 `[id].delete.ts`、`apps/platform/server/utils/api-key-guard.ts`（401 日志）、`docs/guide/api-v1.md` 与 `platform-public-api.md §5`。验收：① 创建 / 吊销各产生 1 条 AuditEvent（payload 无明文 / 哈希）；② 无效 key 请求产生限速日志（IP / keyHint / 路径，不含完整 key；同 IP + keyHint 1 分钟去重、每 IP 每分钟最多 5 条）；③ 文档声明会话回退无 scope / 限流 / 访问日志；④ 既有 keys / guard 用例零回归。不做：不改 key TTL / scope；不引入 Redis 多实例限流；不改 `api_request_log` schema（401 走进程日志）。交付物：2-3 commits / 4-6 files / 120-220 行。
+- **API 安全审计闭环（2026-11-23 用户授权插队；可用性修复配套）** —— 目标：key 创建 / 吊销落 AuditEvent；无效 key 的 401 尝试按 IP 限速记录（同 IP + keyHint 去重、每 IP 每分钟最多 5 条）；会话回退边界写入文档。范围：`apps/platform/server/entities/audit-event.ts`（新增 `api_key_created` / `api_key_deleted` 类型）、`apps/platform/server/services/api-key-audit.ts`、`api/v1/keys/index.post.ts` 与 `[id].delete.ts`、`apps/platform/server/utils/api-key-guard.ts`（401 日志）、`docs/guide/api-v1.md` 与 `platform-public-api.md §5`。验收：① 创建 / 吊销各产生 1 条 AuditEvent（payload 无明文 / 哈希）；② 无效 key 请求产生限速日志（IP / keyHint / 路径，不含完整 key；同 IP + keyHint 1 分钟去重、每 IP 每分钟最多 5 条）；③ 文档声明会话回退无 scope / 限流 / 访问日志；④ 既有 keys / guard 用例零回归。不做：不改 key TTL / scope；不引入 Redis 多实例限流；不改 `api_request_log` schema（401 走进程日志）。交付物：2-3 commits / 4-6 files / 120-220 行。**闭环（2026-11-24）**：`ca9fc249` / `8df962f5` / `7bf19000`；审计 deep R1/R2 Reject → R3 Pass；mutation 2/2（去掉每 IP 上限、keyHint 改回 `dfk_` 前缀均使用例变红）。

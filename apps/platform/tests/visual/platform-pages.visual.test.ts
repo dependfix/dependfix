@@ -250,9 +250,28 @@ test.describe('平台页面视觉基线', () => {
         await expect(attributionTags).toHaveCount(2)
         await expect(panel.locator('.pr-checks__signal-attribution.caomei-tag--danger')).toHaveText('本次改动导致')
         await expect(panel.locator('.pr-checks__signal-attribution.caomei-tag--neutral')).toHaveText('外部噪音')
+        /* provider 日志可用态：fixtures #101 带 tail + truncated，展开后必须真实渲染 */
+        const providerTail = table.locator('.provider-logs__tail').first()
+        await expect(providerTail).toBeVisible()
+        await expect(providerTail).toContainText('pnpm build')
+        await expect(table.locator('.provider-logs').first()).toContainText('仅显示尾部 8 KB')
         await waitForVisualStable(page)
         await expectThemeApplied(page, 'light')
         await expectPageScreenshot(page, 'pr-checks-light.png')
+    })
+
+    test('pr-checks provider 日志不可用态（#102 unauthorized）', async ({ page }) => {
+        await page.goto('/pr-checks')
+        await expectThemeApplied(page, 'light')
+        const table = page.locator('.caomei-data-table')
+        const row = table.locator('tbody .caomei-data-table__row').filter({ hasText: '#102' })
+        await row.locator('button.caomei-data-table__row-expander').click()
+        // 展开内容在独立展开行中渲染（不在数据行内），按可见性过滤
+        const block = page.locator('.provider-logs:visible')
+        await expect(block).toBeVisible()
+        await expect(block.locator('.provider-logs__empty')).toContainText('未能获取日志')
+        await expect(block.locator('.provider-logs__empty')).toContainText('凭据无权限或已失效')
+        await expect(block.locator('.provider-logs__empty')).toContainText('HTTP 401')
     })
 
     test('dialog-import-repos 浮层（light）', async ({ page }) => {

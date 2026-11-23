@@ -173,6 +173,16 @@ export interface PRCheckFixture {
     signals?: PRCheckSignalFixture[]
     /** 失败源清单（缺省按 `signals` 派生） */
     failureSources?: PRCheckFailureSourceFixture[]
+    /** provider 日志富化结果（视觉 / e2e 三态渲染用；缺省不写 `provider_logs_json`） */
+    providerLogs?: {
+        available: boolean
+        provider: string
+        tail?: string
+        truncated?: boolean
+        reason?: string
+        status?: number
+        fetchedAt: string
+    } | null
 }
 
 /**

@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { PROVIDER_LOG_UNAVAILABLE_REASONS } from '@dependfix/engine'
 import { describe, expect, it } from 'vitest'
 import {
     PR_CHECK_CONCLUSION_VALUES,
@@ -7,6 +8,7 @@ import {
     checkAttributionTone,
     conclusionTagTone,
     prStateTagTone,
+    providerLogReasonI18nKey,
     shouldShowAttribution,
 } from './pr-check-style'
 import { PR_CHECK_CONCLUSIONS } from '#server/entities/pr-check'
@@ -118,5 +120,32 @@ describe('shouldShowAttribution', () => {
         expect(shouldShowAttribution({ state: 'failure', attribution: 'self_caused' })).toBe(true)
         expect(shouldShowAttribution({ state: 'skipped', attribution: 'cancelled' })).toBe(true)
         expect(shouldShowAttribution({ state: 'error', attribution: 'external_noise' })).toBe(true)
+    })
+})
+
+describe('providerLogReasonI18nKey', () => {
+    const locales = ['zh-CN', 'en-US'] as const
+    const readLocale = (locale: string): Record<string, unknown> =>
+        JSON.parse(readFileSync(join(import.meta.dirname, `../../i18n/locales/${locale}.json`), 'utf8')) as Record<string, unknown>
+
+    it('每个稳定原因映射到字面量键，且两份 locale 均存在该键', () => {
+        // 与引擎枚举逐项对齐：新增原因却漏配文案时本用例直接失败
+        const reasons = PROVIDER_LOG_UNAVAILABLE_REASONS
+        for (const locale of locales) {
+            const messages = readLocale(locale)
+            for (const reason of reasons) {
+                const key = providerLogReasonI18nKey(reason)
+                // 双射：键名必须与原因一一对应（新增原因漏 case 会回退 http_error 并被拦住）
+                expect(key).toBe(`prChecks.providerLogsReason.${reason}`)
+                const value = key.split('.').reduce<unknown>((node, segment) =>
+                    (node && typeof node === 'object' ? (node as Record<string, unknown>)[segment] : undefined), messages)
+                expect(value, `${locale}:${key}`).toEqual(expect.any(String))
+            }
+        }
+    })
+
+    it('未知 / 缺失原因回退 http_error（不拼接动态键）', () => {
+        expect(providerLogReasonI18nKey('something_else')).toBe('prChecks.providerLogsReason.http_error')
+        expect(providerLogReasonI18nKey(undefined)).toBe('prChecks.providerLogsReason.http_error')
     })
 })

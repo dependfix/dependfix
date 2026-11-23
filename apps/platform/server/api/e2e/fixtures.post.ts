@@ -272,6 +272,16 @@ const prCheckSchema = z.object({
     signals: z.array(prCheckSignalSchema).max(50).optional(),
     /** 失败源清单（写入 `failure_sources_json`；缺省时按 `signals` 派生，与生产同源） */
     failureSources: z.array(prCheckFailureSourceSchema).optional(),
+    /** provider 日志富化结果（视觉 / e2e 三态渲染用；写入 `provider_logs_json`） */
+    providerLogs: z.object({
+        available: z.boolean(),
+        provider: z.string(),
+        tail: z.string().optional(),
+        truncated: z.boolean().optional(),
+        reason: z.string().optional(),
+        status: z.number().optional(),
+        fetchedAt: z.string(),
+    }).nullable().optional(),
 })
 
 const batchRunSchema = z.object({
@@ -541,6 +551,7 @@ export default defineEventHandler(async (event) => {
                 authorLogin: pc.authorLogin,
                 conclusion: pc.conclusion,
                 signalsJson: signals.length > 0 ? JSON.stringify(signals) : null,
+                providerLogsJson: pc.providerLogs ? JSON.stringify(pc.providerLogs) : null,
                 overallStatus: pc.overallStatus ?? null,
                 failureSourcesJson: failureSources ? JSON.stringify(failureSources) : null,
                 checkRunId: pc.checkRunId ?? null,

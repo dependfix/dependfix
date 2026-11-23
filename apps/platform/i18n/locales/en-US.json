@@ -257,7 +257,16 @@
         "allowMajorUpgradeDefaultOn": "The platform defaults new repositories to enabled; existing repositories keep their current setting",
         "fieldSandboxImage": "Sandbox image",
         "fieldSandboxImagePlaceholder": "ghcr.io/owner/dependfix-sandbox:latest",
-        "fieldSandboxImageHint": "Leave empty for the platform default (slim sandbox image). Use the -full variant or a full reference when native modules need source builds; the image must be pullable by the target rootless daemon"
+        "fieldSandboxImageHint": "Leave empty for the platform default (slim sandbox image). Use the -full variant or a full reference when native modules need source builds; the image must be pullable by the target rootless daemon",
+        "providerLogsTitle": "Provider log targets (optional)",
+        "providerLogsSummary": "failure log enrichment only",
+        "fieldVercelProjectId": "Vercel project ID",
+        "fieldVercelProjectIdPlaceholder": "prj_xxxxxxxx",
+        "fieldCloudflareAccountId": "Cloudflare account ID",
+        "fieldCloudflareAccountIdPlaceholder": "Account ID",
+        "fieldCloudflareWorkerTag": "Cloudflare worker tag",
+        "fieldCloudflareWorkerTagPlaceholder": "Workers script name / tag",
+        "providerLogsHint": "Leave empty to disable; configure a read-only Vercel / Cloudflare token for the same organization on the Credentials page. No request is made without a target."
     },
     "schedules": {
         "title": "Schedules",
@@ -732,7 +741,25 @@
             "closed": "Closed",
             "merged": "Merged",
             "unknown": "Unknown"
-        }
+        },
+        "providerLogsTitle": "Provider logs",
+        "providerLogsTruncated": "Showing the last 8 KB only",
+        "providerLogsFetchedAt": "Captured at {time}",
+        "providerLogsUnavailable": "Logs unavailable",
+        "providerLogsReason": {
+            "token_missing": "No provider credential configured",
+            "unsupported_provider": "Provider not supported",
+            "unsupported_target": "No repository-level log target configured",
+            "not_found": "No build found for this commit",
+            "unauthorized": "Credential is unauthorized or expired (401 / 403)",
+            "rate_limited": "Provider rate limited the request (429)",
+            "timeout": "Request timed out",
+            "http_error": "Provider request failed",
+            "unsupported_response": "Provider response could not be parsed",
+            "empty": "Log is empty",
+            "invalid_request": "Invalid request (check the repository target settings)"
+        },
+        "providerLogsEmpty": "Log is empty"
     },
     "envEvents": {
         "title": "Env Events",
@@ -776,7 +803,8 @@
         "typeSandboxEgressBlocked": "Egress policy blocked",
         "typeExecutionLimitsUpdate": "Execution limits update",
         "typeMajorUpgradePolicyUpdate": "Major upgrade policy update",
-        "typeDeliveryBranchCleanup": "Delivery branch cleanup"
+        "typeDeliveryBranchCleanup": "Delivery branch cleanup",
+        "typeProviderLogCredentialUpdate": "Provider log credential update"
     },
     "credentials": {
         "title": "Credentials",
@@ -828,8 +856,16 @@
         "errors": {
             "loadFailed": "Failed to load: {message}",
             "saveFailed": "Failed to save: {message}",
-            "deleteFailed": "Failed to delete: {message}"
-        }
+            "deleteFailed": "Failed to delete: {message}",
+            "tokenRequired": "A new token is required when changing credential type",
+            "privateKeyRequired": "A PEM private key is required when switching to GitHub App"
+        },
+        "typeVercelToken": "Vercel token (read-only)",
+        "typeCloudflareToken": "Cloudflare token (read-only)",
+        "providerTokenHint": "Read-only token used only to fetch native build logs for failed PR checks; the platform never writes with it.",
+        "fieldTokenSwitchRequired": "Token (required after switching type)",
+        "fieldPrivateKeySwitchRequired": "PEM private key (required after switching type)",
+        "switchTypeHint": "Credentials from the previous type are not reused; fill in the new value."
     },
     "batchRuns": {
         "title": "Batch Runs",

@@ -325,6 +325,13 @@ export const VISUAL_FIXTURES: FixturesPayload = {
             prState: 'open',
             lastPolledAt: '2026-08-28T02:00:00.000Z',
             overallStatus: 'failure',
+            providerLogs: {
+                available: true,
+                provider: 'vercel',
+                tail: 'Build started\nInstalling dependencies...\nError: command "pnpm build" exited with 1',
+                truncated: true,
+                fetchedAt: '2026-08-28T02:00:05.000Z',
+            },
             signals: [
                 {
                     kind: 'check',
@@ -369,6 +376,13 @@ export const VISUAL_FIXTURES: FixturesPayload = {
             acknowledgedAt: '2026-08-27T03:00:00.000Z',
             prState: 'closed',
             lastPolledAt: '2026-08-27T02:00:00.000Z',
+            providerLogs: {
+                available: false,
+                provider: 'vercel',
+                reason: 'unauthorized',
+                status: 401,
+                fetchedAt: '2026-08-27T02:00:03.000Z',
+            },
         },
         {
             repositoryOwner: 'acme',

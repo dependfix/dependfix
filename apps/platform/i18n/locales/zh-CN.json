@@ -257,7 +257,16 @@
         "allowMajorUpgradeDefaultOn": "平台已将新建仓库默认设为开启；既有仓库保持原设置",
         "fieldSandboxImage": "沙箱镜像",
         "fieldSandboxImagePlaceholder": "ghcr.io/owner/dependfix-sandbox:latest",
-        "fieldSandboxImageHint": "留空 = 平台默认（slim 沙箱镜像）。原生模块需源码编译时填写 -full 变体或完整镜像引用；镜像须可被目标 rootless daemon 拉取"
+        "fieldSandboxImageHint": "留空 = 平台默认（slim 沙箱镜像）。原生模块需源码编译时填写 -full 变体或完整镜像引用；镜像须可被目标 rootless daemon 拉取",
+        "providerLogsTitle": "Provider 日志目标（可选）",
+        "providerLogsSummary": "仅用于失败日志富化",
+        "fieldVercelProjectId": "Vercel 项目 ID",
+        "fieldVercelProjectIdPlaceholder": "prj_xxxxxxxx",
+        "fieldCloudflareAccountId": "Cloudflare Account ID",
+        "fieldCloudflareAccountIdPlaceholder": "账户 ID",
+        "fieldCloudflareWorkerTag": "Cloudflare Worker Tag",
+        "fieldCloudflareWorkerTagPlaceholder": "Workers 脚本名 / tag",
+        "providerLogsHint": "不填则不启用；需在「凭据」页配置同组织的 Vercel / Cloudflare 只读 token。缺少目标时不会发起任何请求。"
     },
     "schedules": {
         "title": "定时计划",
@@ -732,7 +741,25 @@
             "closed": "已关闭",
             "merged": "已合并",
             "unknown": "未知"
-        }
+        },
+        "providerLogsTitle": "Provider 日志",
+        "providerLogsTruncated": "仅显示尾部 8 KB",
+        "providerLogsFetchedAt": "采集于 {time}",
+        "providerLogsUnavailable": "未能获取日志",
+        "providerLogsReason": {
+            "token_missing": "未配置对应 provider 凭据",
+            "unsupported_provider": "暂不支持该 provider",
+            "unsupported_target": "未配置仓库级日志目标",
+            "not_found": "未找到该提交的构建记录",
+            "unauthorized": "凭据无权限或已失效（401 / 403）",
+            "rate_limited": "provider 限流（429）",
+            "timeout": "请求超时",
+            "http_error": "provider 请求失败",
+            "unsupported_response": "provider 返回体无法解析",
+            "empty": "日志为空",
+            "invalid_request": "请求参数不合法（检查仓库目标配置）"
+        },
+        "providerLogsEmpty": "日志为空"
     },
     "envEvents": {
         "title": "环境事件",
@@ -776,7 +803,8 @@
         "typeSandboxEgressBlocked": "出站策略拦截",
         "typeExecutionLimitsUpdate": "执行预算更新",
         "typeMajorUpgradePolicyUpdate": "跨大版本策略更新",
-        "typeDeliveryBranchCleanup": "交付分支清理"
+        "typeDeliveryBranchCleanup": "交付分支清理",
+        "typeProviderLogCredentialUpdate": "Provider 日志凭据更新"
     },
     "credentials": {
         "title": "凭据管理",
@@ -828,8 +856,16 @@
         "errors": {
             "loadFailed": "加载失败：{message}",
             "saveFailed": "保存失败：{message}",
-            "deleteFailed": "删除失败：{message}"
-        }
+            "deleteFailed": "删除失败：{message}",
+            "tokenRequired": "切换凭据类型时必须填写新的 token",
+            "privateKeyRequired": "切换为 GitHub App 时必须重新提供 PEM 私钥"
+        },
+        "typeVercelToken": "Vercel Token（只读）",
+        "typeCloudflareToken": "Cloudflare Token（只读）",
+        "providerTokenHint": "只读 token，仅用于拉取 PR Check 失败的原生构建日志；平台不会用它发起写操作。",
+        "fieldTokenSwitchRequired": "Token（切换类型必填）",
+        "fieldPrivateKeySwitchRequired": "PEM 私钥（切换类型必填）",
+        "switchTypeHint": "切换凭据类型后旧凭据不会沿用，必须重新填写。"
     },
     "batchRuns": {
         "title": "批量运行",

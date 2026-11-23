@@ -121,3 +121,45 @@ export const checkAttributionTone = (attribution: string | undefined): Component
             return 'neutral'
     }
 }
+
+/** provider 日志不可用原因 → i18n 文案键（显式字面量键，未知取值回退通用失败文案）。 */
+export type ProviderLogReasonI18nKey =
+    | 'prChecks.providerLogsReason.token_missing'
+    | 'prChecks.providerLogsReason.invalid_request'
+    | 'prChecks.providerLogsReason.unsupported_provider'
+    | 'prChecks.providerLogsReason.unsupported_target'
+    | 'prChecks.providerLogsReason.not_found'
+    | 'prChecks.providerLogsReason.unauthorized'
+    | 'prChecks.providerLogsReason.rate_limited'
+    | 'prChecks.providerLogsReason.timeout'
+    | 'prChecks.providerLogsReason.http_error'
+    | 'prChecks.providerLogsReason.unsupported_response'
+    | 'prChecks.providerLogsReason.empty'
+
+/** 不可用原因 → 文案键；数据库中的历史 / 未知原因回退 `http_error`（不拼接动态键）。 */
+export const providerLogReasonI18nKey = (reason: string | undefined): ProviderLogReasonI18nKey => {
+    switch (reason) {
+        case 'token_missing':
+            return 'prChecks.providerLogsReason.token_missing'
+        case 'invalid_request':
+            return 'prChecks.providerLogsReason.invalid_request'
+        case 'unsupported_provider':
+            return 'prChecks.providerLogsReason.unsupported_provider'
+        case 'unsupported_target':
+            return 'prChecks.providerLogsReason.unsupported_target'
+        case 'not_found':
+            return 'prChecks.providerLogsReason.not_found'
+        case 'unauthorized':
+            return 'prChecks.providerLogsReason.unauthorized'
+        case 'rate_limited':
+            return 'prChecks.providerLogsReason.rate_limited'
+        case 'timeout':
+            return 'prChecks.providerLogsReason.timeout'
+        case 'unsupported_response':
+            return 'prChecks.providerLogsReason.unsupported_response'
+        case 'empty':
+            return 'prChecks.providerLogsReason.empty'
+        default:
+            return 'prChecks.providerLogsReason.http_error'
+    }
+}

@@ -9,6 +9,7 @@ import {
 } from 'vitest'
 import { ActionStatusMonitor } from './action-status-monitor'
 import { TERMINAL_REPOLL_QUIET_MS } from './build-signals'
+import type { ProviderLogCollector } from './provider-log-collector'
 import type { PRCheckSnapshot, PRCheckSyncSource, UnifiedBuildSignal } from './types'
 
 // ---------- mock DataSource / Repository ----------
@@ -18,12 +19,14 @@ const {
     prCheckSave,
     prCheckUpdate,
     repoFind,
+    credentialFindOne,
 } = vi.hoisted(() => ({
     prCheckFind: vi.fn(),
     prCheckFindOne: vi.fn(),
     prCheckSave: vi.fn(),
     prCheckUpdate: vi.fn(),
     repoFind: vi.fn(),
+    credentialFindOne: vi.fn(),
 }))
 
 const makeMockDataSource = (): DataSource => {
@@ -36,6 +39,9 @@ const makeMockDataSource = (): DataSource => {
     const repositoryRepo = {
         find: repoFind,
     }
+    const credentialRepo = {
+        findOne: credentialFindOne,
+    }
     return {
         getRepository: (entity: unknown) => {
             // PRCheck 实体：按 type name 区分（测试环境 module identity 不同）
@@ -45,6 +51,9 @@ const makeMockDataSource = (): DataSource => {
             }
             if (name === 'Repository') {
                 return repositoryRepo
+            }
+            if (name === 'Credential') {
+                return credentialRepo
             }
             throw new Error(`unexpected entity: ${String(entity)}`)
         },
@@ -96,6 +105,7 @@ describe('ActionStatusMonitor', () => {
         prCheckFind.mockResolvedValue([]) // 默认无既有行（终态跳过集为空）
         prCheckFindOne.mockResolvedValue(null) // 默认无 existing
         prCheckUpdate.mockResolvedValue({ affected: 1 })
+        credentialFindOne.mockResolvedValue(null) // 默认未配置 provider 凭据（零请求）
         const ds = makeMockDataSource()
         mockSource = { fetchSnapshots: vi.fn() }
         monitor = new ActionStatusMonitor(ds, mockSource)
@@ -653,9 +663,117 @@ describe('ActionStatusMonitor', () => {
         })
     })
 
+    describe('provider 日志富化接线', () => {
+        const makeCollector = (result: unknown) => ({
+            collect: vi.fn().mockResolvedValue(result),
+        }) as unknown as ProviderLogCollector
+
+        const makeMonitor = (collector: ProviderLogCollector) =>
+            new ActionStatusMonitor(makeMockDataSource(), mockSource, collector)
+
+        it('失败轮次 → 以仓库 / headSha / 全量信号调用一次采集器，并写入 providerLogsJson', async () => {
+            const record = {
+                available: true,
+                provider: 'vercel',
+                tail: 'build failed',
+                truncated: false,
+                fetchedAt: '2026-11-23T00:00:00.000Z',
+            }
+            const collector = makeCollector(record)
+            const signals = [
+                makeSignal({ state: 'success' }),
+                makeSignal({
+                    kind: 'deployment',
+                    provider: 'vercel',
+                    name: 'Preview',
+                    state: 'failure',
+                    rawState: 'failure',
+                }),
+            ]
+            vi.mocked(mockSource.fetchSnapshots).mockResolvedValue([
+                makeSnapshot({ conclusion: 'failure', overallStatus: 'failure', signals }),
+            ])
+
+            await makeMonitor(collector).pollOnce({ organizationId: 'org-1' })
+
+            expect(collector.collect).toHaveBeenCalledTimes(1)
+            expect(collector.collect).toHaveBeenCalledWith(expect.objectContaining({
+                headSha: 'a'.repeat(40),
+                overallStatus: 'failure',
+                signals,
+                repository: expect.objectContaining({ id: 'repo-1' }),
+            }))
+            const saved = prCheckSave.mock.calls[0]?.[0]
+            expect(JSON.parse(saved.providerLogsJson)).toEqual(record)
+            // AC1/AC3：采集日志不得改变聚合结论、失败源与告警状态机
+            expect(saved.overallStatus).toBe('failure')
+            expect(saved.alertFiring).toBe(true)
+            expect(JSON.parse(saved.failureSourcesJson)).toContainEqual(expect.objectContaining({ provider: 'vercel' }))
+        })
+
+        it('成功 / pending 轮次不调用采集器，并清空上一轮的旧日志（UPDATE 路径）', async () => {
+            prCheckFindOne.mockResolvedValue({
+                id: 'existing-1',
+                repositoryId: 'repo-1',
+                prNumber: 42,
+                headSha: 'a'.repeat(40),
+                providerLogsJson: JSON.stringify({ available: true, provider: 'vercel', tail: 'old' }),
+                acknowledgedAt: null,
+                acknowledgedByUserId: null,
+            })
+            const collector = makeCollector({ available: true, provider: 'vercel', tail: 'x', fetchedAt: 'x' })
+            vi.mocked(mockSource.fetchSnapshots).mockResolvedValue([
+                makeSnapshot({ conclusion: 'success', overallStatus: 'success' }),
+            ])
+
+            await makeMonitor(collector).pollOnce({ organizationId: 'org-1' })
+
+            expect(collector.collect).not.toHaveBeenCalled()
+            expect(prCheckSave.mock.calls[0]?.[0].providerLogsJson).toBeNull()
+        })
+
+        it('采集器返回 null（无目标 / 无凭据）→ providerLogsJson 为 null', async () => {
+            const collector = makeCollector(null)
+            vi.mocked(mockSource.fetchSnapshots).mockResolvedValue([
+                makeSnapshot({ conclusion: 'failure', overallStatus: 'failure' }),
+            ])
+
+            await makeMonitor(collector).pollOnce({ organizationId: 'org-1' })
+
+            expect(collector.collect).toHaveBeenCalledTimes(1)
+            expect(prCheckSave.mock.calls[0]?.[0].providerLogsJson).toBeNull()
+        })
+
+        it('采集器抛错 → 不阻断落库（providerLogsJson 为 null）', async () => {
+            const collector = {
+                collect: vi.fn().mockRejectedValue(new Error('boom')),
+            } as unknown as ProviderLogCollector
+            const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+            vi.mocked(mockSource.fetchSnapshots).mockResolvedValue([
+                makeSnapshot({ conclusion: 'failure', overallStatus: 'failure' }),
+            ])
+
+            const result = await makeMonitor(collector).pollOnce({ organizationId: 'org-1' })
+
+            expect(result).toEqual({ processed: 1, errors: 0 })
+            expect(prCheckSave.mock.calls[0]?.[0].providerLogsJson).toBeNull()
+            expect(warn).toHaveBeenCalled()
+        })
+
+        it('未注入采集器时默认采集器零请求（未配置凭据）', async () => {
+            vi.mocked(mockSource.fetchSnapshots).mockResolvedValue([
+                makeSnapshot({ conclusion: 'failure', overallStatus: 'failure' }),
+            ])
+
+            await monitor.pollOnce({ organizationId: 'org-1' })
+
+            expect(credentialFindOne).not.toHaveBeenCalled() // 无仓库级目标 → 不查凭据
+            expect(prCheckSave.mock.calls[0]?.[0].providerLogsJson).toBeNull()
+        })
+    })
+
     describe('错误隔离（fail-open）', () => {
-        it('单仓 syncSource 失败不影响其他仓库', async () => {
-            // 2 仓库，第 2 仓库 fetchSnapshots 抛错
+        it('单仓 syncSource 失败不影响其他仓库', async () => { // 2 仓库，第 2 仓库 fetchSnapshots 抛错
             repoFind.mockResolvedValue([
                 { id: 'repo-1', owner: 'octocat', name: 'hello-world', credentialId: null },
                 { id: 'repo-2', owner: 'foo', name: 'bar', credentialId: null },

@@ -14,6 +14,7 @@ import {
     shouldSkipTerminalPr,
     summarizeFailureSources,
 } from './build-signals'
+import { ProviderLogCollector, type ProviderLogRecord } from './provider-log-collector'
 import { filterSignalsByFocus, parsePRCheckFocus, type PRCheckFocus } from '#server/utils/pr-check-focus'
 import { Repository as RepositoryEntity } from '#server/entities/repository'
 import { PRCheck, isTerminalPrState, type PRCheckConclusion } from '#server/entities/pr-check'
@@ -52,10 +53,13 @@ import { PRCheck, isTerminalPrState, type PRCheckConclusion } from '#server/enti
 export class ActionStatusMonitor {
     private readonly ds: DataSource
     private readonly source: PRCheckSyncSource
+    /** provider 日志富化采集器；`null` = 关闭（单测 / 未来可选关闭通道） */
+    private readonly providerLogs: ProviderLogCollector | null
 
-    constructor(ds: DataSource, source: PRCheckSyncSource) {
+    constructor(ds: DataSource, source: PRCheckSyncSource, providerLogs?: ProviderLogCollector | null) {
         this.ds = ds
         this.source = source
+        this.providerLogs = providerLogs === undefined ? new ProviderLogCollector(ds) : providerLogs
     }
 
     /**
@@ -89,7 +93,7 @@ export class ActionStatusMonitor {
                     knownTerminalHeads,
                 })
                 for (const snapshot of snapshots) {
-                    const applied = await this.applyOne(snapshot, focus)
+                    const applied = await this.applyOne(snapshot, focus, repo)
                     if (applied) {
                         processed += 1
                     }
@@ -219,6 +223,33 @@ export class ActionStatusMonitor {
     }
 
     /**
+     * 采集 provider 原生构建日志尾部（失败轮次才执行）。
+     *
+     * 失败隔离：采集器本身已把 HTTP / 超时降级为不可用记录；此处再兜一层，
+     * 保证任何意外异常都不会让 PR Check 落库失败（日志富化永远不是主链路）。
+     */
+    private async collectProviderLogs(
+        repository: RepositoryEntity,
+        snapshot: PRCheckSnapshot,
+        overallStatus: string,
+    ): Promise<ProviderLogRecord | null> {
+        if (!this.providerLogs || overallStatus !== 'failure') {
+            return null
+        }
+        try {
+            return await this.providerLogs.collect({
+                repository,
+                headSha: snapshot.headSha,
+                overallStatus,
+                signals: snapshot.signals,
+            })
+        } catch (error) {
+            console.warn('[pr-check-monitor] provider 日志富化失败（降级为不记录）：', error)
+            return null
+        }
+    }
+
+    /**
      * 应用单个快照：按 (repositoryId, prNumber, headSha) 复合唯一索引幂等 INSERT/UPDATE。
      *
      * **关注集**：`focus` 非空时，只有命中关注集的信号参与聚合与告警判定
@@ -237,9 +268,14 @@ export class ActionStatusMonitor {
      * 状态机严格基于 polling 结果，下轮 polling 失败时 alertFiring 会被覆盖回 true。
      *
      * @param focus 仓库级关注集（`null` = 未配置 = 现状：全量信号参与判定）
+     * @param repository 目标仓库（provider 日志富化需要其组织归属与仓库级目标配置）
      * @returns 是否实际落库（`false` = 空信号被守卫跳过，不计入 `processed`）
      */
-    private async applyOne(snapshot: PRCheckSnapshot, focus: PRCheckFocus | null): Promise<boolean> {
+    private async applyOne(
+        snapshot: PRCheckSnapshot,
+        focus: PRCheckFocus | null,
+        repository: RepositoryEntity,
+    ): Promise<boolean> {
         // 空信号守卫：无信号不落库（`aggregateOverallStatus([])` 为真空真，直接消费会把「无信号」
         // 误写为聚合 success；见设计稿 §3.7「空集真空真」）。采集层已过滤，此处为接口级防御。
         // 注意：关注集过滤发生在守卫之后——「有信号但全部未命中」属于关注面空集，应落库并视为 success。
@@ -262,6 +298,10 @@ export class ActionStatusMonitor {
         // 代表字段（checkRunId / errorMessage）与告警同源：已配置时取关注面，未配置时沿用快照派生值
         const checkRunId = focusedSignals ? pickCheckRunId(focusedSignals) : snapshot.checkRunId
         const errorMessage = focusedSignals ? pickErrorSummary(focusedSignals) : snapshot.errorMessage
+        // provider 原生日志富化：仅失败轮次采集；成功 / pending / 无目标 / 无凭据一律写 null
+        // （清空避免上一轮的旧日志残留），且不参与 overallStatus / failureSources / 告警状态机。
+        const providerLogs = await this.collectProviderLogs(repository, snapshot, overallStatus)
+        const providerLogsJson = providerLogs ? JSON.stringify(providerLogs) : null
 
         const existing = await repo.findOne({
             where: {
@@ -279,6 +319,7 @@ export class ActionStatusMonitor {
             existing.checkRunId = checkRunId
             existing.detailsUrl = snapshot.detailsUrl
             existing.errorMessage = errorMessage
+            existing.providerLogsJson = providerLogsJson
             existing.authorLogin = snapshot.authorLogin
             existing.alertFiring = inferredAlertFiring
             // 快照只来自 `state: 'open'` 的 PR：写入 open 即生命周期证据
@@ -303,6 +344,7 @@ export class ActionStatusMonitor {
             row.checkRunId = checkRunId
             row.detailsUrl = snapshot.detailsUrl
             row.errorMessage = errorMessage
+            row.providerLogsJson = providerLogsJson
             row.alertFiring = inferredAlertFiring
             row.prState = 'open'
             row.acknowledgedAt = null

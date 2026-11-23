@@ -769,15 +769,15 @@ const submit = async () => {
                 <small class="text-muted">{{ t('repos.fieldPrCheckFocusHint') }}</small>
             </div>
             <details
-                class="repo-form__limits"
+                class="repo-form__provider-logs"
                 :open="providerLogsOpen"
                 @toggle="providerLogsOpen = ($event.target as HTMLDetailsElement).open"
             >
-                <summary class="repo-form__limits-summary">
+                <summary class="repo-form__provider-logs-summary">
                     {{ t('repos.providerLogsTitle') }}
                     <span class="text-muted">{{ t('repos.providerLogsSummary') }}</span>
                 </summary>
-                <div class="repo-form__limits-grid">
+                <div class="repo-form__provider-logs-grid">
                     <div class="repo-form__field">
                         <label for="vercelProjectId">{{ t('repos.fieldVercelProjectId') }}</label>
                         <CaomeiInput
@@ -809,7 +809,7 @@ const submit = async () => {
                         <small v-if="fieldErrors.cloudflareWorkerTag" class="text-danger">{{ fieldErrors.cloudflareWorkerTag }}</small>
                     </div>
                 </div>
-                <small class="repo-form__limits-hint text-muted">{{ t('repos.providerLogsHint') }}</small>
+                <small class="repo-form__provider-logs-hint text-muted">{{ t('repos.providerLogsHint') }}</small>
             </details>
             <div class="repo-form__field">
                 <label for="note">{{ t('repos.fieldNote') }}</label>
@@ -859,7 +859,8 @@ const submit = async () => {
 /* 表单布局规则随组件内聚：本弹窗自 repos.vue 拆出时样式段留在父页的
    `<style scoped>` 内，scoped 不穿透子组件 → 规则整段失效（label 贴输入框、操作区落到左下）。
    此处为唯一归属地，父页不再保留同名规则。 */
-.repo-form__limits {
+.repo-form__limits,
+.repo-form__provider-logs {
     margin-top: 8px;
     padding: 8px 12px;
     border: 1px solid var(--caomei-color-border, #d4d4d8);

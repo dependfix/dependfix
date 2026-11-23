@@ -283,7 +283,7 @@ interface UnifiedBuildSignal {
 
 **目标**：失败信号除 provider 名与 GitHub 摘要外，在配置了 provider 只读凭据时展示原生构建日志尾部（≤ 8 KB、已脱敏）；未配置时行为与改动前完全等价。
 
-**落地**：实现与验证记录见 [todo.md M65.4 执行记录](../../plan/todo.md)（本文件不重复 commit 列表）。
+**落地**：实现与验证记录见 [M65 归档分片 M65.4 执行记录](../../plan/archive/todo-archive-phases-m65.md)（本文件不重复 commit 列表）。
 
 **契约（单一事实源 `packages/engine/src/github/pr-check-logs/`）**：
 

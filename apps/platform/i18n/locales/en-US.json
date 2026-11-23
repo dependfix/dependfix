@@ -806,6 +806,8 @@
         "typeMajorUpgradePolicyUpdate": "Major upgrade policy update",
         "typeDeliveryBranchCleanup": "Delivery branch cleanup",
         "typeProviderLogCredentialUpdate": "Provider log credential update",
+        "typeApiKeyCreated": "API key created",
+        "typeApiKeyDeleted": "API key revoked"
     },
     "apiKeys": {
         "title": "API keys",

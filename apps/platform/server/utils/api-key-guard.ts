@@ -4,6 +4,7 @@ import { requireAuth } from './guard'
 import { createLocalizedError } from './localized-error'
 import { resolveOrganizationId } from './organization'
 import { hashApiKey, isApiKeyExpired, readApiKeyScopes, verifyApiKeyHash } from './api-key'
+import { logger } from './logger'
 import { ensureDatabaseInitialized } from '#server/database'
 import { ApiKey } from '#server/entities/api-key'
 import { ApiRequestLog } from '#server/entities/api-request-log'
@@ -31,6 +32,35 @@ interface RateLimitBucket {
 }
 
 const rateLimitCache = new LRUCache<string, RateLimitBucket>({ max: 10_000 })
+
+/** 无效 key 尝试日志去重：同 IP + 前缀 1 分钟最多一条（避免爆破刷日志） */
+const authFailureLogCache = new LRUCache<string, number>({ max: 1_000 })
+const AUTH_FAILURE_LOG_INTERVAL_MS = 60_000
+
+/** 测试辅助：清空 401 尝试日志去重（不改变生产语义） */
+export const resetApiKeyAuthFailureLog = (): void => authFailureLogCache.clear()
+
+const maybeLogInvalidApiKey = (
+    event: Parameters<typeof setHeader>[0],
+    keyPrefix: string,
+    reason: 'not_found' | 'disabled_or_expired' | 'hash_mismatch',
+): void => {
+    const ip = getRequestIP(event) ?? 'unknown'
+    const bucket = `${ip}:${keyPrefix}`
+    const now = Date.now()
+    const last = authFailureLogCache.get(bucket)
+    if (last !== undefined && now - last < AUTH_FAILURE_LOG_INTERVAL_MS) {
+        return
+    }
+    authFailureLogCache.set(bucket, now)
+    logger.warn('[v1][auth] invalid api key', {
+        ip,
+        keyPrefix,
+        reason,
+        method: event.method,
+        path: event.path.split('?')[0],
+    })
+}
 
 const readPositiveInt = (value: string | undefined, fallback: number): number => {
     const parsed = Number.parseInt(value ?? '', 10)
@@ -135,9 +165,19 @@ export const requireV1Auth = async (
     }
 
     const keyValue = bearer[1]!
+    const keyPrefix = keyValue.slice(0, 8)
     const ds = await ensureDatabaseInitialized()
     const key = await ds.getRepository(ApiKey).findOne({ where: { key: hashApiKey(keyValue) } })
-    if (!key || !key.enabled || isApiKeyExpired(key) || !verifyApiKeyHash(keyValue, key.key)) {
+    if (!key) {
+        maybeLogInvalidApiKey(event, keyPrefix, 'not_found')
+        throw createLocalizedError(event, { statusCode: 401, code: 'UNAUTHORIZED' })
+    }
+    if (!key.enabled || isApiKeyExpired(key)) {
+        maybeLogInvalidApiKey(event, keyPrefix, 'disabled_or_expired')
+        throw createLocalizedError(event, { statusCode: 401, code: 'UNAUTHORIZED' })
+    }
+    if (!verifyApiKeyHash(keyValue, key.key)) {
+        maybeLogInvalidApiKey(event, keyPrefix, 'hash_mismatch')
         throw createLocalizedError(event, { statusCode: 401, code: 'UNAUTHORIZED' })
     }
     const scopes = readApiKeyScopes(key.metadata)

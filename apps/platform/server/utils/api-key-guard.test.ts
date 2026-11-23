@@ -3,7 +3,8 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vites
 import { makeEvent, setupMemoryDatabase, teardownMemoryDatabase } from '../../tests/api-helper'
 import { getAuthInstance } from './auth'
 import { hashApiKey } from './api-key'
-import { requireV1Auth, resetApiKeyRateLimit } from './api-key-guard'
+import { requireV1Auth, resetApiKeyAuthFailureLog, resetApiKeyRateLimit } from './api-key-guard'
+import { logger } from './logger'
 import { ensureDatabaseInitialized } from '#server/database'
 import { ApiRequestLog } from '#server/entities/api-request-log'
 import { resolveOrganizationId } from '#server/utils/organization'
@@ -37,6 +38,7 @@ describe('api-key guard', () => {
 
     beforeEach(() => {
         resetApiKeyRateLimit()
+        resetApiKeyAuthFailureLog()
         vi.unstubAllEnvs()
     })
 
@@ -138,6 +140,25 @@ describe('api-key guard', () => {
         const stored = await ds.getRepository(ApiKey).findOneOrFail({ where: { id: created.id } })
         expect(stored.lastRequest).not.toBeNull()
         expect(stored.requestCount).toBe(1)
+    })
+
+    it('logs invalid key attempts once per IP + prefix without the full key', async () => {
+        const warn = vi.spyOn(logger, 'warn')
+        warn.mockClear()
+        const invalid = 'dfk_invalidprefix_should_not_be_logged_in_full'
+        const event = makeEvent('GET', '/api/v1/repos', undefined, { authorization: `Bearer ${invalid}` })
+        await expect(requireV1Auth(event, { requireScope: 'read' })).rejects.toMatchObject({ statusCode: 401 })
+        await expect(requireV1Auth(
+            makeEvent('GET', '/api/v1/repos', undefined, { authorization: `Bearer ${invalid}` }),
+            { requireScope: 'read' },
+        )).rejects.toMatchObject({ statusCode: 401 })
+
+        const calls = warn.mock.calls.filter(([message]) => message === '[v1][auth] invalid api key')
+        expect(calls).toHaveLength(1)
+        const meta = calls[0]![1] as Record<string, unknown>
+        expect(meta).toMatchObject({ keyPrefix: invalid.slice(0, 8), reason: 'not_found' })
+        expect(JSON.stringify(meta)).not.toContain(invalid)
+        warn.mockRestore()
     })
 
     it('rejects a revoked key immediately', async () => {

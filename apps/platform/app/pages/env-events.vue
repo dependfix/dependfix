@@ -69,6 +69,8 @@ const typeOptions = computed(() => [
     { label: t('envEvents.typePrFeedbackClosed'), value: 'pr_feedback_closed' },
     { label: t('envEvents.typeBatchRunResumed'), value: 'batch_run_resumed' },
     { label: t('envEvents.typeProviderLogCredentialUpdate'), value: 'provider_log_credential_update' },
+    { label: t('envEvents.typeApiKeyCreated'), value: 'api_key_created' },
+    { label: t('envEvents.typeApiKeyDeleted'), value: 'api_key_deleted' },
 ])
 
 const severityOptions = computed(() => [
@@ -130,6 +132,10 @@ const typeLabel = (type: string) => {
             return t('envEvents.typeBatchRunResumed')
         case 'provider_log_credential_update':
             return t('envEvents.typeProviderLogCredentialUpdate')
+        case 'api_key_created':
+            return t('envEvents.typeApiKeyCreated')
+        case 'api_key_deleted':
+            return t('envEvents.typeApiKeyDeleted')
         default:
             return type
     }

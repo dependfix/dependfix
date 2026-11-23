@@ -806,6 +806,8 @@
         "typeMajorUpgradePolicyUpdate": "跨大版本策略更新",
         "typeDeliveryBranchCleanup": "交付分支清理",
         "typeProviderLogCredentialUpdate": "Provider 日志凭据更新",
+        "typeApiKeyCreated": "API 密钥创建",
+        "typeApiKeyDeleted": "API 密钥吊销"
     },
     "apiKeys": {
         "title": "API 密钥",

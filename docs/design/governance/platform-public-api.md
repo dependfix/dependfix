@@ -79,6 +79,7 @@
 - **脱敏联动**：`sanitizeString` 增 `dfk_` 规则并覆盖 base64url 的 `-` / `_` 字符；`Authorization` 头由前置规则整体替换
 - 守卫顺序：`Authorization: Bearer <key>` → 哈希校验 → 注入 `{ organizationId, scopes }`；无 key 时降级到现有会话（浏览器路径不受影响），会话不注入 scopes
 - 吊销语义：`DELETE /api/v1/keys/{id}` 为硬删除（吊销即删除，访问日志保留 30 天）
+- 管理入口：Web UI「API 密钥」页（`/api-keys`，仅 admin / org_admin）提供列表 / 创建（一次性明文）/ 吊销；接口 `POST /api/v1/keys` 保持为同源能力
 
 ### 5.2 Scope
 
@@ -101,6 +102,8 @@ key 绑定 `organizationId`，所有查询强制注入（复用 `resolveOrganiza
 - 日志内容：**不记录** key 明文、请求体、响应正文
 - 保留：`api_request_log` 保留 30 天，写入时每小时最多触发一次过期清理
 - fail-closed：key 校验异常、数据库不可用一律 401 或 5xx，不降级为「无认证放行」；访问日志 / 使用计数失败不阻断鉴权
+- 401 尝试：无效 / 过期 key 按 IP + 前缀 1 分钟去重写入进程日志（不含完整 key）；因无组织归属，不写 `api_request_log`
+- 会话回退边界：会话不注入 scopes、不受 key 级限流与访问日志约束（浏览器路径零回归）；如需同等审计，应改用 key
 
 ### 5.5 残余风险
 
@@ -112,7 +115,7 @@ key 绑定 `organizationId`，所有查询强制注入（复用 `resolveOrganiza
 
 ### 5.7 Key 管理接口
 
-`/api/v1/keys` 提供 `GET`（列表，仅前缀与元数据）/ `POST`（创建，明文 key 只返回一次）/ `DELETE /api/v1/keys/{id}`（吊销）。认证走**会话 + admin / org_admin**，**不受 `read` scope 约束**——否则第一把 key 无法创建。创建接口需限流（防批量刷 key）并写访问日志。
+`/api/v1/keys` 提供 `GET`（列表，仅前缀与元数据）/ `POST`（创建，明文 key 只返回一次）/ `DELETE /api/v1/keys/{id}`（吊销）。认证走**会话 + admin / org_admin**，**不受 `read` scope 约束**——否则第一把 key 无法创建。创建接口需限流（防批量刷 key）并写访问日志；创建 / 吊销同时写 `AuditEvent`（`api_key_created` / `api_key_deleted`，payload 不含明文 / 哈希）。Web UI 入口为 `/api-keys`（2026-11-23 可用性修复）。
 
 ## 6. v1 只读契约
 

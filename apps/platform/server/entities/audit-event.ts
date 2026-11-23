@@ -149,6 +149,7 @@ export class AuditEvent extends BaseEntity {
      * - delivery_branch_cleanup: `{ branch, outcome: 'deleted' | 'failed' | 'skipped', reason? }`
      * - container_unavailable: `{ code, executor: 'container', message }`
      * - pr_feedback_commented / pr_feedback_closed: `{ prNumber, headSha, conclusion }`
+     * - api_key_created / api_key_deleted: `{ action, keyId, keyName, keyPrefix }`（不含明文 / 哈希）
      */
     @Column({ type: 'text', nullable: true })
     payloadJson!: string | null

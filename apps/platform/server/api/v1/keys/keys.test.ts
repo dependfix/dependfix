@@ -86,10 +86,13 @@ describe('/api/v1/keys key 管理', () => {
         expect(logs.some((log) => log.statusCode === 200)).toBe(true)
 
         const audit = await ds.getRepository(AuditEvent).find({ where: { type: 'api_key_created' } })
-        const created = audit.find((event) => (event.payloadJson ?? '').includes(body.id))
-        expect(created).toBeTruthy()
-        expect(created!.payloadJson).not.toContain(body.key)
-        expect(created!.payloadJson).not.toContain(stored.key)
+        const createdEvents = audit.filter((event) => (event.payloadJson ?? '').includes(body.id))
+        expect(createdEvents).toHaveLength(1)
+        const created = createdEvents[0]!
+        expect(created.severity).toBe('info')
+        expect(JSON.parse(created.payloadJson!)).toMatchObject({ action: 'created', keyId: body.id })
+        expect(created.payloadJson).not.toContain(body.key)
+        expect(created.payloadJson).not.toContain(stored.key)
     })
 
     it('创建接口限流：超限返回 429 且写访问日志', async () => {
@@ -126,7 +129,9 @@ describe('/api/v1/keys key 管理', () => {
         expect(body).toEqual({ deleted: true })
         const ds = await ensureDatabaseInitialized()
         const audit = await ds.getRepository(AuditEvent).find({ where: { type: 'api_key_deleted' } })
-        expect(audit.some((event) => (event.payloadJson ?? '').includes(seeded.id))).toBe(true)
+        const deleted = audit.filter((event) => (event.payloadJson ?? '').includes(seeded.id))
+        expect(deleted).toHaveLength(1)
+        expect(JSON.parse(deleted[0]!.payloadJson!)).toMatchObject({ action: 'deleted', keyId: seeded.id })
         expect(await ds.getRepository(ApiKey).findOne({ where: { id: seeded.id } })).toBeNull()
     })
 

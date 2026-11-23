@@ -29,11 +29,11 @@
 > ④ 决策前提：用户已选主题 A；peer-only 回退形态（D1）、无补丁结论承载（D2）、非 freshLock unknown 处置（D3）、平台关闭分支与 `push_failed` 映射（D4）、`deliverySkips` 归属（D5）、视觉根因（D6）均留 D 阶段；
 > ⑤ backlog 同步：6 条上收（候选池 28 → 22），保留「批次续跑并发原子性」等未上收项；同批清理已上收历史口径（Axiom 决策注 / installer 括注 / T705 Sentry 括注）与空派生段，`check-doc-governance` 无新增 warning。
 >
-> **容量基线（逐原子交付物求和，规划轮估算）**：commits 16-23 / files 31-51 / 行 1,170-2,170（行 = diff 改动量含删除；测量方 = 规划角色）。
-> 类型（按主类型计数）：🛠️4（M66.1-M66.4）+ 🎨1（M66.5）+ 🧪1（M66.6）；🛡️ 内嵌 M66.4（分支删除安全）、🚀 内嵌 M66.1 / M66.2（交付能力）。
-> **🎨 缺口显式标注**：独立 UX 原子 1 项（低于建议值 2），理由是本期定位执行结果可信，M66.5 承担唯一用户可感知交付；平台侧交付载体（issue / 草稿 PR）留在 backlog。
+> **容量基线（逐原子交付物求和，规划轮估算）**：commits 19-27 / files 36-59 / 行 1,370-2,520（含 2026-11-23 插队 M66.7；行 = diff 改动量含删除；测量方 = 规划角色）。
+> 类型（按主类型计数）：🛠️4（M66.1-M66.4）+ 🎨2（M66.5 / M66.7）+ 🧪1（M66.6）；🛡️ 内嵌 M66.4 与 API 安全审计临时批、🚀 内嵌 M66.1 / M66.2 / M66.7（交付能力）。
+> **插队（2026-11-23 用户授权，可用性例外）**：M66.7 API 密钥管理入口（3-4 commits / 5-8 files / 200-350 行）+「API 安全审计闭环」临时批（2-3 / 4-6 / 120-220）。插队合计约占原阶段容量 26%-30%，累计 2 批（< 阈值 3）、低于 50%，**不触发 §3.1.1 再平衡**；含插队的执行预算 21-30 commits / 40-65 files / 1,490-2,740 行。
 >
-> **执行顺序**：M66.1 → M66.2 → M66.3 → M66.4 → M66.5 → M66.6（先修可修性与结论口径，再修交付证据与视觉；M66.6 放最后，避免 UI / 基线连带）。
+> **执行顺序**：M66.7（可用性插队，先做）→「API 安全审计闭环」临时批 → M66.1 → M66.2 → M66.3 → M66.4 → M66.5 → M66.6（先恢复 MCP remote 可用性与审计，再修可修性 / 交付证据；M66.6 放最后，避免 UI / 基线连带）。
 >
 > **D 阶段决策点**：D1（M66.1）回退形态（根 manifest vs 成员 manifest 直接依赖）、锁定范围与回滚单元；D2（M66.2）复用既有 `'not-fixable'` 还是新增细分原因、报告呈现位置；D3（M66.3）非 `freshLock` unknown 是否补一次有界重试、证据字段；D4（M66.4）平台 PR 反馈关闭后删分支的时机、`push_failed` 前缀映射与 M37.1 决策翻转记录；D5（M66.5）`deliverySkips` 家族登记 vs 保持独立字段；D6（M66.6）根因（门户定位取整 / 滚动条宽度）与处置（亚像素修正 vs 元素级取景）。
 >
@@ -49,6 +49,7 @@
 | M66.4 平台分支回收与 `push_failed` 细分 | — | ⬜ 待开始 | — | — | 3-4 commits / 6-10 files / 250-450 行 |
 | M66.5 验证跳过的交付可观测性 | — | ⬜ 待开始 | — | — | 3-4 commits / 5-8 files / 200-350 行 |
 | M66.6 门户面板左缘亚像素抖动 | — | ⬜ 待开始 | — | — | 2-3 commits / 4-6 files / 150-250 行 |
+| M66.7 API 密钥管理入口（插队） | — | ⬜ 待开始 | — | — | 3-4 commits / 5-8 files / 200-350 行 |
 
 > `提交` 列为首末 commit 区间与**该条目自身** commit 数；`审计` 列为 Review Gate 轮次结论；小条目列在原子内拆分子任务时填写。
 
@@ -163,6 +164,26 @@
 - **交付物**：2-3 commits / 4-6 files（定位 / 处置 + 基线 + README）/ 150-250 行。
 - **风险与缓解**：根因在浏览器亚像素 → 元素级取景兜底并保留视口级反例；基线重建引入新差异 → 逐字节比对 + 两轮复跑。
 
+### M66.7 API 密钥管理入口（P0 🎨，2026-11-23 插队）
+
+- **目标**：平台提供 API 密钥管理页（列表 / 创建 / 一次性明文 / 吊销），使 MCP remote 用户可在 UI 自助创建 `dfk_` key；当前只有 `POST /api/v1/keys` 接口、无任何页面入口，MCP remote 实际不可用。
+- **优先级**：P0（直接影响 MCP remote 可用性；用户 2026-11-23 判定为严重故障并授权插队）。
+- **范围**：
+  - 新增 `apps/platform/app/pages/api-keys.vue`：列表（name / 前缀 / 创建 / 过期 / 最近使用）、创建、一次性明文弹窗 + 复制、吊销二次确认；
+  - `apps/platform/app/layouts/default.vue`：导航入口仅 `admin` / `org_admin` 可见；
+  - `apps/platform/app/types/platform.ts` 与 i18n zh / en：Key 视图类型与文案；
+  - `apps/platform/app/pages/settings.vue` 或导航说明指向该页（不新增重复入口）。
+- **验收标准**：
+  - AC1：`admin` / `org_admin` 可从导航进入并在 UI 创建 key，创建响应的一次性明文可见且可复制；
+  - AC2：列表显示前缀 / 创建时间 / 过期时间 / 最近使用；吊销二次确认后从列表消失，且该 key 再请求 v1 返回 401；
+  - AC3：非 `admin` / `org_admin` 无导航入口，直接访问时服务端 403 且页面给出明确提示；
+  - AC4：明文只存在组件内存，不写 localStorage / sessionStorage / 日志；关闭弹窗或刷新后不可再取；
+  - AC5：i18n zh / en 键完整；用例覆盖「创建 → 列表 → 吊销」主路径（e2e 或组件级）。
+- **不做什么**：不改 key 格式 / TTL / scope 模型；不做 key 重命名 / 禁用；不做多组织切换；不把明文写入任何持久化。
+- **依赖**：M63.2 / M63.3 的 `/api/v1/keys` 端点与 `requireRole`；caomei-ui 现有表格 / 弹窗组件。
+- **交付物**：3-4 commits / 5-8 files（页面 + 导航 + 类型 + i18n + 用例）/ 200-350 行。
+- **风险与缓解**：明文泄露 → 仅内存 + 复制按钮 + 关闭即清；角色判断漂移 → 服务端 403 仍为准，UI 只做入口隐藏；页面体量 → 复用 credentials 页模式，超 800 行前拆组件。
+
 ### 追加临时待办（不占阶段条目编号）
 
-- （暂无）
+- **API 安全审计闭环（2026-11-23 用户授权插队；可用性修复配套）** —— 目标：key 创建 / 吊销落 AuditEvent；无效 key 的 401 尝试按 IP + 前缀限速记录；会话回退边界写入文档。范围：`apps/platform/server/entities/audit-event.ts`（新增 `api_key_created` / `api_key_deleted` 类型）、`apps/platform/server/services/api-key-audit.ts`、`api/v1/keys/index.post.ts` 与 `[id].delete.ts`、`apps/platform/server/utils/api-key-guard.ts`（401 日志）、`docs/guide/api-v1.md` 与 `platform-public-api.md §5`。验收：① 创建 / 吊销各产生 1 条 AuditEvent（payload 无明文 / 哈希）；② 无效 key 请求产生限速日志（IP / 前缀 / 路径，不含完整 key；同 IP + 前缀 1 分钟去重）；③ 文档声明会话回退无 scope / 限流 / 访问日志；④ 既有 keys / guard 用例零回归。不做：不改 key TTL / scope；不引入 Redis 多实例限流；不改 `api_request_log` schema（401 走进程日志）。交付物：2-3 commits / 4-6 files / 120-220 行。

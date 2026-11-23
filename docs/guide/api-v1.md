@@ -10,9 +10,9 @@
 | API key | `Authorization: Bearer dfk_...`；key 绑定组织，scope `read`，默认 90 天 TTL |
 | 会话 Cookie | 浏览器 / 运维已登录场景；按会话授权，不注入 scopes，也不受 key 级限流 / 访问日志约束 |
 
-**获取 key**：平台「API 密钥」页（`/api-keys`，仅 admin / org_admin 可见）创建；明文只显示一次，列表只保留前缀。也可直接调 `POST /api/v1/keys`（同一会话 + 角色要求），但不建议手写 curl 传 Cookie。
+**获取 key**：平台「API 密钥」页（`/api-keys`）创建；入口仅对 admin / org_admin 可见，viewer 直访显示 403 提示；明文只显示一次，列表只保留前缀。也可直接调 `POST /api/v1/keys`（同一会话 + 角色要求），但不建议手写 curl 传 Cookie。
 
-`/api/v1/health` 免认证；其余端点无 key 且无会话返回 401 `UNAUTHORIZED`。无效 / 过期 key 的 401 尝试按 IP + 前缀限速写入进程日志（不含完整 key），不进入 `api_request_log`（该表要求组织归属）。
+`/api/v1/health` 免认证；其余端点无 key 且无会话返回 401 `UNAUTHORIZED`。无效 / 过期 key 的 401 尝试按 IP 限速写入进程日志（每 IP 每分钟最多 5 条；含 `dfk_` 后 4 位提示与路径，不含完整 key），不进入 `api_request_log`（该表要求组织归属）。
 key 缺失 `read` scope 返回 403 `FORBIDDEN`；跨组织资源返回 403 `RESOURCE_NOT_IN_ORG`。
 响应不设置 `Access-Control-Allow-Origin`，仅服务端到服务端调用。
 

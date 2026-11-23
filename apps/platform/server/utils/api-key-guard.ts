@@ -33,32 +33,50 @@ interface RateLimitBucket {
 
 const rateLimitCache = new LRUCache<string, RateLimitBucket>({ max: 10_000 })
 
-/** 无效 key 尝试日志去重：同 IP + 前缀 1 分钟最多一条（避免爆破刷日志） */
+/** 无效 key 尝试日志：同 IP + key 提示 1 分钟去重，且每 IP 每分钟最多 5 条（防随机前缀绕过） */
 const authFailureLogCache = new LRUCache<string, number>({ max: 1_000 })
+const authFailureIpCache = new LRUCache<string, { count: number, resetAt: number }>({ max: 1_000 })
 const AUTH_FAILURE_LOG_INTERVAL_MS = 60_000
+const AUTH_FAILURE_LOG_PER_IP_MAX = 5
 
 /** 测试辅助：清空 401 尝试日志去重（不改变生产语义） */
-export const resetApiKeyAuthFailureLog = (): void => authFailureLogCache.clear()
+export const resetApiKeyAuthFailureLog = (): void => {
+    authFailureLogCache.clear()
+    authFailureIpCache.clear()
+}
+
+/** 只取 `dfk_` 后 4 位随机字符：足以区分尝试，又不构成可复用凭据（避免被脱敏规则整体抹平） */
+const keyHintOf = (keyValue: string): string => keyValue.replace(/^dfk_/i, '').slice(0, 4)
 
 const maybeLogInvalidApiKey = (
     event: Parameters<typeof setHeader>[0],
-    keyPrefix: string,
+    keyHint: string,
     reason: 'not_found' | 'disabled_or_expired' | 'hash_mismatch',
 ): void => {
     const ip = getRequestIP(event) ?? 'unknown'
-    const bucket = `${ip}:${keyPrefix}`
     const now = Date.now()
+    const bucket = `${ip}:${keyHint}`
     const last = authFailureLogCache.get(bucket)
     if (last !== undefined && now - last < AUTH_FAILURE_LOG_INTERVAL_MS) {
         return
     }
+    const ipBucket = authFailureIpCache.get(ip)
+    if (!ipBucket || now >= ipBucket.resetAt) {
+        authFailureIpCache.set(ip, { count: 1, resetAt: now + AUTH_FAILURE_LOG_INTERVAL_MS })
+    } else {
+        if (ipBucket.count >= AUTH_FAILURE_LOG_PER_IP_MAX) {
+            return
+        }
+        ipBucket.count += 1
+        authFailureIpCache.set(ip, ipBucket)
+    }
     authFailureLogCache.set(bucket, now)
     logger.warn('[v1][auth] invalid api key', {
         ip,
-        keyPrefix,
+        keyHint,
         reason,
         method: event.method,
-        path: event.path.split('?')[0],
+        path: event.path.split('?')[0]!.slice(0, 255),
     })
 }
 
@@ -165,19 +183,20 @@ export const requireV1Auth = async (
     }
 
     const keyValue = bearer[1]!
-    const keyPrefix = keyValue.slice(0, 8)
+    const keyHint = keyHintOf(keyValue)
     const ds = await ensureDatabaseInitialized()
     const key = await ds.getRepository(ApiKey).findOne({ where: { key: hashApiKey(keyValue) } })
     if (!key) {
-        maybeLogInvalidApiKey(event, keyPrefix, 'not_found')
+        maybeLogInvalidApiKey(event, keyHint, 'not_found')
         throw createLocalizedError(event, { statusCode: 401, code: 'UNAUTHORIZED' })
     }
     if (!key.enabled || isApiKeyExpired(key)) {
-        maybeLogInvalidApiKey(event, keyPrefix, 'disabled_or_expired')
+        maybeLogInvalidApiKey(event, keyHint, 'disabled_or_expired')
         throw createLocalizedError(event, { statusCode: 401, code: 'UNAUTHORIZED' })
     }
+    // 防御性分支：按哈希等值命中后恒为真，保留作存量数据损坏 / 编码异常兜底
     if (!verifyApiKeyHash(keyValue, key.key)) {
-        maybeLogInvalidApiKey(event, keyPrefix, 'hash_mismatch')
+        maybeLogInvalidApiKey(event, keyHint, 'hash_mismatch')
         throw createLocalizedError(event, { statusCode: 401, code: 'UNAUTHORIZED' })
     }
     const scopes = readApiKeyScopes(key.metadata)

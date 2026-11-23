@@ -46,7 +46,7 @@
 | M65.1 Sentry 错误 / 性能 / 日志接入 | — | ✅ 已闭环（2026-11-22） | `ca9cf8a6`..`02167df1`（9） | A deep R1 Reject → R2/R3 Pass；B standard R1 Reject → R2 Pass | 计划 5-7 commits / 11-16 files / 600-900 行；实际 9 commits / 39 files / +2376 行 |
 | M65.2 健康检查与外部 uptime 接入 | — | ✅ 已闭环（2026-11-22） | `52598aaa` / `5eaa2869` + 计划记录（3） | 代码 deep R1 Pass(4W) → R2 Pass；文档 standard R1 Reject → R2 Pass | 计划 3-4 commits / 6-9 files / 200-320 行；实际 3 commits / 13 files / +372 行 |
 | M65.3 邮件传输超时与周报节拍约束 | — | ✅ 已闭环（2026-11-22） | `087c9450` / `27b459d5` + 计划记录（3） | standard R1 Pass(3W) → R2 Pass | 计划 2 commits / 3-4 files / 100-160 行；实际 3 commits / 10 files / +147 行 |
-| M65.4 PR Check provider 原生日志富化 | M65.4.1 / M65.4.2 / M65.4.3 | ⏳ 待开始 | — | — | 5-7 commits / 9-14 files / 400-700 行 |
+| M65.4 PR Check provider 原生日志富化 | M65.4.1 / M65.4.2 / M65.4.3 | ✅ 已闭环（2026-11-23） | `c9cc3989`..`851b9922`（10） | 引擎 deep R1 Reject → R2 Pass；平台后端 deep R1 Reject → R2 Pass；前端 / v1 / 文档 standard R1 Reject → R2 Pass | 计划 5-7 commits / 9-14 files / 400-700 行；实际 10 commits / 56 files / +2691 行 |
 | M65.5 可观测性门禁与脱敏测试矩阵 | — | ⏳ 待开始 | — | — | 2-3 commits / 5-7 files / 180-260 行 |
 
 > `提交` 列为首末 commit 区间与**该条目自身** commit 数（交错执行时小于区间内提交总数；归档批次可再精修）；`审计` 列为 Review Gate 轮次结论；小条目列在原子内拆分子任务时填写；小条目交付物区间为原子内重叠估算（文件量与行数均与大条目有交集），不重复计入容量基线。
@@ -151,6 +151,14 @@
 - **依赖**：[PR 构建部署信号设计](../design/governance/pr-build-deploy-signals.md) Layer 5；`docs/design/governance/platform-observability.md`（M65.1 首提交新建）；provider token（真实联调未提供则 gated 用例 + 未证实登记）。
 - **交付物**：5-7 commits / 9-14 files（契约 + 两个 adapter + 凭据面 + 视图与组件 + 用例 + 设计稿）/ 400-700 行。
 - **风险与缓解**：凭据面扩大 → 仓库级显式启用 + 只读 token + 审计事件；配额与限流 → 每轮每仓库上限 + 失败退避；日志泄密 → 复用 sanitize + 硬上限截断 + 真实生成值取样用例。
+- **执行记录（2026-11-23 闭环）**：
+  - D4-A 决策（用户 2026-11-23 授权）：扩展现有 `Credential` 类型 `vercel-token` / `cloudflare-token`（组织级加密、只读）；`Repository` 增 `vercelProjectId` / `cloudflareAccountId` / `cloudflareWorkerTag`（Cloudflare API 必需的补全）；`PRCheck` 增 `providerLogsJson`；跨类型切换必须重新提供 token / PEM（防止旧 GitHub PAT 被发往第三方）。
+  - 契约与适配器：`fetchProviderLog` 统一入口；Vercel `v7 deployments?projectId&sha` + `v3 events`（backward 结果反转）；Cloudflare Builds 列表按 `build_trigger_metadata.commit_hash` 精确匹配 + 日志 cursor 分页（≤3 页）；provider 别名（`cloudflare-workers-and-pages`）；无凭据 / 无目标零请求；401/403/404/429/超时/网络错误全部降级；8 KB 字节截尾 + token / Cookie / URL 凭据 / OAuth 参数脱敏。
+  - 采集与展示：仅失败轮次且同组织有对应凭据时采集一次并写 `providerLogsJson`，成功 / pending 清空；不改变聚合与告警状态机；UI 三态（可用 tail / 不可用原因 + HTTP 状态 / 无则不渲染）；v1 只返回元数据不含 tail。
+  - 验收：AC1 零请求用例（engine + collector）；AC2 引擎 14 例（官方元组 / 分页 / 反转 / `@` 密码 / 8 KB 夹取）；AC3 401/429/超时降级用例；AC4 视觉回归 `pr-checks` 三项（`#101` tail + 截断提示、`#102` 不可用原因、其余 null），基线随新块重建；AC5 凭据写入审计用例（仅两种 provider 类型、payload 无 token）。
+  - 审计：引擎 deep R1 Reject（Cloudflare 官方元组 / URL `@` 脱敏）→ R2 Pass；平台后端 deep R1 Reject（Cloudflare 真实 slug / 跨类型切换沿用旧 token）→ R2 Pass；前端 / v1 / 文档 standard R1 Reject（AC4 无渲染证据）→ R2 Pass（typecheck 红已修）。
+  - 偏差：实际 56 文件 / +2691 行（计划 9-14 文件 / 400-700 行），原因是「引擎契约 + 平台数据模型 / 凭据 / 采集 / 展示 / 视觉证据」跨层交付；按 10 个 commit 分组（单 commit ≤10 文件）。
+  - 残余：真实 Vercel / Cloudflare token 未提供（请求形态按官方文档，未联调）；Vercel 未传 `teamId`（跨团队项目会 `not_found`）；Cloudflare 预览构建可能不在列表首页；PG / MySQL 迁移未实跑；凭据切换的浏览器 e2e 未跑（服务端 400 与单测覆盖）。
 
 #### M65.4.1 契约与凭据承载
 

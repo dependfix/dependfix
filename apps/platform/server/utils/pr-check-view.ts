@@ -15,6 +15,7 @@ import { matchesPRCheckFocus, parsePRCheckFocus } from '#server/utils/pr-check-f
  * - `overallStatus` / `signals` / `failureSources`：三源聚合字段；JSON 列解析，
  *   列值缺失或损坏时回退 `null`（不抛错）
  * - `prState`：PR 生命周期（`open` / `closed` / `merged` / `unknown`）
+ * - `providerLogs`：provider 原生构建日志尾部或不可用原因（`null` = 未采集 / 上游未启用）
  * - `focusConfigured`：该仓库是否配置了 PR Check 告警关注集（`false` = 全量只报警不阻断）
  * - `signals[].focused`：该信号是否命中关注集（未配置时恒为 `true`）。未命中的信号仍返回
  *   （审计面），由前端标注「未关注」；`overallStatus` / `failureSources` 只反映命中项。
@@ -27,6 +28,22 @@ export type PRCheckSignalView = Omit<UnifiedBuildSignal, 'observedAt'> & {
 
 export type PRCheckFailureSourceView = BuildFailureSource
 
+/**
+ * Provider 原生构建日志富化结果（`PRCheck.providerLogsJson` 解析结果）。
+ *
+ * - `tail` 已由引擎按 8 KB 截尾并脱敏；仅内部视图返回（v1 只返回可用性 / 原因元数据）
+ * - `available=false` 时 `reason` 为稳定枚举（UI 映射文案），`status` 仅 HTTP 失败时存在
+ */
+export interface PRCheckProviderLogsView {
+    available: boolean
+    provider: string
+    tail?: string
+    truncated?: boolean
+    reason?: string
+    status?: number
+    fetchedAt: string
+}
+
 /** JSON 列安全解析（缺失 / 非 JSON / 非数组时回退 null，不抛错） */
 const parseJsonArrayColumn = (value: string | null | undefined): unknown[] | null => {
     if (!value) {
@@ -35,6 +52,37 @@ const parseJsonArrayColumn = (value: string | null | undefined): unknown[] | nul
     try {
         const parsed: unknown = JSON.parse(value)
         return Array.isArray(parsed) ? parsed : null
+    } catch {
+        return null
+    }
+}
+
+/**
+ * Provider 日志记录列解析：对象形态 + 关键字段类型校验；任何异常形态回退 `null`
+ * （历史行 / 脏数据不阻塞整份列表渲染）。
+ */
+export const parseProviderLogsColumn = (value: string | null | undefined): PRCheckProviderLogsView | null => {
+    if (!value) {
+        return null
+    }
+    try {
+        const parsed: unknown = JSON.parse(value)
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+            return null
+        }
+        const record = parsed as Record<string, unknown>
+        if (typeof record.available !== 'boolean' || typeof record.provider !== 'string' || typeof record.fetchedAt !== 'string') {
+            return null
+        }
+        return {
+            available: record.available,
+            provider: record.provider,
+            ...(typeof record.tail === 'string' ? { tail: record.tail } : {}),
+            ...(typeof record.truncated === 'boolean' ? { truncated: record.truncated } : {}),
+            ...(typeof record.reason === 'string' ? { reason: record.reason } : {}),
+            ...(typeof record.status === 'number' ? { status: record.status } : {}),
+            fetchedAt: record.fetchedAt,
+        }
     } catch {
         return null
     }
@@ -65,6 +113,7 @@ export const toPRCheckView = (row: PRCheck) => {
             focused: !focus || matchesPRCheckFocus(signal, focus),
         })) ?? null,
         failureSources: parseJsonArrayColumn(row.failureSourcesJson) as PRCheckFailureSourceView[] | null,
+        providerLogs: parseProviderLogsColumn(row.providerLogsJson),
         checkRunId: row.checkRunId,
         detailsUrl: row.detailsUrl,
         errorMessage: row.errorMessage,

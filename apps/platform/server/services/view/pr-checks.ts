@@ -38,6 +38,18 @@ export const toPRCheckV1View = (row: PRCheck) => {
         ...view,
         errorMessage: view.errorMessage ? sanitizeV1Text(view.errorMessage) : null,
         detailsUrl: view.detailsUrl ? sanitizeV1Text(view.detailsUrl) : null,
+        // provider 日志尾部不进入 v1：第三方构建输出可能含环境变量名 / 内部地址等自由文本，
+        // 只暴露「是否可用 + 稳定原因」供自动化消费（内部视图保留 tail 供 UI 展示）。
+        providerLogs: view.providerLogs
+            ? {
+                available: view.providerLogs.available,
+                provider: sanitizeV1Text(view.providerLogs.provider),
+                ...(view.providerLogs.truncated !== undefined ? { truncated: view.providerLogs.truncated } : {}),
+                ...(view.providerLogs.reason ? { reason: view.providerLogs.reason } : {}),
+                ...(view.providerLogs.status !== undefined ? { status: view.providerLogs.status } : {}),
+                fetchedAt: view.providerLogs.fetchedAt,
+            }
+            : null,
         signals: view.signals?.map((signal) => ({
             ...signal,
             name: sanitizeV1Text(signal.name),

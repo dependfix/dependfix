@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { toPRCheckView } from './pr-check-view'
+import { parseProviderLogsColumn, toPRCheckView } from './pr-check-view'
 import type { PRCheck } from '#server/entities/pr-check'
 
 /** 构造最小 PRCheck 行（仅覆盖视图构建所需字段） */
@@ -58,5 +58,20 @@ describe('toPRCheckView', () => {
         expect(view.lastPolledAt).toBe('2026-10-13T00:00:00.000Z')
         expect(view.acknowledgedAt).toBe('2026-10-12T12:00:00.000Z')
         expect(view.acknowledgedByUserId).toBe('user-1')
+    })
+
+    it('provider 日志列：合法记录解析 / 缺失与脏数据回退 null', () => {
+        const record = {
+            available: true,
+            provider: 'vercel',
+            tail: 'build failed',
+            truncated: false,
+            fetchedAt: '2026-11-23T00:00:00.000Z',
+        }
+        expect(toPRCheckView(makeRow({ providerLogsJson: JSON.stringify(record) })).providerLogs).toEqual(record)
+        expect(toPRCheckView(makeRow({ providerLogsJson: null })).providerLogs).toBeNull()
+        expect(toPRCheckView(makeRow({ providerLogsJson: '[]' })).providerLogs).toBeNull()
+        expect(toPRCheckView(makeRow({ providerLogsJson: '{"available":true}' })).providerLogs).toBeNull()
+        expect(parseProviderLogsColumn('not-json')).toBeNull()
     })
 })

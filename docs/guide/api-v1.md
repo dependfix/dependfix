@@ -52,6 +52,8 @@ key 缺失 `read` scope 返回 403 `FORBIDDEN`；跨组织资源返回 403 `RESO
 
 `logs` / `logsText` / `verifyCommands` / `credentialId` / `credentialName` 不出现在任何 v1 响应；
 仓库以 `hasCredential` / `hasCustomVerifyCommands` 表达对应状态。自由文本经脱敏与绝对路径归一。
+PR Check 的 `providerLogs` 只返回 `available` / `provider` / `truncated` / `reason` / `status` / `fetchedAt`
+（provider 原生构建日志尾部 `tail` 不进入 v1，见 [PR 构建部署信号设计 §3.12](../design/governance/pr-build-deploy-signals.md)）。
 
 ## 4. 契约快照
 
@@ -184,6 +186,7 @@ key 缺失 `read` scope 返回 403 `FORBIDDEN`；跨组织资源返回 403 `RESO
       "focusConfigured",
       "signals",
       "failureSources",
+      "providerLogs",
       "checkRunId",
       "detailsUrl",
       "errorMessage",

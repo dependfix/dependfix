@@ -143,6 +143,7 @@ export const API_V1_FIELDS = {
         'focusConfigured',
         'signals',
         'failureSources',
+        'providerLogs',
         'checkRunId',
         'detailsUrl',
         'errorMessage',

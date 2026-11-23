@@ -901,6 +901,8 @@
         "typeVercelToken": "Vercel token (read-only)",
         "typeCloudflareToken": "Cloudflare token (read-only)",
         "providerTokenHint": "Read-only token used only to fetch native build logs for failed PR checks; the platform never writes with it.",
+        "vercelDocs": "Vercel docs: create an access token",
+        "cloudflareDocs": "Cloudflare docs: create an API token",
         "fieldTokenSwitchRequired": "Token (required after switching type)",
         "fieldPrivateKeySwitchRequired": "PEM private key (required after switching type)",
         "switchTypeHint": "Credentials from the previous type are not reused; fill in the new value."

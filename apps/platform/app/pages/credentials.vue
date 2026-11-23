@@ -83,6 +83,23 @@ const typeLabel = (type: string) => ({
 /** provider 日志富化凭据：只读用途，token 提示不含 GitHub PAT 链接 */
 const isProviderLogType = computed(() => form.value.type === 'vercel-token' || form.value.type === 'cloudflare-token')
 
+/** provider 只读 token 的官方获取文档（与 GitHub 路径的文档链接同形态） */
+const providerDocs = computed(() => {
+    if (form.value.type === 'vercel-token') {
+        return {
+            href: 'https://vercel.com/docs/accounts/access-tokens',
+            label: t('credentials.vercelDocs'),
+        }
+    }
+    if (form.value.type === 'cloudflare-token') {
+        return {
+            href: 'https://developers.cloudflare.com/fundamentals/api/get-started/create-token/',
+            label: t('credentials.cloudflareDocs'),
+        }
+    }
+    return null
+})
+
 /** 编辑时是否已切换类型（切换后旧密文不可继续使用） */
 const typeChanged = computed(() => editingId.value !== null && editingType.value !== null && form.value.type !== editingType.value)
 /** token 必填：新建、或跨类型切换到非 GitHub App 类型 */
@@ -395,6 +412,17 @@ watch(toastMessage, (v) => {
                     <small class="text-muted">
                         <template v-if="isProviderLogType">
                             {{ t('credentials.providerTokenHint') }}
+                            <template v-if="providerDocs">
+                                <br>
+                                {{ t('credentials.howToGet') }}
+                                <a
+                                    :href="providerDocs.href"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                >
+                                    {{ providerDocs.label }}
+                                </a>
+                            </template>
                         </template>
                         <template v-else>
                             {{ t('credentials.howToGet') }}

@@ -901,6 +901,8 @@
         "typeVercelToken": "Vercel Token（只读）",
         "typeCloudflareToken": "Cloudflare Token（只读）",
         "providerTokenHint": "只读 token，仅用于拉取 PR Check 失败的原生构建日志；平台不会用它发起写操作。",
+        "vercelDocs": "Vercel 官方文档：创建 Access Token",
+        "cloudflareDocs": "Cloudflare 官方文档：创建 API Token",
         "fieldTokenSwitchRequired": "Token（切换类型必填）",
         "fieldPrivateKeySwitchRequired": "PEM 私钥（切换类型必填）",
         "switchTypeHint": "切换凭据类型后旧凭据不会沿用，必须重新填写。"

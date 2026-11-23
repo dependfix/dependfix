@@ -136,6 +136,35 @@ test.describe('凭据管理 CRUD', () => {
     })
 })
 
+test.describe('provider token 文档链接', () => {
+    test('Vercel / Cloudflare 类型显示官方获取文档链接', async ({ page }) => {
+        await page.goto('/credentials')
+        await waitForHydration(page)
+        await page.locator('button:has-text("添加凭据")').click()
+        await expect(page.locator('.caomei-dialog__header')).toContainText('添加凭据', { timeout: 15000 })
+
+        await page.locator('#type').click()
+        await page.locator('.caomei-select__content .caomei-select__item:has-text("Vercel Token")').click()
+        const vercel = page.locator('a[href="https://vercel.com/docs/accounts/access-tokens"]')
+        await expect(vercel).toBeVisible()
+        await expect(vercel).toContainText('Vercel 官方文档')
+        await expect(page.locator('a[href="https://developers.cloudflare.com/fundamentals/api/get-started/create-token/"]')).toHaveCount(0)
+
+        await page.locator('#type').click()
+        await page.locator('.caomei-select__content .caomei-select__item:has-text("Cloudflare Token")').click()
+        const cloudflare = page.locator('a[href="https://developers.cloudflare.com/fundamentals/api/get-started/create-token/"]')
+        await expect(cloudflare).toBeVisible()
+        await expect(cloudflare).toContainText('Cloudflare 官方文档')
+        await expect(page.locator('a[href="https://vercel.com/docs/accounts/access-tokens"]')).toHaveCount(0)
+
+        // 非 provider 类型仍走 GitHub 文档链接，反向守卫 v-else 分支
+        await page.locator('#type').click()
+        await page.locator('.caomei-select__content .caomei-select__item:has-text("经典 PAT")').click()
+        await expect(page.locator('a[href*="docs.github.com"]')).toHaveCount(1)
+        await expect(page.locator('a[href^="https://vercel.com/"]')).toHaveCount(0)
+    })
+})
+
 test.describe('凭据 viewer 只读边界', () => {
     test('viewer 访问 /credentials：列表可看，"添加凭据"按钮仍可见（前端不区分角色）', async ({ browser }) => {
         const context = await browser.newContext({ storageState: 'tests/e2e/.auth/viewer.json' })

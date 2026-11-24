@@ -69,7 +69,8 @@ services:
       DEPENDFIX_QUEUE_WORKER_SLOW_RETRY_SECONDS: ${DEPENDFIX_QUEUE_WORKER_SLOW_RETRY_SECONDS:-}
       # pnpm store 持久化（目标仓库依赖安装共用）：落在数据卷内，跨 run / 容器重建复用；
       # 与 run 工作目录同卷时走硬链接（不额外占一份磁盘）。入口对不可写路径会 warn 并回退
-      # $HOME 下的 pnpm 默认位置（每次冷安装）。见 docs/guide/deployment.md「pnpm store 与依赖缓存」。
+      # pnpm 自选落点（默认部署下为 /app/data/.pnpm-store，每次冷安装），并检出遗留的
+      # .pnpm-store 目录。见 docs/guide/deployment.md「pnpm store 与依赖缓存」。
       PNPM_CONFIG_STORE_DIR: ${PNPM_CONFIG_STORE_DIR:-/app/data/pnpm-store}
       # 进程级日志目录：入口默认 $DATA_DIR/logs（数据卷内，按日落盘 + 31 天保留）；
       # 自定义时显式设置（建议绝对路径）。见 docs/guide/deployment.md「日志文件」。

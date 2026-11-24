@@ -141,7 +141,7 @@ PGID=1000
 
 ## pnpm store and dependency cache
 
-Installs for target repositories run with pnpm inside the container. Its store (content-addressable cache) defaults to `$HOME/.local/share/pnpm/store`, which is lost whenever the container is recreated — every run would start cold. The entrypoint pins the store into the data volume:
+Installs for target repositories run with pnpm inside the container. Without a `storeDir`, pnpm picks the store itself under the "one store per filesystem" rule: the **mount-point root** of the filesystem holding the install directory — in the default deployment (with `DATA_DIR` at the mount-point root) that is `/app/data/.pnpm-store`; only when the workspace shares a filesystem with `HOME` does it use `$HOME/.local/share/pnpm/store` (the image keeps `HOME` on the image layer, so container recreation means a cold install). The entrypoint pins the store into the data volume:
 
 | Item | Default | Notes |
 |:---|:---|:---|
@@ -149,25 +149,27 @@ Installs for target repositories run with pnpm inside the container. Its store (
 | Reuse scope | Across runs / container recreations | Lives on the `dependfix-data` volume; deleting the volume clears it |
 | Hard links | Same filesystem only | `RUN_WORK_ROOT` defaults to `/app/data/runs`, on the same volume → installs hard-link from the store (no duplicate disk usage); a custom path on another filesystem falls back to copying |
 
-Inspect and clean up:
+Inspect and clean up (`100:101` is the image default `dependfix` identity; substitute your `PUID`/`PGID` when customized, otherwise store entries are written as root):
 
 ```bash
 # Confirm the store lives in the persistent directory (prints e.g. /app/data/pnpm-store/v11)
 docker compose exec -u 100:101 platform pnpm store path
-# Drop unreferenced entries only (keep packages still in use)
+# Drop unreferenced entries only / clear everything (the latter installs cold next run)
 docker compose exec -u 100:101 platform pnpm store prune
-# Clear everything (next run installs cold)
 docker compose exec -u 100:101 platform rm -rf /app/data/pnpm-store
 ```
 
-> `100:101` is the image default `dependfix` identity; substitute your `PUID`/`PGID` when customized (otherwise store entries are written as root).
-
-- **Unusable falls back**: when the store directory cannot be created, is not an absolute path, or fails a write probe as the run identity (read-only mount / insufficient permissions), the entrypoint prints `warn: pnpm store 目录 … 回退 pnpm 默认位置` and keeps starting (cold install every run; never blocks). The probe is a real write rather than `test -w`, so an existing store directory on a read-only volume is detected too.
-- **Custom path**: the parent directory must be traversable by the run identity (pre-`chown` the mount point to `PUID:PGID`); the entrypoint creates the store directory **as the run identity** and never `chown`s a user-supplied path (a root path is rejected with a fallback), so an unauthorized parent simply fails to create and falls back.
+- **Unusable falls back**: when the store directory cannot be created, is not an absolute path, or fails a write probe as the run identity (read-only mount / insufficient permissions), the entrypoint prints `warn: pnpm store 目录 … 回退 pnpm 默认位置（pnpm 自选落点，默认部署下为 /app/data/.pnpm-store）` and keeps starting (cold install every run; never blocks). The probe is a real write rather than `test -w`, so an existing store directory on a read-only volume is detected too; while falling back the store returns to pnpm's own choice, which is where the second copy of the "two stores" keeps growing (see below). A **custom path** only requires its **parent directory** to be traversable by the run identity (pre-`chown` the mount point to `PUID:PGID`); the entrypoint creates the store directory **as the run identity** but never `chown`s any user-supplied path (a root path is rejected with a fallback), so an unauthorized parent simply fails to create and falls back.
 - **Precedence**: pnpm 11+ reads `storeDir` only from the command line / environment variables / `pnpm-workspace.yaml` / global config (a project `.npmrc` only carries auth and registry settings), and environment variables win — the platform therefore pins the cache location, so a `storeDir` declared in a target repository's `pnpm-workspace.yaml` no longer applies (the cache location belongs to the execution environment). `pnpm store path` returns the version-suffixed path (e.g. `/app/data/pnpm-store/v11`).
-- **Capacity (empirical)**: the store grows with the number of dependencies; a medium-sized repository typically needs about 0.5-1.5 GB. It shares the `dependfix-data` volume with the database and backups — start with 10 GB, watch `docker system df -v`, then size by repository count. Run `pnpm store prune` periodically to drop unreferenced entries.
-- **Backups**: a volume-level backup (the tar example under "Backup and restore") packages the store too; add `--exclude=./pnpm-store` when you only need the database.
+- **Capacity and backups (empirical)**: the store grows with the number of dependencies; a medium-sized repository typically needs about 0.5-1.5 GB. It shares the `dependfix-data` volume with the database and backups — start with 10 GB, watch `docker system df -v`, then size by repository count, and run `pnpm store prune` periodically to drop unreferenced entries. A volume-level backup (the tar example under "Backup and restore") packages the store too; add `--exclude=./pnpm-store --exclude=./.pnpm-store` (both names) when you only need the database.
 - **Commit hygiene**: install artifacts never reach delivery commits — at the start of a `fix` / `fix-and-pr` run (not dry-run) the engine writes `.pnpm-store/` and `node_modules/` into the target repository's `.git/info/exclude` (idempotent, never touching the repository's `.gitignore`), delivery commits themselves only collect the whitelist plus fixer-declared paths (install artifacts are never in that set — see [pr-delivery-closure §7](../../../design/governance/pr-delivery-closure.md#_7-m48-4-提交面白名单与-yaml-定点编辑)), and the exclude entries additionally keep them from disturbing the "no changes" check; a failed write logs a warning and the run continues.
+
+### Why two stores exist, and how to tell
+
+Before the entrypoint pinned the store, pnpm placed it at `/app/data/.pnpm-store`; afterwards it uses `/app/data/pnpm-store`, and the old directory is neither migrated nor cleaned — the two names differ by one leading dot, so the same dependencies are cached twice. To tell them apart: `pnpm store path` returning `/app/data/.pnpm-store/v*` means the fallback is in effect; `docker compose exec platform stat -c '%y %n' data/pnpm-store data/.pnpm-store` (run it in the host repository root for bind-mount deployments) shows both older than the upgrade, i.e. leftover.
+
+- **Warn, never delete**: when the managed store is in effect and the leftover directory is detected, the entrypoint prints one `warn` (path plus cleanup command) and never prunes, creates or writes into it; with root startup the existing data-volume ownership normalization (`chown -R`) still covers the whole volume — prior behaviour, see [hygiene §3 I2](../../../design/governance/pnpm-store-hygiene.md#_3-不变量). While falling back that directory is the current location, so only the fallback warning is shown.
+- **Cleanup order**: `pnpm store prune` → stop the container → delete the leftover path **as one explicit path** → restart and re-check `pnpm store path` (criteria and runbook in [hygiene §4 / §5.1](../../../design/governance/pnpm-store-hygiene.md#_4-判定与取证)).
 
 ## Log files
 

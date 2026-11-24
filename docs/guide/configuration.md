@@ -352,7 +352,7 @@ export DEPENDFIX_RETRY_FAILED=false
 | `DEPENDFIX_VERIFY_TIMEOUT_MS` | — | `600000`（10 分钟） | 验证链单命令超时（默认链与 CI 镜像脚本共用，**默认链内的 `pnpm install` 仍按本条计时**；修复器安装链的 `DEPENDFIX_INSTALL_TIMEOUT_MS` 不受影响）；支持 `10m` / `90s`，须落在 10 秒–30 分钟，越界 / 非法回退默认 |
 | `CLONE_TIMEOUT_MS` | — | `300000` | git clone 超时（毫秒；支持 `5m`） |
 | `CLONE_MAX_RETRIES` | — | `3` | clone 最大重试次数 |
-| `PNPM_CONFIG_STORE_DIR` | — | `/app/data/pnpm-store`（入口派生） | 目标仓库依赖安装共用的 pnpm store 目录：默认在数据卷内，跨 run / 容器重建复用。入口以**运行身份写探针**判定可用性（覆盖只读挂载）；不可用（只读 / 权限不足 / 非绝对路径）时 warn 并回退 `$HOME` 下 pnpm 默认位置（每次冷安装，不阻断）。自定义路径的父目录须对 `PUID`/`PGID` 可进入，且与 `RUN_WORK_ROOT` 同文件系统才走硬链接。清理用 `pnpm store prune`（见 [pnpm store 与依赖缓存](./deployment.md#pnpm-store-与依赖缓存)） |
+| `PNPM_CONFIG_STORE_DIR` | — | `/app/data/pnpm-store`（入口派生） | 目标仓库依赖安装共用的 pnpm store 目录：默认在数据卷内，跨 run / 容器重建复用。入口以**运行身份写探针**判定可用性（覆盖只读挂载）；不可用（只读 / 权限不足 / 非绝对路径）时 warn 并回退 pnpm 自身默认落点（数据卷形态为 `/app/data/.pnpm-store`，仅工作区在镜像层时才在 `$HOME` 下；每次冷安装，不阻断），同时检出数据卷根遗留的 `.pnpm-store` 并告警。自定义路径的父目录须对 `PUID`/`PGID` 可进入，且与 `RUN_WORK_ROOT` 同文件系统才走硬链接。清理用 `pnpm store prune`（见 [pnpm store 与依赖缓存](./deployment.md#pnpm-store-与依赖缓存)） |
 | `SANDBOX_RUNTIME` | — | `runc` | 沙箱 OCI runtime |
 | `SANDBOX_IMAGE` | — | 候选首项（跟随平台 registry，回退 Docker Hub / ghcr / ACR） | 沙箱镜像完整引用（默认 slim 镜像，约 320MB；须在目标 rootless daemon 内可拉取 / 已存在）。仓库级 `sandboxImage` 优先于此值 |
 | `SANDBOX_IMAGE_REPO` | — | 跟随平台 registry，回退 Docker Hub → ghcr → ACR | 未设 `SANDBOX_IMAGE` 时的镜像仓库（固定单一源；需要源码编译回退时用 `…/dependfix-sandbox-full`）。未设置时默认跟随平台 registry，再回退 Docker Hub / ghcr / ACR（ACR 置末以减少其负荷） |

@@ -46,6 +46,11 @@ export interface VersionedOverridesApplyResult {
      * 其余包仍走逐包重试——不能用一个布尔代表整批。
      */
     manualReviewPackages?: string[]
+    /**
+     * 单 plan 的 peer-only 回退结论（提升声明该包的直接依赖）。已提升时为 `promoted` 且
+     * `success=true`；仍需人工时为 `needs-manual`（`reason` 带文件与版本建议）。
+     */
+    promotion?: import('./peer-only-promotion').PeerOnlyPromotionOutcome
 }
 
 // ---------------------------------------------------------------------------

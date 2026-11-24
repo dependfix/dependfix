@@ -70,3 +70,14 @@ export function isNonSemverDeclaration(version: string): boolean {
     const trimmed = version.trim()
     return /^(workspace|catalog|link|file|npm|github|gitlab|bitbucket|gist|git(?:\+ssh|\+https|\+http|\+file)?|portal|patch|https?|ssh)\s*:/.test(trimmed)
 }
+
+/**
+ * 去掉 range 前缀（`^` / `~`），返回裸版本串；其他形态（`>=` / `*` / `workspace:`）原样返回。
+ *
+ * 用途：版本化 overrides 的值带前缀（如 `^8.3.3`），而「提升直接依赖」与 lockfile 版本比较
+ * 需要裸版本。
+ */
+export function stripRangePrefix(range: string): string {
+    const trimmed = range.trim()
+    return /^[\^~]\d/.test(trimmed) ? trimmed.slice(1) : trimmed
+}

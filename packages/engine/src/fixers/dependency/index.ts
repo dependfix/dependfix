@@ -24,14 +24,17 @@ import { readLockfileVersion, readLockfileVersions } from './lockfile-versions'
 import { remainingVersionsBelowTarget, classifyPeerOnlyFailure, verifyVersionedOverridesAppliedAll } from './override-verification'
 import { ensurePnpmOverrides, extractPrefix, findDependencyVersion, type PackageJson } from './manifest'
 import { applyManifestUpgrades, type ManifestUpgradeApplied } from './manifest-upgrades'
+import { collectFailingOverrideLines, promotePeerOnlyDirectDependency, type PeerOnlyPromotionOutcome } from './peer-only-promotion'
 import { applyWorkspaceOverrides, readOverridesSection, readWorkspaceDocument, rollbackWorkspaceOverrides } from './workspace-yaml'
 
 export { normalizeOverrideKey, normalizeOverrideSelector, upsertOverride } from './override-key'
-export { compareSemver, isNonSemverDeclaration, parseMajorVersion } from './semver'
+export { compareSemver, isNonSemverDeclaration, parseMajorVersion, stripRangePrefix } from './semver'
 export { readLockfileVersion, readLockfileVersions } from './lockfile-versions'
 export type { OverrideUpsert } from './override-key'
 export { ensurePnpmOverrides, extractPrefix, findDependencyVersion, type PackageJson } from './manifest'
 export type { ManifestUpgradeApplied } from './manifest-upgrades'
+export { collectFailingOverrideLines, parseSelectorMajor, promotePeerOnlyDirectDependency } from './peer-only-promotion'
+export type { PeerOnlyPromotionOutcome } from './peer-only-promotion'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -76,6 +79,12 @@ export interface DependencyFixResult {
      * 无法自动修复、需人工处置（当前仅 peer-only 实例）。已回滚，调用方应记跳过而非失败动作。
      */
     manualReview?: boolean
+    /**
+     * peer-only 回退到「提升 manifest 直接依赖」的结论（仅触发该路径时存在）。
+     * `promoted` 时 `success=true` 且带提升点；`needs-manual` 时 `manualReview=true`，
+     * `reason` 含已检查文件与建议版本，供报告 / 运行详情区分「已提升 / 需人工」。
+     */
+    promotion?: PeerOnlyPromotionOutcome
 }
 
 /** 家族锁步升级结果：`updates` 在安装失败时也保留已尝试的声明，便于报告展示。 */
@@ -330,19 +339,53 @@ export async function overrideTransitiveDependency(
             lockBackup,
             workspaceBackup,
         })
-        // peer-only 实例不随 overrides 重解析：给出可判定的人工处置结论，不记为失败动作
+        // peer-only 实例不随 overrides 重解析：先回退到「提升声明该包的直接依赖」，
+        // 提升不可用 / 未覆盖全部实例时才给出可判定的人工处置结论（不记为失败动作）
         const peerOnly = classifyPeerOnlyFailure(lockfilePath, packageName, remaining)
+        if (peerOnly) {
+            const promotion = await promotePeerOnlyDirectDependency({ workDir, packageName, targetVersion })
+            if (promotion.status === 'promoted') {
+                return {
+                    packageName,
+                    fromVersion: promotion.fromVersion ?? fromVersion,
+                    toVersion: promotion.toVersion ?? toVersion,
+                    isMajor: promotion.isMajor ?? isMajor,
+                    success: true,
+                    promotion,
+                    warning: `peer-only instances follow the promoted direct dependency in ${promotion.manifestFile}`,
+                }
+            }
+            if (promotion.environmental === true) {
+                return {
+                    packageName,
+                    fromVersion,
+                    toVersion,
+                    isMajor,
+                    success: false,
+                    environmental: true,
+                    promotion,
+                    error: promotion.reason,
+                }
+            }
+            return {
+                packageName,
+                fromVersion,
+                toVersion,
+                isMajor,
+                success: false,
+                manualReview: true,
+                promotion,
+                error: `manual review: ${promotion.reason}; override changes rolled back`,
+            }
+        }
         return {
             packageName,
             fromVersion,
             toVersion,
             isMajor,
             success: false,
-            ...(peerOnly ? { manualReview: true } : {}),
-            error: peerOnly
-                ? `manual review: peer-only instances do not follow pnpm overrides — locked instance(s) ${remaining.join(', ')} remain below ${targetVersion}; changes rolled back`
-                : `override did not take effect: locked instance(s) ${remaining.join(', ')} remain below ${targetVersion}`
-                    + `${pkgJsonOverrideWarning ? ` (${pkgJsonOverrideWarning})` : ''}; changes rolled back`,
+            error: `override did not take effect: locked instance(s) ${remaining.join(', ')} remain below ${targetVersion}`
+                + `${pkgJsonOverrideWarning ? ` (${pkgJsonOverrideWarning})` : ''}; changes rolled back`,
         }
     }
 
@@ -536,6 +579,11 @@ export async function applyVersionedOverridesBatch(
     // lockfile 可能保持旧版本）。未满足则整体回滚，不能把「无改动」当成功。
     const verifyFailures = verifyVersionedOverridesAppliedAll(lockfilePath, plans)
     if (verifyFailures.length > 0) {
+        // 失败版本线必须在回滚**之前**归因：回滚会把本次已修好的另一条线也还原，
+        // 之后重算会把多条线都判成未达标，导致可提升的单线形态被误判为多线。
+        const failingLinesBeforeRollback = plans.length === 1
+            ? collectFailingOverrideLines(lockfilePath, plans[0].packageName, plans[0].overrides)
+            : []
         rollback(pkgPath, pkgBackup, lockfilePath, lockBackup)
         if (usesWorkspaceYaml && workspaceBackup) {
             rollback(workspaceYamlPath, workspaceBackup, lockfilePath, null)
@@ -556,6 +604,48 @@ export async function applyVersionedOverridesBatch(
         const failureHead = manualReview
             ? `manual review: peer-only instances do not follow pnpm overrides — ${verifyFailures.map((failure) => failure.message).join('; ')}`
             : `versioned override did not take effect: ${firstNonPeer.message}`
+        // 单 plan 的 peer-only 与单包 override 同族：回退到提升声明该包的直接依赖。
+        // 合批（≥2 plan）不做提升——回滚已撤销整批 overrides，逐包提升会放大安装次数与预算。
+        if (manualReview && plans.length === 1 && peerOnlyPackages.length === 1) {
+            // 按线归因：同包多 key（多 major 共存）时只允许唯一未达标线的目标版本作为提升目标，
+            // 否则会把另一条线的版本写进候选 manifest（跨线）。多线未达标 → 不提升。
+            const failingLines = failingLinesBeforeRollback
+            if (failingLines.length === 1) {
+                const [line] = failingLines
+                const promotion = await promotePeerOnlyDirectDependency({
+                    workDir,
+                    packageName: peerOnlyPackages[0],
+                    targetVersion: line.targetVersion,
+                    // 无 selector 的通用 key 覆盖全部实例：校验不按 major 过滤（与 override 语义一致）
+                    ...(line.unversioned === true ? {} : { major: line.major }),
+                })
+                if (promotion.status === 'promoted') {
+                    return {
+                        success: true,
+                        fromVersion: promotion.fromVersion ?? fromVersionSnapshot,
+                        promotion,
+                        warning: `peer-only instances follow the promoted direct dependency in ${promotion.manifestFile}`,
+                    }
+                }
+                if (promotion.environmental === true) {
+                    return {
+                        success: false,
+                        environmental: true,
+                        error: promotion.reason,
+                        failurePhase: 'verify',
+                    }
+                }
+                return {
+                    success: false,
+                    fromVersion: fromVersionSnapshot,
+                    manualReview: true,
+                    manualReviewPackages: peerOnlyPackages,
+                    promotion,
+                    error: `manual review: ${promotion.reason}; changes rolled back`,
+                    failurePhase: 'verify',
+                }
+            }
+        }
         return {
             success: false,
             fromVersion: fromVersionSnapshot,
@@ -595,14 +685,19 @@ export async function applyVersionedOverrides(
         plans: [{ packageName, overrides: versionedOverrides }],
     })
 
-    // toVersion 口径保持既有语义：校验 / 备份类早退（未写盘）为空串，安装失败与成功为目标版本串
-    const toVersion = result.success || result.failurePhase === 'install'
-        ? entries.map((entry) => entry[1]).join(', ')
-        : ''
+    // toVersion 口径保持既有语义：校验 / 备份类早退（未写盘）为空串，安装失败与成功为目标版本串；
+    // peer-only 提升成功时改用提升后的声明（override 已被回滚，不能再展示 override 值串）。
+    const promoted = result.promotion?.status === 'promoted'
+    let toVersion = ''
+    if (promoted) {
+        toVersion = result.promotion?.toVersion ?? ''
+    } else if (result.success || result.failurePhase === 'install') {
+        toVersion = entries.map((entry) => entry[1]).join(', ')
+    }
 
     return {
         packageName,
-        fromVersion: result.fromVersion ?? '',
+        fromVersion: promoted ? result.promotion?.fromVersion ?? '' : result.fromVersion ?? '',
         toVersion,
         isMajor: false,
         success: result.success,
@@ -610,6 +705,7 @@ export async function applyVersionedOverrides(
         ...(result.warning !== undefined ? { warning: result.warning } : {}),
         ...(result.environmental !== undefined ? { environmental: result.environmental } : {}),
         ...(result.manualReview !== undefined ? { manualReview: result.manualReview } : {}),
+        ...(result.promotion !== undefined ? { promotion: result.promotion } : {}),
     }
 }
 

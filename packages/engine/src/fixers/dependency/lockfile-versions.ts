@@ -1,6 +1,7 @@
 // lockfile-versions.ts — 从 pnpm-lock.yaml 读取包实例版本（从 index.ts 拆出以控制文件行数）。
 // index.ts 继续 re-export，外部消费者无需调整 import。
 import { existsSync, readFileSync } from 'node:fs'
+import YAML from 'yaml'
 import { compareSemver } from './semver'
 
 /**
@@ -115,4 +116,56 @@ export function scanPeerOnlyInstances(
     } catch {
         return empty
     }
+}
+
+/** lockfile `importers` 中声明了目标包的成员（相对 workDir 的目录，'' = 根）。 */
+export interface LockfileImporterDeclaration {
+    dir: string
+    group: 'dependencies' | 'devDependencies' | 'optionalDependencies'
+    specifier: string
+}
+
+/**
+ * 从 `pnpm-lock.yaml` 的 `importers` 段读取「哪个 manifest 以直接依赖声明了该包」。
+ *
+ * 用途：peer-only 实例不跟随 overrides 重解析时，需要提升**声明该包**的 manifest 直接依赖；
+ * importers 是 pnpm 自己记录的「安装组 → 声明」映射，比遍历 workspace glob 更准且无需额外依赖。
+ * 解析失败 / 无 importers（旧格式）时返回空数组，由调用方回退到根 manifest 判定。
+ */
+export function readLockfileImporterDeclarations(
+    lockfilePath: string,
+    packageName: string,
+): LockfileImporterDeclaration[] {
+    if (!existsSync(lockfilePath)) {
+        return []
+    }
+    let parsed: unknown
+    try {
+        parsed = YAML.parse(readFileSync(lockfilePath, 'utf-8'))
+    } catch {
+        return []
+    }
+    const importers = (parsed as { importers?: unknown } | null)?.importers
+    if (!importers || typeof importers !== 'object') {
+        return []
+    }
+    const groups = ['dependencies', 'devDependencies', 'optionalDependencies'] as const
+    const found: LockfileImporterDeclaration[] = []
+    for (const [dir, importer] of Object.entries(importers as Record<string, unknown>)) {
+        if (!importer || typeof importer !== 'object') {
+            continue
+        }
+        for (const group of groups) {
+            const deps = (importer as Record<string, unknown>)[group]
+            if (!deps || typeof deps !== 'object' || !(packageName in (deps as Record<string, unknown>))) {
+                continue
+            }
+            const entry = (deps as Record<string, unknown>)[packageName]
+            const specifier = typeof entry === 'object' && entry !== null
+                ? String((entry as { specifier?: unknown }).specifier ?? '')
+                : ''
+            found.push({ dir, group, specifier })
+        }
+    }
+    return found
 }

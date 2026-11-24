@@ -26,6 +26,7 @@ import {
     unfixedAlerts,
     verificationSkipBreakdown,
     verificationSkipReasonLabel,
+    verificationSkipImpactLabel,
     verificationSkipSummary,
     verificationsSkipped,
 } from './run-view'
@@ -239,8 +240,27 @@ describe('verificationsSkipped', () => {
         expect(verificationSkipReasonLabel('no-write', t)).toBe('t:runs.verificationSkipReason.noWrite')
         expect(verificationSkipReasonLabel('other', t)).toBe('other')
         expect(verificationSkipSummary({ verificationSkippedByReason: { 'no-write': 2, budget: 1 } }, t))
-            .toBe('t:runs.verificationSkipReason.budget: 1 · t:runs.verificationSkipReason.noWrite: 2')
+            .toBe('t:runs.verificationSkipSummaryItem · t:runs.verificationSkipSummaryItem')
         expect(verificationSkipSummary({}, t)).toBe('')
+    })
+
+    it('已知原因都有交付影响文案（新增原因时与 core 枚举同步）', () => {
+        const t = (key: string) => `t:${key}`
+        for (const reason of VERIFICATION_SKIP_REASON_ORDER) {
+            expect(verificationSkipImpactLabel(reason, t)).not.toBe('')
+        }
+    })
+
+    it('摘要附交付影响（与报告 Delivery impact 同源）', () => {
+        const t = (key: string, params?: Record<string, string | number>) => (params
+            ? `${key}|${params.reason}|${params.count}|${params.impact}`
+            : key)
+        expect(verificationSkipImpactLabel('budget', t)).toBe('runs.verificationSkipImpact.blocked')
+        expect(verificationSkipImpactLabel('no-write', t)).toBe('runs.verificationSkipImpact.noContent')
+        expect(verificationSkipImpactLabel('other', t)).toBe('')
+        expect(verificationSkipSummary({ verificationSkippedByReason: { budget: 1, 'no-write': 2 } }, t))
+            .toBe('runs.verificationSkipSummaryItem|runs.verificationSkipReason.budget|1|runs.verificationSkipImpact.blocked'
+                + ' · runs.verificationSkipSummaryItem|runs.verificationSkipReason.noWrite|2|runs.verificationSkipImpact.noContent')
     })
 })
 

@@ -155,12 +155,38 @@ export const verificationSkipBreakdown = (summary: Record<string, unknown> | nul
         .filter((row) => row.count > 0)
 }
 
-/** 验证跳过原因摘要（tooltip 文案）：`预算不足: 1 · 本次无写入: 2`；无分组数据时为空串。 */
+/** 验证跳过对交付的影响文案（与 core 的 `formatVerificationSkipImpact` 同口径；未知值返回空串）。 */
+export const verificationSkipImpactLabel = (reason: string, t: Translator): string => {
+    switch (reason) {
+        case 'budget':
+            return t('runs.verificationSkipImpact.blocked')
+        case 'no-write':
+            return t('runs.verificationSkipImpact.noContent')
+        default:
+            return ''
+    }
+}
+
+/**
+ * 验证跳过原因摘要（tooltip 文案）：`预算不足: 1（阻断交付）· 本次无写入: 2（无交付内容）`。
+ *
+ * 附交付影响后，「修了 N 条、交付 0 条」可直接在运行详情解释；与报告 `Delivery impact` 列同源。
+ * 无分组数据时为空串。
+ */
 export const verificationSkipSummary = (
     summary: Record<string, unknown> | null,
     t: Translator,
 ): string => verificationSkipBreakdown(summary)
-    .map((row) => `${verificationSkipReasonLabel(row.key, t)}: ${row.count}`)
+    .map((row) => {
+        const impact = verificationSkipImpactLabel(row.key, t)
+        return impact
+            ? t('runs.verificationSkipSummaryItem', {
+                reason: verificationSkipReasonLabel(row.key, t),
+                count: row.count,
+                impact,
+            })
+            : `${verificationSkipReasonLabel(row.key, t)}: ${row.count}`
+    })
     .join(' · ')
 
 /** 本次运行拦截的非白名单外联数（`summary.networkViolations`）。 */

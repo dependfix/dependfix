@@ -1002,6 +1002,11 @@
             "budget": "运行预算不足",
             "noWrite": "本次无写入"
         },
+        "verificationSkipImpact": {
+            "blocked": "阻断交付",
+            "noContent": "无交付内容"
+        },
+        "verificationSkipSummaryItem": "{reason}: {count}（{impact}）",
         "deliverySkipped": "交付跳过 {count} 个仓库",
         "deliverySkippedLabel": "交付跳过",
         "deliverySkippedHint": "修复后安装验证仍为既有失败（本次改动前即为红），本次修复未交付（改动已回滚）；载体（issue / 草稿 PR）仅在引擎 fix-and-pr 路径按 DEPENDFIX_ON_BASELINE_RED 创建。exit code 不受影响",

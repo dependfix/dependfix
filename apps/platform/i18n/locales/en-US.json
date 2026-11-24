@@ -1002,6 +1002,11 @@
             "budget": "Run budget exhausted",
             "noWrite": "No writes in this run"
         },
+        "verificationSkipImpact": {
+            "blocked": "blocks delivery",
+            "noContent": "no delivery content"
+        },
+        "verificationSkipSummaryItem": "{reason}: {count} ({impact})",
         "deliverySkipped": "{count} repo(s) delivery skipped",
         "deliverySkippedLabel": "Delivery skipped",
         "deliverySkippedHint": "Install verification is still failing (pre-existing) after the fix, so the fix was not delivered (changes rolled back). Carriers (issue / draft PR) are only created by the engine fix-and-pr path via DEPENDFIX_ON_BASELINE_RED. Exit code is unaffected",

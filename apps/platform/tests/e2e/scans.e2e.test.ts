@@ -546,8 +546,8 @@ test('case 10: /scans 运行详情展示验证跳过与原因', async ({ page })
     await expect(dialog).toBeVisible({ timeout: 15000 })
     const outcome = dialog.locator('.repo-history__outcome')
     await expect(outcome).toContainText('验证跳过 2 个仓库')
-    // 原因在正文内可见（不依赖悬停，触摸端 / 读屏同样可达）
-    await expect(outcome).toContainText('本次无写入: 2')
+    // 原因与交付影响在正文内可见（不依赖悬停，触摸端 / 读屏同样可达）
+    await expect(outcome).toContainText('本次无写入: 2（无交付内容）')
 
     // 负向：summary 无验证跳过字段 → 不渲染该标签
     await page.goto(`/scans?run=${scanRuns[1]!.id}`)

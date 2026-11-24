@@ -45,7 +45,7 @@
 
 | 大条目 | 小条目 | 状态 | 提交 | 审计 | 容量 |
 |:--|:--|:--|:--|:--|:--|
-| M66.1 peer-only 同 major 回退 | — | ⬜ 待开始 | — | — | 3-4 commits / 6-9 files / 250-450 行 |
+| M66.1 peer-only 同 major 回退 | — | ✅ 已闭环（2026-11-24） | `b95754ed`..`0c247c7c`（3，含文档） | fixer deep R1 Reject → R2 Reject → R3 Reject → R4 Pass；编排 deep R1 Pass → R2 Pass | 计划 3-4 commits / 6-9 files / 250-450 行；实际 3 commits / 13 files / +1,626 −39（超 files / 行预算，新增模块 + 夹具密集型用例；已按 fixer / 编排 / 文档三批分提交） |
 | M66.3 checkpoint 非 `freshLock` unknown 处置 | — | ⬜ 待开始 | — | — | 2-3 commits / 4-6 files / 120-220 行 |
 | M66.4 平台分支回收与 `push_failed` 细分 | — | ⬜ 待开始 | — | — | 3-4 commits / 6-10 files / 250-450 行 |
 | M66.5 验证跳过的交付可观测性 | — | ⬜ 待开始 | — | — | 3-4 commits / 5-8 files / 200-350 行 |
@@ -66,7 +66,7 @@
   - 回滚单元与无写入结论：提升失败时恢复原 manifest，沿用既有 checkpoint / 回滚链；
   - 报告与运行详情：提升点、结论或需人工原因可判读。
 - **验收标准**：
-  - AC1：在 `packages/engine/src/fixers/dependency/dependency-upgrade.test.ts` 构造 peer-only 夹具（override 不生效）→ 自动提升声明该包的 manifest 直接依赖并验证通过；
+  - AC1：在 `packages/engine/src/fixers/dependency/peer-only-promotion.test.ts` 构造 peer-only 夹具（override 不生效）→ 自动提升声明该包的 manifest 直接依赖并验证通过（从 `dependency-upgrade.test.ts` 拆出以满足 max-lines）；
   - AC2：无可提升 manifest / 多包冲突时输出 `needs_manual`，附文件与版本建议，不落「无写入」空结论；
   - AC3：提升失败或验证失败时原 manifest 逐字节恢复，回滚单元与既有 override 路径一致；
   - AC4：既有 `peer-only` 跳过口径与 `override-protected` 归因零回归；

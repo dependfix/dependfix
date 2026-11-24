@@ -12,6 +12,7 @@ import {
     actionTypeLabel,
     isAlertFixedByActions,
     statusIcon,
+    formatVerificationSkipImpact,
     formatVerificationSkipReason,
     type RepositoryResult,
 } from './types'
@@ -48,6 +49,58 @@ import { redactNetworkTarget } from './network-audit-target'
  * 6. Fix Actions 表
  * 7. Errors 节（有错误时才渲染）
  */
+/**
+ * 渲染 Verification Skipped 段（含交付影响列与「修了 N 条但未交付」结论）。
+ *
+ * 与 `## Delivery Skipped` 并列展示、不合并计数：前者是终验未执行（预算阻断 / 无写入），
+ * 后者是基线红导致修复未交付（口径见 `formatVerificationSkipImpact` 与 report-generator §3.2）。
+ */
+function appendVerificationSkippedSection(
+    sections: string[],
+    repositories: readonly RepositoryResult[],
+    deliverySkipRecords: number,
+): void {
+    const verificationSkipped = repositories.filter((repo) => repo.verificationSkipped !== undefined)
+    if (verificationSkipped.length === 0) {
+        return
+    }
+    sections.push(
+        '## Verification Skipped',
+        '',
+        '> 验证未执行（运行预算不足 / 本次无写入）：不得视为验证通过，也不计入失败。'
+        + '与 Delivery Skipped 同为「未交付」但原因不同：本段是终验未执行，'
+        + 'Delivery Skipped 是基线红导致修复未交付；两者并列展示、不合并计数。',
+        '',
+        '| Repository | Reason | Delivery impact |',
+        '|------------|--------|-----------------|',
+    )
+    for (const repo of verificationSkipped) {
+        const reason = repo.verificationSkipped!
+        sections.push(
+            `| \`${escapeMd(repo.repository)}\` | ${formatVerificationSkipReason(reason)} | ${formatVerificationSkipImpact(reason)} |`,
+        )
+    }
+    sections.push('')
+    // 「修了 N 条、交付 0 条」只统计**被跳过的仓库自身**修了多少条：run 级 fixed 可能包含已正常交付的
+    // 仓库，直接引用会把「已交付」误读成「未交付」。跳过仓库一条都没修好时不输出本行。
+    const skippedFixed = verificationSkipped.reduce((sum, repo) => sum + repo.fixed, 0)
+    if (skippedFixed <= 0) {
+        return
+    }
+    const budget = verificationSkipped.filter((repo) => repo.verificationSkipped === 'budget').length
+    const noWrite = verificationSkipped.filter((repo) => repo.verificationSkipped === 'no-write').length
+    const parts = [
+        ...(budget > 0 ? [`${budget} repo(s) skipped by run budget (delivery blocked)`] : []),
+        ...(noWrite > 0 ? [`${noWrite} repo(s) skipped as no-write (nothing to deliver)`] : []),
+        ...(deliverySkipRecords > 0 ? [`${deliverySkipRecords} baseline-red delivery skip record(s)`] : []),
+    ]
+    sections.push(
+        `> Delivery outcome: ${skippedFixed} alert(s) fixed in the repositories listed above, but they were not delivered — `
+        + `${parts.join('; ')}.`,
+        '',
+    )
+}
+
 /**
  * 追加 `## Baseline Skipped` 段：修复前基线链被短路的命令（命令级「未采样」）。
  *
@@ -303,8 +356,8 @@ export function generateMarkdownReport(result: RunResult): string {
     }
 
     // ---- 2.7 Delivery Skipped（基线红的交付降级；有记录时渲染）----
-    const deliverySkips = result.deliverySkips ?? []
-    if (deliverySkips.length > 0) {
+    const deliverySkipRecords = result.deliverySkips ?? []
+    if (deliverySkipRecords.length > 0) {
         sections.push(
             '## Delivery Skipped',
             '',
@@ -314,7 +367,7 @@ export function generateMarkdownReport(result: RunResult): string {
             '| Repository | Failing command | Carrier |',
             '|------------|-----------------|---------|',
         )
-        for (const record of deliverySkips) {
+        for (const record of deliverySkipRecords) {
             const carrier = describeDeliveryCarrier(record.carrier)
             const repos = record.repositories.length > 0
                 ? record.repositories.map((repo) => `\`${escapeMd(repo)}\``).join('<br>')
@@ -328,24 +381,7 @@ export function generateMarkdownReport(result: RunResult): string {
     }
 
     // ---- 2.8 Verification Skipped（预算 / 0 写入；不计失败、不回滚）----
-    const verificationSkipped = repositories.filter((repo) => repo.verificationSkipped !== undefined)
-    if (verificationSkipped.length > 0) {
-        sections.push(
-            '## Verification Skipped',
-            '',
-            '> 验证未执行（运行预算不足 / 本次无写入）：不得视为验证通过，也不计入失败；'
-            + '预算跳过阻断交付，本次无写入则无交付内容。',
-            '',
-            '| Repository | Reason |',
-            '|------------|--------|',
-        )
-        for (const repo of verificationSkipped) {
-            sections.push(
-                `| \`${escapeMd(repo.repository)}\` | ${formatVerificationSkipReason(repo.verificationSkipped!)} |`,
-            )
-        }
-        sections.push('')
-    }
+    appendVerificationSkippedSection(sections, repositories, deliverySkipRecords.length)
 
     // ---- 2.9 Baseline Skipped（修复前基线在安装命令失败处短路；命令级「未采样」）----
     appendBaselineSkippedSection(sections, repositories)

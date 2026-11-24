@@ -53,6 +53,22 @@ const VERIFICATION_SKIP_REASON_TEXT: Record<VerificationSkipReason, string> = {
     'no-write': 'no writes (verification not needed)',
 }
 
+/**
+ * 验证跳过对交付的影响（报告 / 运行详情同源展示）。
+ *
+ * 口径（2026-11-24 决策，见 docs/design/modules/report-generator.md §3.2）：验证跳过**不登记**到 `deliverySkips` 家族——后者记录「基线红导致
+ * 修复未交付」，需要失败命令与降级载体；验证跳过是运行级原因（预算 / 无写入），没有命令与载体，
+ * 混入会让 issue / 草稿 PR 载体语义失真。两者并列为「未交付」的两种原因，由本函数统一解释影响。
+ */
+const VERIFICATION_SKIP_IMPACT_TEXT: Record<VerificationSkipReason, string> = {
+    budget: 'blocks delivery',
+    'no-write': 'no delivery content',
+}
+
+/** 验证跳过原因的交付影响文案（报告 / 运行详情共用同一措辞）。 */
+export const formatVerificationSkipImpact = (reason: VerificationSkipReason): string =>
+    VERIFICATION_SKIP_IMPACT_TEXT[reason]
+
 /** 验证跳过原因的人类可读文案（报告 / 日志）。 */
 export const formatVerificationSkipReason = (reason: VerificationSkipReason): string =>
     VERIFICATION_SKIP_REASON_TEXT[reason]
@@ -400,7 +416,12 @@ export interface DeliverySkipCarrier {
     draftPr?: { number: number, htmlUrl: string }
 }
 
-/** 交付跳过记录（run 级；修复后安装仍为既有失败）。 */
+/**
+ * 交付跳过记录（run 级；修复后安装仍为既有失败 → 基线红导致的交付降级）。
+ *
+ * 与 `RepositoryResult.verificationSkipped` 的分工见 `formatVerificationSkipImpact` 注释：
+ * 本家族只收「有失败命令 + 降级载体」的基线红形态，验证跳过（预算 / 无写入）保持独立字段。
+ */
 export interface DeliverySkipRecord {
     /** 受影响仓库（`owner/repo`） */
     repositories: string[]

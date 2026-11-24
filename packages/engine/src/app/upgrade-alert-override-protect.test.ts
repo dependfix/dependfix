@@ -80,6 +80,68 @@ describe('upgradeAlert overrides 保护名单（间接依赖 override 路径）'
         expect(ctx.summary.alertsSkippedByReason['peer-only']).toBe(1)
     })
 
+    it('peer-only 已提升：成功动作带提升点 filePath（与需人工态区分）', async () => {
+        mockUpgradeDependency.mockReset()
+        mockOverrideTransitiveDependency.mockReset()
+        mockUpgradeDependency.mockResolvedValue({ success: false, error: 'decode-uri-component not found in dependencies' })
+        mockOverrideTransitiveDependency.mockResolvedValue({
+            packageName: 'decode-uri-component',
+            fromVersion: '^0.2.2',
+            toVersion: '^8.3.3',
+            isMajor: false,
+            success: true,
+            warning: 'peer-only instances follow the promoted direct dependency in packages/app/package.json',
+            promotion: {
+                status: 'promoted',
+                packageName: 'decode-uri-component',
+                manifestFile: 'packages/app/package.json',
+                fromVersion: '^0.2.2',
+                toVersion: '^8.3.3',
+                reason: 'promoted direct dependency in packages/app/package.json',
+                checkedFiles: ['packages/app/package.json'],
+            },
+        })
+
+        const ctx = makeCtx()
+        const action = await upgradeAlert(ctx as never, alert)
+
+        expect(action.success).toBe(true)
+        expect(action.noOp).toBeUndefined()
+        expect(action.filePath).toBe('packages/app/package.json')
+        expect(ctx.summary.alertsSkipped).toBe(0)
+    })
+
+    it('peer-only 需人工：noOp 带判据、不带提升点 filePath', async () => {
+        mockUpgradeDependency.mockReset()
+        mockOverrideTransitiveDependency.mockReset()
+        mockUpgradeDependency.mockResolvedValue({ success: false, error: 'decode-uri-component not found in dependencies' })
+        mockOverrideTransitiveDependency.mockResolvedValue({
+            packageName: 'decode-uri-component',
+            fromVersion: '8.3.1',
+            toVersion: '',
+            isMajor: false,
+            success: false,
+            manualReview: true,
+            promotion: {
+                status: 'needs-manual',
+                packageName: 'decode-uri-component',
+                manifestFile: 'packages/app/package.json',
+                reason: 'multiple manifests declare "decode-uri-component"; promote one of them to 8.3.3 manually',
+                checkedFiles: ['packages/a/package.json', 'packages/b/package.json'],
+            },
+            error: 'manual review: multiple manifests declare "decode-uri-component"; promote one of them to 8.3.3 manually',
+        })
+
+        const ctx = makeCtx()
+        const action = await upgradeAlert(ctx as never, alert)
+
+        expect(action.success).toBe(true)
+        expect(action.noOp).toBe(true)
+        expect(action.filePath).toBeUndefined()
+        expect(action.error).toContain('promote one of them to 8.3.3 manually')
+        expect(ctx.summary.alertsSkippedByReason['peer-only']).toBe(1)
+    })
+
     it('未命中保护名单：正常走 override 路径（回归，行为不变）', async () => {
         mockUpgradeDependency.mockReset()
         mockOverrideTransitiveDependency.mockReset()

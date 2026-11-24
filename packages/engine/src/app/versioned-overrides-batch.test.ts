@@ -214,8 +214,14 @@ describe('DependfixApp 版本化 overrides 合批', () => {
             success: false,
             manualReview: true,
             manualReviewPackages: ['brace-expansion', 'js-yaml'],
-            error: 'manual review: peer-only instances do not follow pnpm overrides — vite: 8.3.1 remain below 8.3.3; changes rolled back',
+            error: 'manual review: no manifest declares "brace-expansion" as a direct dependency; add it at 2.0.2',
             failurePhase: 'verify',
+            promotion: {
+                status: 'needs-manual',
+                packageName: 'brace-expansion',
+                reason: 'no manifest declares "brace-expansion" as a direct dependency; add it at 2.0.2',
+                checkedFiles: [],
+            },
         })
         nockTwoPackageAlerts()
 
@@ -229,6 +235,8 @@ describe('DependfixApp 版本化 overrides 合批', () => {
         expect(result.actions.filter((a) => a.strategy === 'versioned-override' && !a.success)).toHaveLength(0)
         expect(result.summary.alertsSkippedByReason['peer-only']).toBe(4)
         expect(result.summary.alertsFailed).toBe(0)
+        // 合批（≥2 plan）边界：peer-only 包只记跳过、不落提升动作（提升不适用于整批回滚后的多包形态）
+        expect(result.actions.filter((a) => a.noOp === true)).toHaveLength(0)
         expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('不可自动修复形态'))
     })
 

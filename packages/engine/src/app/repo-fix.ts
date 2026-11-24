@@ -43,6 +43,7 @@ import { tryBatchVersionedOverrides, type VersionedOverrideBatchItem } from './r
 import { fetchDefaultBranch, fetchRepoAlerts, truncatedWarning } from './repo-alerts'
 import { alertsFetchTokenHint } from './token-hints'
 import { markEnvironmentalInstallFailure } from './environmental-failure'
+import { recordPeerOnlyManualReview } from './peer-only-outcome'
 import { recordConvergedAlerts, recordSkippedAlerts } from './alert-outcomes'
 import { recordUpgradeFailure } from './upgrade-failure'
 import {
@@ -546,6 +547,8 @@ async function applyLockfileFixes(
             strategy: 'versioned-override',
             success: result.success,
             error: result.error,
+            // peer-only 回退提升成功：细节列展示提升点（manifest 文件）
+            ...(result.success && result.promotion?.status === 'promoted' ? { filePath: result.promotion.manifestFile } : {}),
             durationMs: 0,
         }
         if (!result.success) {
@@ -566,12 +569,8 @@ async function applyLockfileFixes(
                 break
             }
             if (result.manualReview) {
-                // 无法通过 overrides 自动修复（当前仅 peer-only 实例）：已回滚，记跳过而非失败动作，
-                // 同包告警按告警级明细同步（与 convergent 计数口径一致）。
-                const packageAlerts = multiVersionAlerts.filter((a) => a.packageName === alert.packageName)
-                addSkipped(ctx.summary, 'peer-only', packageAlerts.length)
-                recordSkippedAlerts(ctx, packageAlerts, 'peer-only')
-                ctx.logger.warn(`[multi-version] ${alert.packageName}: ${result.error ?? 'manual review required'}`)
+                // peer-only 且提升不可用 / 未覆盖：记跳过 + 一条 noOp 动作（判据含文件与版本建议，见 action.error）
+                recordPeerOnlyManualReview(ctx, action, multiVersionAlerts.filter((a) => a.packageName === alert.packageName), result.error)
                 continue
             }
             ctx.allActions.push(action)

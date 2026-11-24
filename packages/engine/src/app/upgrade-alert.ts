@@ -111,6 +111,11 @@ export async function upgradeAlert(
         if (result.success && result.warning) {
             logger.warn(`[upgrade] ${result.packageName}: ${result.warning}`)
         }
+        // peer-only 回退成功：细节列展示提升点（manifest 文件），与 override 路径的成功动作区分。
+        // 仅「已提升」带 filePath；需人工态的判据走 error 文本（避免把未改动的文件标成提升点）。
+        const promotionPath = result.success && result.promotion?.status === 'promoted'
+            ? result.promotion.manifestFile
+            : undefined
 
         if (!result.success && result.manualReview) {
             // peer-only 等不可自动修复形态：记跳过而非失败动作（与版本化 overrides 路径同口径），
@@ -148,6 +153,7 @@ export async function upgradeAlert(
             strategy,
             success: result.success,
             error: result.error,
+            ...(promotionPath ? { filePath: promotionPath } : {}),
             durationMs: Date.now() - startMs,
             ...environmentalMark,
         }

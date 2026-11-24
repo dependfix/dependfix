@@ -72,10 +72,12 @@ DATA_DIR_CANON="$(check_dir_path DATA_DIR "$DATA_DIR")"
 HOME_DIR_CANON="$(check_dir_path HOME "$HOME_DIR")"
 
 # ---- pnpm store 持久化（跨 run 复用 content-addressable store）----
-# 目标仓库依赖安装由 pnpm 执行，store 默认落在 $HOME/.local/share/pnpm/store——容器重建 / HOME 未持久化
-# 时每次运行都是冷安装（弱网 / 大仓下单次安装容易撞上安装超时）。默认把 store 放进数据卷
-# （$DATA_DIR/pnpm-store）：与 run 工作目录同卷，可硬链接复用、不额外占一份磁盘（跨文件系统只退化
-# 为复制，仍能免去重复下载）。
+# 目标仓库依赖安装由 pnpm 执行。不给 storeDir 时 pnpm 按「一文件系统一份 store」自行选择：安装目录所在
+# 文件系统的挂载点根（默认部署下即 $DATA_DIR/.pnpm-store，不是 $HOME）；仅当工作区与 HOME 同文件系统时
+# 才用 $HOME/.local/share/pnpm/store——镜像里 HOME 在镜像层，容器重建即冷安装（弱网 / 大仓下单次安装
+# 容易撞上安装超时）。
+# 默认把 store 固定到数据卷内的 $DATA_DIR/pnpm-store：与 run 工作目录同卷，可硬链接复用、不额外占一份
+# 磁盘（跨文件系统只退化为复制，仍能免去重复下载）。
 # 显式设置 PNPM_CONFIG_STORE_DIR 时尊重用户值（必须为绝对路径）；目录不可用（只读挂载 / 宿主未授权）
 # 时 warn 并回退 pnpm 默认位置（同时清空变量，避免 pnpm 仍读到不可用路径），不阻断启动。
 STORE_DIR="${PNPM_CONFIG_STORE_DIR:-${DATA_DIR_CANON}/pnpm-store}"
@@ -115,19 +117,19 @@ store_writable() {
 activate_pnpm_store() {
     case "$STORE_DIR" in
         ""|"/")
-            echo "warn: pnpm store 目录不能是根路径（当前 '$STORE_DIR'），回退 pnpm 默认位置" >&2
+            echo "warn: pnpm store 目录不能是根路径（当前 '$STORE_DIR'），回退 pnpm 默认位置（pnpm 自选落点，默认部署下为 $DATA_DIR_CANON/.pnpm-store）" >&2
             unset PNPM_CONFIG_STORE_DIR
             return 0
             ;;
         /*) : ;;
         *)
-            echo "warn: pnpm store 目录必须是绝对路径（当前 '$STORE_DIR'），回退 pnpm 默认位置" >&2
+            echo "warn: pnpm store 目录必须是绝对路径（当前 '$STORE_DIR'），回退 pnpm 默认位置（pnpm 自选落点，默认部署下为 $DATA_DIR_CANON/.pnpm-store）" >&2
             unset PNPM_CONFIG_STORE_DIR
             return 0
             ;;
     esac
     if [ ! -d "$STORE_DIR" ]; then
-        echo "warn: pnpm store 目录 $STORE_DIR 不存在（创建失败），回退 pnpm 默认位置（每次运行冷安装）" >&2
+        echo "warn: pnpm store 目录 $STORE_DIR 不存在（创建失败），回退 pnpm 默认位置（pnpm 自选落点，默认部署下为 $DATA_DIR_CANON/.pnpm-store；每次运行冷安装）" >&2
         unset PNPM_CONFIG_STORE_DIR
         return 0
     fi
@@ -136,9 +138,39 @@ activate_pnpm_store() {
         echo "[entrypoint] pnpm store: $STORE_DIR"
         return 0
     fi
-    echo "warn: pnpm store 目录 $STORE_DIR 对运行身份不可写（只读挂载或权限不足），回退 pnpm 默认位置（每次运行冷安装）" >&2
+    echo "warn: pnpm store 目录 $STORE_DIR 对运行身份不可写（只读挂载或权限不足），回退 pnpm 默认位置（pnpm 自选落点，默认部署下为 $DATA_DIR_CANON/.pnpm-store；每次运行冷安装）" >&2
     unset PNPM_CONFIG_STORE_DIR
     return 0
+}
+
+# ---- 遗留 pnpm store 检出（只告警，不删除）----
+# 受管 store 上线（2026-10-24）之前，pnpm 按「一文件系统一份 store」把 store 建在数据卷挂载点根；默认部署
+# （DATA_DIR 即挂载点根）下即 $DATA_DIR/.pnpm-store。升级时既未迁移也未清理，同一批依赖在受管目录与遗留
+# 目录各存一份，数据卷占用可能翻倍（两个目录名只差一个前导点，人工很难发现）。根因 / 判据 / 清理 runbook
+# 见 docs/design/governance/pnpm-store-hygiene.md。
+# 边界（该文 §3 I2「检出优先于删除」）：入口只读检出并打印一条 warn，不删除、不 prune、不建目录、不写入；
+# 以 root 启动时既有的数据卷属主归一化（chown -R $DATA_DIR）仍覆盖整个卷，不排除该目录，属既有行为。
+# 探测失败（目录不存在或不可读）按「无遗留」处理，fail-open 不阻断启动。
+# 仅在**受管 store 真正生效**时提示——一旦落进回退分支，该目录就是 pnpm 当前落点，属「正在使用」而非遗留，
+# 此时由上面的回退 warn 负责说明。
+LEGACY_STORE_DIR="$DATA_DIR_CANON/.pnpm-store"
+report_legacy_pnpm_store() {
+    [ -n "$STORE_DIR" ] || return 0
+    [ "${PNPM_CONFIG_STORE_DIR:-}" = "$STORE_DIR" ] || return 0
+    [ -d "$LEGACY_STORE_DIR" ] || return 0
+    # 精确同路径（含尾斜杠）先快速跳过：readlink 不可用时这里是唯一防线
+    case "$STORE_DIR" in
+        "$LEGACY_STORE_DIR"|"$LEGACY_STORE_DIR/") return 0 ;;
+    esac
+    # 等价路径不算双份：./ 段 / 软链都可能让受管 store 落回同一物理目录，此时告警给的删除命令会指向
+    # 正在使用的 store。两个目录此时都存在，按解析后的真实路径比较；readlink 失败（返回空）则不比较，
+    # 保守方向是多提示一条告警而不是漏报。
+    store_real="$(readlink -f "$STORE_DIR" 2>/dev/null || true)"
+    legacy_real="$(readlink -f "$LEGACY_STORE_DIR" 2>/dev/null || true)"
+    if [ -n "$store_real" ] && [ "$store_real" = "$legacy_real" ]; then
+        return 0
+    fi
+    echo "warn: 检出遗留 pnpm store ${LEGACY_STORE_DIR}（与受管 store ${STORE_DIR} 并存，会重复占用磁盘；pnpm 在受管 store 上线前自行建在数据卷挂载点根）。入口不会自动删除：先核对体积 du -sh \"${LEGACY_STORE_DIR}\"，确认无运行中任务后按单一明确路径删除 rm -rf \"${LEGACY_STORE_DIR}\"（判据与 runbook 见 docs/design/governance/pnpm-store-hygiene.md；清理前用 pnpm store path 确认它不是当前受管 store）" >&2
 }
 
 # ---- 进程级日志文件通道（日志落数据卷）----
@@ -347,6 +379,7 @@ if [ "$(id -u)" != "0" ]; then
     [ -w "$HOME_DIR_CANON" ] || echo "warn: $HOME_DIR_CANON not writable by uid $(id -u); pnpm/npm cache may fail (pre-authorize the volume + HOME)" >&2
     prepare_pnpm_store
     activate_pnpm_store
+    report_legacy_pnpm_store
     prepare_log_dir
     run_platform "" "$@"
 fi
@@ -362,6 +395,7 @@ done
 
 prepare_pnpm_store
 activate_pnpm_store
+report_legacy_pnpm_store
 prepare_log_dir
 
 # 降权执行；su-exec 缺失属构建损坏（构建期 apk add 固定安装），fail-closed 拒绝以 root 运行

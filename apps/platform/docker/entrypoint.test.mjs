@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process'
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -156,11 +156,34 @@ const waitFor = async (predicate, { timeout = 5000, interval = 10 } = {}) => {
 }
 
 const waitExit = (handle) => {
-    if (handle.exited) {
-        return Promise.resolve(handle.exited)
-    }
-    return new Promise((resolve) => {
-        handle.child.on('exit', (code, signal) => resolve({ code, signal }))
+    const exit = handle.exited
+        ? Promise.resolve(handle.exited)
+        : new Promise((resolve) => {
+            handle.child.on('exit', (code, signal) => resolve({ code, signal }))
+        })
+    // `exit` 早于 stdio 关闭：短命令的尾部输出可能还没进入 output()。等两个管道 close（上限 200ms，
+    // 后台子进程可能继承管道导致迟迟不关）再返回，避免「恰一条 warn」这类计数断言偶发少一条。
+    return exit.then(async (result) => {
+        await Promise.race([
+            new Promise((resolve) => {
+                let pending = 2
+                const settle = () => {
+                    pending -= 1
+                    if (pending === 0) {
+                        resolve()
+                    }
+                }
+                for (const stream of [handle.child.stdout, handle.child.stderr]) {
+                    if (stream.readableEnded) {
+                        settle()
+                    } else {
+                        stream.once('close', settle)
+                    }
+                }
+            }),
+            new Promise((resolve) => setTimeout(resolve, 200)),
+        ])
+        return result
     })
 }
 
@@ -541,6 +564,146 @@ describe.skipIf(skipOnWindows)('entrypoint.sh pnpm store 持久化', () => {
         expect(code).toBe(0)
         expect(handle.output()).toContain('对运行身份不可写')
         expect(handle.output()).toContain('store=[]')
+    })
+
+    it('回退文案给出 pnpm 实际落点（数据卷挂载点根 .pnpm-store），不再声称 $HOME', async () => {
+        const dataDir = mkdtempSync(join(tmpdir(), 'entrypoint-data-'))
+        try {
+            const handle = start({
+                stub: 'echo "store=[$PNPM_CONFIG_STORE_DIR]"',
+                env: { DEPENDFIX_QUEUE_WORKER: '0', DATA_DIR: dataDir, PNPM_CONFIG_STORE_DIR: '/' },
+            })
+            const { code } = await waitExit(handle)
+
+            expect(code).toBe(0)
+            expect(handle.output()).toContain('回退 pnpm 默认位置')
+            expect(handle.output()).toContain(`默认部署下为 ${join(dataDir, '.pnpm-store')}`)
+            expect(handle.output()).not.toContain('$HOME')
+        } finally {
+            rmSync(dataDir, { recursive: true, force: true })
+        }
+    })
+
+    describe('遗留 .pnpm-store 检出', () => {
+        it('数据卷根存在遗留目录：单次启动恰一条 warn、含路径与清理命令、不改动该目录', async () => {
+            const dataDir = mkdtempSync(join(tmpdir(), 'entrypoint-data-'))
+            const legacyDir = join(dataDir, '.pnpm-store')
+            mkdirSync(legacyDir)
+            writeFileSync(join(legacyDir, 'blob'), 'keep')
+            try {
+                const handle = start({
+                    stub: 'echo "store=[$PNPM_CONFIG_STORE_DIR]"',
+                    env: { DEPENDFIX_QUEUE_WORKER: '0', DATA_DIR: dataDir },
+                })
+                const { code } = await waitExit(handle)
+                const output = handle.output()
+                const managedDir = join(dataDir, 'pnpm-store')
+
+                expect(code).toBe(0)
+                expect(output.split('遗留 pnpm store').length - 1).toBe(1)
+                expect(output).toContain(legacyDir)
+                expect(output).toContain(managedDir)
+                expect(output).toContain(`du -sh "${legacyDir}"`)
+                expect(output).toContain(`rm -rf "${legacyDir}"`)
+                // 只检出：内容不变、无新增探针文件、受管 store 照常建立
+                expect(readdirSync(legacyDir)).toEqual(['blob'])
+                expect(readFileSync(join(legacyDir, 'blob'), 'utf-8')).toBe('keep')
+                expect(existsSync(managedDir)).toBe(true)
+            } finally {
+                rmSync(dataDir, { recursive: true, force: true })
+            }
+        })
+
+        it('root 启动（compose 默认形态）同样检出：恰一条 warn 且受管 store 建立', async () => {
+            const dataDir = mkdtempSync(join(tmpdir(), 'entrypoint-data-'))
+            mkdirSync(join(dataDir, '.pnpm-store'))
+            try {
+                const handle = start({
+                    rootUid: true,
+                    stub: 'echo "store=[$PNPM_CONFIG_STORE_DIR]"',
+                    env: { DEPENDFIX_QUEUE_WORKER: '0', DATA_DIR: dataDir },
+                })
+                const { code } = await waitExit(handle)
+                const output = handle.output()
+
+                expect(code).toBe(0)
+                expect(output.split('遗留 pnpm store').length - 1).toBe(1)
+                expect(output).toContain(join(dataDir, '.pnpm-store'))
+                expect(existsSync(join(dataDir, 'pnpm-store'))).toBe(true)
+                // 不得额外对该目录 mkdir / 显式 chown（chown -R 数据卷属既有行为，见设计 §3 I2）
+                const suexecLog = readFileSync(join(handle.root, 'suexec.log'), 'utf-8')
+                expect(suexecLog).not.toContain('.pnpm-store')
+                expect(readFileSync(join(handle.root, 'chown.log'), 'utf-8')).not.toContain('.pnpm-store')
+            } finally {
+                rmSync(dataDir, { recursive: true, force: true })
+            }
+        })
+
+        it('不存在遗留目录时不输出遗留告警', async () => {
+            const handle = start({
+                stub: 'echo "store=[$PNPM_CONFIG_STORE_DIR]"',
+                env: { DEPENDFIX_QUEUE_WORKER: '0' },
+            })
+            expect((await waitExit(handle)).code).toBe(0)
+            expect(handle.output()).not.toContain('遗留 pnpm store')
+        })
+
+        it('受管 store 显式指向该目录时不算遗留（不告警）', async () => {
+            const dataDir = mkdtempSync(join(tmpdir(), 'entrypoint-data-'))
+            const legacyDir = join(dataDir, '.pnpm-store')
+            mkdirSync(legacyDir, { recursive: true })
+            try {
+                const handle = start({
+                    stub: 'echo "store=[$PNPM_CONFIG_STORE_DIR]"',
+                    env: { DEPENDFIX_QUEUE_WORKER: '0', DATA_DIR: dataDir, PNPM_CONFIG_STORE_DIR: legacyDir },
+                })
+                const { code } = await waitExit(handle)
+
+                expect(code).toBe(0)
+                expect(handle.output()).toContain(`store=[${legacyDir}]`)
+                expect(handle.output()).not.toContain('遗留 pnpm store')
+            } finally {
+                rmSync(dataDir, { recursive: true, force: true })
+            }
+        })
+
+        it('等价路径形态（尾斜杠 / ./ 段 / 软链）不算遗留：告警给出的删除命令不得指向正在使用的 store', async () => {
+            const dataDir = mkdtempSync(join(tmpdir(), 'entrypoint-data-'))
+            const legacyDir = join(dataDir, '.pnpm-store')
+            mkdirSync(legacyDir)
+            symlinkSync(legacyDir, join(dataDir, 'link-store'))
+            try {
+                const variants = [`${legacyDir}/`, `${dataDir}/./.pnpm-store`, join(dataDir, 'link-store')]
+                for (const storeDir of variants) {
+                    const handle = start({
+                        stub: 'echo "store=[$PNPM_CONFIG_STORE_DIR]"',
+                        env: { DEPENDFIX_QUEUE_WORKER: '0', DATA_DIR: dataDir, PNPM_CONFIG_STORE_DIR: storeDir },
+                    })
+                    expect((await waitExit(handle)).code).toBe(0)
+                    expect(handle.output()).not.toContain('遗留 pnpm store')
+                }
+            } finally {
+                rmSync(dataDir, { recursive: true, force: true })
+            }
+        })
+
+        it('回退发生时该目录是 pnpm 当前落点：只报回退，不报遗留', async () => {
+            const dataDir = mkdtempSync(join(tmpdir(), 'entrypoint-data-'))
+            mkdirSync(join(dataDir, '.pnpm-store'), { recursive: true })
+            try {
+                const handle = start({
+                    stub: 'echo "store=[$PNPM_CONFIG_STORE_DIR]"',
+                    env: { DEPENDFIX_QUEUE_WORKER: '0', DATA_DIR: dataDir, PNPM_CONFIG_STORE_DIR: 'relative-store' },
+                })
+                const { code } = await waitExit(handle)
+
+                expect(code).toBe(0)
+                expect(handle.output()).toContain('回退 pnpm 默认位置')
+                expect(handle.output()).not.toContain('遗留 pnpm store')
+            } finally {
+                rmSync(dataDir, { recursive: true, force: true })
+            }
+        })
     })
 
     it('日志目录默认跟随数据卷并导出 LOG_DIR', async () => {

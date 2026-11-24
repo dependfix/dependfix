@@ -5,7 +5,7 @@
 // - 其余（含无诊断文本）→ 仅降级到整仓回滚，继续交付
 // - 两条路径都必须留下 stderr 尾部 + `git status --porcelain` + `git rev-parse HEAD` 快照
 import { execSync } from 'node:child_process'
-import { mkdtempSync, rmSync } from 'node:fs'
+import { mkdtempSync, rmSync, utimesSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -151,5 +151,152 @@ describe('recordVerificationCheckpoint 失败处理', () => {
             .toContain('workspace not usable for rollback')
         // 逐单元重试仍逐次留日志（审计去重只作用于报告面）
         expect((ctx.logger.warn as unknown as { mock: { calls: unknown[] } }).mock.calls.length).toBeGreaterThanOrEqual(2)
+    })
+})
+
+// ---------------------------------------------------------------------------
+// 非 freshLock 的未知失败：一次有界重试
+// ---------------------------------------------------------------------------
+
+/** 按调用序返回 stash create 结果；其余命令给固定快照（含 git 版本）。 */
+const mockStashSequence = (
+    results: Array<{ stdout?: string, stderr?: string, code?: number }>,
+    gitDir?: string,
+): void => {
+    let index = 0
+    mockRunGit.mockImplementation(async (args: string[]) => {
+        const command = args.join(' ')
+        const ok = (stdout: string) => ({ stdout, stderr: '', code: 0, timedOut: false, aborted: false, started: true, truncated: false })
+        if (command.startsWith('stash create')) {
+            const step = results[Math.min(index, results.length - 1)]!
+            index += 1
+            return {
+                stdout: step.stdout ?? '',
+                stderr: step.stderr ?? '',
+                code: step.code ?? (step.stdout === undefined ? 1 : 0),
+                timedOut: false,
+                aborted: false,
+                started: true,
+                truncated: false,
+            }
+        }
+        if (command === 'status --porcelain') {
+            return ok(' M package.json\n')
+        }
+        if (command === 'rev-parse HEAD') {
+            return ok('deadbeefcafe\n')
+        }
+        if (command === '--version') {
+            return ok('git version 2.43.0\n')
+        }
+        if (command === 'rev-parse --absolute-git-dir') {
+            return gitDir ? ok(`${gitDir}\n`) : { stdout: '', stderr: '', code: 1, timedOut: false, aborted: false, started: true, truncated: false }
+        }
+        return { stdout: '', stderr: '', code: 1, timedOut: false, aborted: false, started: true, truncated: false }
+    })
+}
+
+const stashCreateCalls = (): number => mockRunGit.mock.calls
+    .filter((call) => ((call as unknown[])[0] as string[]).join(' ').startsWith('stash create')).length
+
+describe('recordVerificationCheckpoint 非 freshLock 未知失败的有界重试', () => {
+    let workDir: string
+    let ctx: RepoFixCtx
+    const progress = {
+        alertsCount: 1, fixable: 1, fixed: 0, failed: 0,
+        lockfileRepaired: false, verificationPassed: undefined, verificationBlocking: undefined, defaultBranch: 'main',
+    }
+
+    beforeEach(() => {
+        resetProcessControlState()
+        mockRunGit.mockReset()
+        workDir = mkdtempSync(join(tmpdir(), 'dependfix-checkpoint-retry-'))
+        execSync('git init -q', { cwd: workDir })
+        execSync('git config user.name test', { cwd: workDir })
+        execSync('git config user.email test@test', { cwd: workDir })
+        execSync('git commit -q --allow-empty -m init', { cwd: workDir })
+        ctx = makeCtx(workDir)
+    })
+
+    afterEach(() => {
+        resetProcessControlState()
+        rmSync(workDir, { recursive: true, force: true })
+    })
+
+    it('首次静默失败、重试成功：建立 checkpoint 且不记 unknown 审计', async () => {
+        mockStashSequence([{ code: 1 }, { stdout: 'stash-hash\n', code: 0 }])
+        const startedAt = Date.now()
+
+        const checkpoint = await recordVerificationCheckpoint(ctx, 'foo/bar', progress, 'unit-a')
+        const elapsed = Date.now() - startedAt
+
+        expect(checkpoint?.id).toBe('stash-hash')
+        expect(stashCreateCalls()).toBe(2)
+        // 预算：一次重试 = LOCK_RETRY_DELAY_MS(250ms)；留足 CI 抖动余量
+        expect(elapsed).toBeLessThan(1_000)
+        expect(ctx.allErrors.filter((error) => error.category === 'ROLLBACK_GRANULARITY_DEGRADED')).toHaveLength(0)
+        expect(ctx.verificationCheckpoints).toHaveLength(1)
+    })
+
+    it('重试仍失败：审计含 retried=once / 失败命令回显 / git 版本', async () => {
+        mockStashSequence([{ code: 1 }])
+
+        const checkpoint = await recordVerificationCheckpoint(ctx, 'foo/bar', progress, 'unit-a')
+
+        expect(checkpoint).toBeUndefined()
+        expect(stashCreateCalls()).toBe(2)
+        const entry = ctx.allErrors.find((error) => error.category === 'ROLLBACK_GRANULARITY_DEGRADED')
+        expect(entry?.message).toContain('retried=once')
+        expect(entry?.message).toContain('command=git stash create dependfix:foo/bar:unit-a')
+        expect(entry?.message).toContain('git=git version 2.43.0')
+    })
+
+    it('确定形态（权限）不重试：只调用一次 stash create', async () => {
+        mockStashSequence([{ stderr: 'error: unable to write file: Permission denied', code: 1 }])
+
+        await recordVerificationCheckpoint(ctx, 'foo/bar', progress, 'unit-a')
+
+        expect(stashCreateCalls()).toBe(1)
+        expect(isAbortRequested()).toBe(true)
+    })
+
+    it('新鲜索引锁：按 freshLock 重试一次（与 unknown 共用预算）', async () => {
+        // 真实新建的 index.lock → 探针判 freshLock；stash create 静默失败
+        writeFileSync(join(workDir, '.git', 'index.lock'), '')
+        mockStashSequence([{ code: 1 }], join(workDir, '.git'))
+
+        await recordVerificationCheckpoint(ctx, 'foo/bar', progress, 'unit-a')
+
+        expect(stashCreateCalls()).toBe(2)
+        expect(isAbortRequested()).toBe(true)
+        const entry = ctx.allErrors.find((error) => error.category === 'ROLLBACK_GRANULARITY_DEGRADED')
+        expect(entry?.message).toContain('retried=once')
+        expect(entry?.message).toContain('(index-lock)')
+    })
+
+    it('非新鲜索引锁（旧 mtime）：不重试，直接降级为中止档', async () => {
+        const lockPath = join(workDir, '.git', 'index.lock')
+        writeFileSync(lockPath, '')
+        const old = new Date(Date.now() - 60_000)
+        utimesSync(lockPath, old, old)
+        mockStashSequence([{ code: 1 }], join(workDir, '.git'))
+
+        await recordVerificationCheckpoint(ctx, 'foo/bar', progress, 'unit-a')
+
+        expect(stashCreateCalls()).toBe(1)
+        expect(isAbortRequested()).toBe(true)
+        const entry = ctx.allErrors.find((error) => error.category === 'ROLLBACK_GRANULARITY_DEGRADED')
+        expect(entry?.message).toContain('retried=no')
+    })
+
+    it('首轮有诊断文本、次轮静默：证据保留首轮 stderr', async () => {
+        mockStashSequence([{ stderr: 'fatal: unable to create thread', code: 1 }, { code: 1 }])
+
+        await recordVerificationCheckpoint(ctx, 'foo/bar', progress, 'unit-a')
+
+        expect(stashCreateCalls()).toBe(2)
+        const entry = ctx.allErrors.find((error) => error.category === 'ROLLBACK_GRANULARITY_DEGRADED')
+        expect(entry?.message).toContain('stderr=fatal: unable to create thread')
+        expect(entry?.message).toContain('retried=once')
     })
 })

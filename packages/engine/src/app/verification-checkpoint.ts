@@ -147,11 +147,12 @@ const describeStashFailure = (stash: { code: number | null, timedOut: boolean, a
     return `git stash create exited with code ${stash.code}`
 }
 
-/** 采集失败现场（工作区状态 + HEAD）；采集自身失败记 `(unavailable)`，不抛错。 */
-const captureCheckpointEvidence = async (ctx: RepoFixCtx): Promise<{ status: string, head: string }> => {
-    const [status, head] = await Promise.all([
+/** 采集失败现场（工作区状态 + HEAD + git 版本）；采集自身失败记 `(unavailable)`，不抛错。 */
+const captureCheckpointEvidence = async (ctx: RepoFixCtx): Promise<{ status: string, head: string, gitVersion: string }> => {
+    const [status, head, version] = await Promise.all([
         runGit(['status', '--porcelain'], { cwd: ctx.workDir, timeoutMs: EVIDENCE_TIMEOUT_MS }),
         runGit(['rev-parse', 'HEAD'], { cwd: ctx.workDir, timeoutMs: EVIDENCE_TIMEOUT_MS }),
+        runGit(['--version'], { cwd: ctx.workDir, timeoutMs: EVIDENCE_TIMEOUT_MS }),
     ])
     // porcelain 行首空格有语义（` M` = 工作区改动）；多行压单行，保留开头（最相关条目在前）
     const statusText = status.started && status.code === 0
@@ -164,6 +165,7 @@ const captureCheckpointEvidence = async (ctx: RepoFixCtx): Promise<{ status: str
     return {
         status: statusText,
         head: head.started && head.code === 0 ? head.stdout.trim() : '(unavailable)',
+        gitVersion: version.started && version.code === 0 ? version.stdout.trim() : '(unavailable)',
     }
 }
 
@@ -240,27 +242,44 @@ export const recordVerificationCheckpoint = async (
             return undefined
         }
         // stash create 失败可能完全静默（索引锁 / 权限）：先探测工作区，再决定是否重试一次
-        let probe: CheckpointProbe = !stash.stdout.trim() && stash.code !== 0
-            ? await probeWorktreeHealth(ctx)
-            : {}
-        if (probe.freshLock) {
-            await delay(LOCK_RETRY_DELAY_MS)
-            stash = await runGit(['stash', 'create', stashLabel], { cwd: ctx.workDir })
-            if (!stash.started) {
-                return undefined
+        const stashFailed = (result: typeof stash): boolean => !result.stdout.trim() && result.code !== 0
+        let probe: CheckpointProbe = stashFailed(stash) ? await probeWorktreeHealth(ctx) : {}
+        // 首轮失败文本单独留存：重试会覆盖 `stash`，而「首轮有诊断、次轮静默」正是需要判读的现场
+        const firstStderr = stash.stderr
+        let retried = false
+        if (stashFailed(stash)) {
+            const failure = resolveCheckpointFailure(
+                classifyCheckpointFailure({ stderr: stash.stderr, stdout: stash.stdout }),
+                probe.cause,
+            )
+            // 两种形态各补一次有界重试，共用同一预算（LOCK_RETRY_DELAY_MS），不放大执行成本：
+            // - 新鲜索引锁：并发 git 的短锁，等一次通常即释放；
+            // - 非锁的未知原因（无诊断文本 / 探针无结论）：多为瞬时索引状态，重试即可区分
+            //   「偶发失败」与「真实降级」，避免把可用的 checkpoint 能力直接记为 unknown。
+            // 权限 / 磁盘 / 非新鲜索引锁属确定形态，不重试（重试只会重复同一失败）。
+            if (probe.freshLock || failure.cause === 'unknown') {
+                retried = true
+                await delay(LOCK_RETRY_DELAY_MS)
+                stash = await runGit(['stash', 'create', stashLabel], { cwd: ctx.workDir })
+                if (!stash.started) {
+                    return undefined
+                }
+                probe = stashFailed(stash) ? await probeWorktreeHealth(ctx) : {}
             }
-            probe = !stash.stdout.trim() && stash.code !== 0 ? await probeWorktreeHealth(ctx) : {}
         }
         let id = stash.stdout.trim()
         if (!id && stash.code !== 0) {
             const detail = `${describeStashFailure(stash)}${probe.detail ? `; ${probe.detail}` : ''}`
+            const evidenceStderr = firstStderr.trim() !== '' ? firstStderr : stash.stderr
             recordCheckpointFailure(ctx, repo, label, {
                 classification: resolveCheckpointFailure(
                     classifyCheckpointFailure({ stderr: stash.stderr, stdout: stash.stdout }),
                     probe.cause,
                 ),
                 detail,
-                stderr: tail(stash.stderr.trim(), 400),
+                stderr: tail(evidenceStderr.trim(), 400),
+                command: stashLabel,
+                retried,
                 evidence: await captureCheckpointEvidence(ctx),
             })
             return undefined
@@ -298,6 +317,8 @@ export const recordVerificationCheckpoint = async (
             classification: resolveCheckpointFailure(classifyCheckpointFailure({ message }), probe.cause),
             detail: `${message}${probe.detail ? `; ${probe.detail}` : ''}`,
             stderr: tail((error instanceof GitCommandError ? error.stderr.trim() : ''), 400),
+            command: `dependfix:${repo}:${label}`,
+            retried: false,
             evidence: await captureCheckpointEvidence(ctx),
         })
         return undefined
@@ -317,10 +338,14 @@ const recordCheckpointFailure = (
         classification: CheckpointFailureClassification
         detail: string
         stderr: string
-        evidence: { status: string, head: string }
+        /** 失败命令回显（`git stash create <label>` 的 label 部分） */
+        command?: string
+        /** 是否已消耗一次有界重试 */
+        retried?: boolean
+        evidence: { status: string, head: string, gitVersion: string }
     },
 ): void => {
-    const { classification, detail, stderr, evidence } = info
+    const { classification, detail, stderr, command, retried, evidence } = info
     ctx.logger.warn(
         `[rollback] failed to create verification checkpoint for ${repo} (${label}): `
         + `${classification.cause} — ${detail}`,
@@ -337,7 +362,7 @@ const recordCheckpointFailure = (
         repository: repo,
         stage: 'verify',
         category: 'ROLLBACK_GRANULARITY_DEGRADED',
-        message: `Unit-level rollback degraded to repository-level rollback: checkpoint creation failed (${classification.cause}) — ${detail}; evidence: stderr=${stderr || '(empty)'}, status=${evidence.status}, head=${evidence.head}${abortNote}`,
+        message: `Unit-level rollback degraded to repository-level rollback: checkpoint creation failed (${classification.cause}) — ${detail}; evidence: command=git stash create ${command ?? '(unknown)'}, retried=${retried === true ? 'once' : 'no'}, git=${evidence.gitVersion}, stderr=${stderr || '(empty)'}, status=${evidence.status}, head=${evidence.head}${abortNote}`,
     })
     if (classification.tier === 'abort') {
         const reason = `checkpoint creation failed (${classification.cause}) for ${repo}: `

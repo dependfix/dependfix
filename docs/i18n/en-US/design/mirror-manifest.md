@@ -127,6 +127,7 @@
 | `docs/design/governance/platform-public-api.md` | 未重译（结构映射口径见文档规范 §6；全量镜像属 1.0 后评估项） |
 | `docs/design/governance/platform-scheduled-batch-rollout.md` | 记录 / 落地分片（随主文档演进，暂不翻译） |
 | `docs/design/governance/platform-scheduled-batch.md` | 未重译（结构映射口径见文档规范 §6；全量镜像属 1.0 后评估项） |
+| `docs/design/governance/pnpm-store-hygiene.md` | 未重译（结构映射口径见文档规范 §6；全量镜像属 1.0 后评估项） |
 | `docs/design/governance/pr-build-deploy-signals.md` | 未重译（结构映射口径见文档规范 §6；全量镜像属 1.0 后评估项） |
 | `docs/design/governance/pr-delivery-closure.md` | 未重译（结构映射口径见文档规范 §6；全量镜像属 1.0 后评估项） |
 | `docs/design/governance/pr-delivery-closure-history.md` | 未重译（§13-§16 决策 / 边界 / 历史实证；随主档不镜像） |

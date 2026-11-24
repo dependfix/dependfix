@@ -46,7 +46,7 @@
 | 大条目 | 小条目 | 状态 | 提交 | 审计 | 容量 |
 |:--|:--|:--|:--|:--|:--|
 | M66.1 peer-only 同 major 回退 | — | ✅ 已闭环（2026-11-24） | `b95754ed`..`0c247c7c`（3，含文档） | fixer deep R1 Reject → R2 Reject → R3 Reject → R4 Pass；编排 deep R1 Pass → R2 Pass | 计划 3-4 commits / 6-9 files / 250-450 行；实际 3 commits / 13 files / +1,626 −39（超 files / 行预算，新增模块 + 夹具密集型用例；已按 fixer / 编排 / 文档三批分提交） |
-| M66.3 checkpoint 非 `freshLock` unknown 处置 | — | ⬜ 待开始 | — | — | 2-3 commits / 4-6 files / 120-220 行 |
+| M66.3 checkpoint 非 `freshLock` unknown 处置 | — | ✅ 已闭环（2026-11-24） | 2（代码 / 文档） | standard R1 Pass（0B / 3W / 3S，W1-W3 + S1/S2 已收口） | 计划 2-3 commits / 4-6 files / 120-220 行；实际 2 commits / 4 files / +183 −18 |
 | M66.4 平台分支回收与 `push_failed` 细分 | — | ⬜ 待开始 | — | — | 3-4 commits / 6-10 files / 250-450 行 |
 | M66.5 验证跳过的交付可观测性 | — | ⬜ 待开始 | — | — | 3-4 commits / 5-8 files / 200-350 行 |
 | M66.6 门户面板左缘亚像素抖动 | — | ⬜ 待开始 | — | — | 2-3 commits / 4-6 files / 150-250 行 |

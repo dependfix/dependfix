@@ -133,7 +133,30 @@
 1. **「`--update-snapshots` 连跑 N 轮即字节稳定」是伪证**。不带值时的 preset 是 `changed`，比较通过时**根本不写盘**（Playwright 1.64 `updateSnapshots: 'changed'` 语义），10 轮"重建"其实是同一个文件的哈希。要取证必须用 `=all` 并同时记录 mtime。
 2. **update 路径写出的帧此前与比对帧不同**：`=all` 重写后立刻比对会 1218-1313 px 失配（`dialog-select-open-{light,dark}` / `repos-{light,dark}`，2026-10-31 实测）。根因是 update 不做比对、直接落首帧，可能落在门户定位 / 字体替换的中间态；`toHaveScreenshot` 自己会重试到连续两帧一致，所以只有 update 路径中招。**处置**：`waitForVisualStable` 增加「连续两帧截图逐字节相同才返回」（`helpers/visual.ts`），修复后全量 `=all` 3 轮快照集合恒定、随后比对 20/20。
 
-**残余风险（未消除，已登记 backlog 候选 P2）**：`dialog-select-open-dark` 仍有 1/10 概率出现 99 px / maxΔ2 的边缘窄带差异（bbox x 476-483 × y 303-723，位于门户面板左缘）。量级低于门禁（`maxDiffPixels` 100 / `threshold` 0.1 → maxDelta 352），但**仅剩 1 px 余量**——若抖动放大即会偶发红。未加遮罩的原因：Playwright 的 `mask` 只能按元素遮罩，遮住面板边缘等于遮住目标内容本身；根因（门户面板定位的亚像素取值）需单独排查，已登记为 backlog 候选（P2：门户面板左缘亚像素抖动，触发条件 = 该基线偶发红或差异放大）。两帧检查口径补充：取帧为**视口级**，`fullPage` 基线（settings / notifications / alerts）折叠线以下区域不在该检查内，仍由 `toHaveScreenshot` 的比对重试兜底；12 × 120ms 上限内未收敛时**告警不抛错**（避免慢机器假红），日志可定位本轮基线可能非稳定帧。
+**残余风险（2026-11-24 复核后订正，见下节）**：`dialog-select-open-dark` 曾有 1/10 概率出现 99 px / maxΔ2 的边缘窄带差异（bbox x 476-483 × y 303-723）。当前栈连续 10 轮真实重录未复现，且几何记录与现布局不符——原「门户面板左缘」归因已被下节订正。量级低于门禁（`maxDiffPixels` 100 / `threshold` 0.1 → maxDelta 352），但**仅剩 1 px 余量**——若抖动放大即会偶发红。未加遮罩的原因：Playwright 的 `mask` 只能按元素遮罩，遮住面板边缘等于遮住目标内容本身；根因（门户面板定位的亚像素取值）需单独排查，已登记为 backlog 候选（P2：门户面板左缘亚像素抖动，触发条件 = 该基线偶发红或差异放大）。两帧检查口径补充：取帧为**视口级**，`fullPage` 基线（settings / notifications / alerts）折叠线以下区域不在该检查内，仍由 `toHaveScreenshot` 的比对重试兜底；12 × 120ms 上限内未收敛时**告警不抛错**（避免慢机器假红），日志可定位本轮基线可能非稳定帧。
+
+
+### 2026-11-24 复现复核与根因订正（`dialog-select-open-*` 亚像素抖动）
+
+**取证协议订正（两条）**
+
+1. **`--update-snapshots=all` 对未变化的快照不写盘**：连续 10 轮直接跑 `=all` 时，`dialog-select-open-dark.png` 的 mtime 与 sha256 全程不变——说明该模式同样走「内容相同则不写」的实现，10 轮"重建"只是同一文件的哈希（与此前对 `changed` preset 的订正同源，见上节「两条订正」①）。
+2. **要拿到真实重录证据，必须让快照缺失**：本轮协议为「删除目标基线 → `=all` 重建 → 记 sha256」，每轮都是新落盘帧。
+
+**复核结果（2026-11-24）**
+
+| 路径 | 轮次 | 结果 |
+| :--- | :--- | :--- |
+| 真实重录（删基线 + `=all`）`dialog-select-open-dark` | 连续 10 轮 | 10/10 sha256 = `805499af…`，与仓库基线**逐字节相同** |
+| 真实重录 `dialog-select-open-light` | 1 轮（与 dark 同批重建） | sha256 = `eceb9881…`，与仓库基线逐字节相同 |
+| 全量比对 | 1 轮 | 24/24 通过（46.7s） |
+| 反例标定（暗色 `--caomei-color-bg-elevated` → `#4b2e83`，重建后比对） | 1 轮 | **失败 275,081 px（22%）**；文件备份还原后复跑 2/2 通过——灵敏度未下降 |
+
+**根因订正**：原记录 bbox `x 476-483 × y 303-723` 与当前几何不一致——当前弹窗 `left=460 / top=67.5`、门户面板 `left=726 / top=265`；`476 = 460 + 16`（弹窗内容 padding），说明该窄带更可能是**弹窗内滚动容器 / 焦点环的边缘**，而非「门户面板左缘」。同时，弹窗垂直居中在奇数高度（765）下 `top` 恒为 `.5px` 分数——但把该 `.5px` 位移注入后截图**逐字节不变**（Chrome 已按设备像素对齐），因此「分数像素直接导致窄带抖动」的假设在当前栈不成立，不再据此引入稳定化代码（避免无证据的测试侧改动）。
+
+**处置与决策**：保持**视口级合成基线**，不加遮罩、不改 `maxDiffPixels` / `threshold`、不改取景口径。若抖动复现，按序取证：① 读本轮 attachment `dialog-select-diagnostics`（panelRect / viewport / DPR 已含）与失败产物 `*-actual.png` / `*-diff.png` 的 bbox；② 比对两次 actual 的 bbox 与 `document.documentElement.clientWidth`（滚动条宽度）；③ 确认是「取帧时序」还是「布局分数」后，再决定是加 `waitForVisualStable` 等待还是改取景。
+
+**残余边界**：① 抖动预算 `maxDiffPixels 100` 意味着这种 99 px 边缘窄带**即使复现也不会红**——它掩盖的是「≤1% 边缘变化」，属已接受的阈值取舍；② 字体栈 / 滚动条样式依赖运行环境，本机与 CI 无法同时覆盖，故「10/10 稳定」只对本轮环境成立；③ 本复核不改任何基线文件（`git status` 中 `__screenshots__` 无变更）。
 
 ### 反例标定记录（新增基线非恒真的证据）
 

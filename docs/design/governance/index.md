@@ -51,7 +51,7 @@
 | [运行结论语义与锁文件前置不变式](./run-conclusion-semantics.md) | 专项治理（无写入语义 / 按包聚合 / 基线已知损坏的锁文件修复 / 收尾异常不翻转成功结论 / 外联审计与违规判失败） | ✅ 已落地（2026-11-13） |
 | [平台页面体量治理与组件 / 组合式分层设计](./platform-page-decomposition.md) | 专项设计（M60：三列表页 max-lines 治理 + 展示块 / 组合式 / 纯函数分层口径） | 🔶 进行中（2026-11-15，M60.1 落地） |
 | [平台对外 API 与远程 MCP 设计](./platform-public-api.md) | 专项设计（日志可消费化 + 只读观测接口 `/api/v1` + `@dependfix/mcp` remote 后端；写能力分两期后置） | ✅ 只读面已实施（2026-11-20；期 3 / 4 后置） |
-| [pnpm store 双份并存与无界增长治理](./pnpm-store-hygiene.md) | 专项治理（per-filesystem store 成因 / 遗留判定 / 清理 runbook / 入口检出告警） | 🩺 诊断完成待实施（2026-11-24 用户授权追加） |
+| [pnpm store 双份并存与无界增长治理](./pnpm-store-hygiene.md) | 专项治理（per-filesystem store 成因 / 遗留判定 / 清理 runbook / 入口检出告警） | ✅ 已落地（2026-11-24，入口检出告警 + zh / en-US 文档更正；一次性清理属运维动作） |
 
 ## 使用约定
 

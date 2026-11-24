@@ -1,6 +1,6 @@
 # pnpm store 双份并存与无界增长治理（2026-11-24）
 
-> 状态：🩺 诊断完成，待实施（2026-11-24 用户判定为严重问题并授权追加；本批只落设计与待办登记，修复见 [todo.md §M66 追加临时待办](../../plan/todo.md#追加临时待办-不占阶段条目编号)）
+> 状态：✅ 已实施（2026-11-24，入口检出告警 + zh / en-US 文档更正；一次性清理仍属运维动作，见 §5.1）
 > 关联：[部署 §pnpm store 与依赖缓存](../../guide/deployment.md#pnpm-store-与依赖缓存) · [配置 `PNPM_CONFIG_STORE_DIR`](../../guide/configuration.md) · [容器入口脚本](../../../apps/platform/docker/entrypoint.sh) · [安全规范 §2.1（备份口径）](../../standards/security.md)
 
 ## 1. 事件与现象
@@ -49,10 +49,10 @@
 
 升级时**既没迁移也没清理**旧 store，同一批目标仓库的依赖在两处各存一份，形成 15.3 GB 的双份占用（逐条重叠率未实测，仅按两份 `du` 之和与「runs 仅 85 MB」推定；量化判据见 §4）。
 
-> 📌 **口径更正**：现有文档有两处表述在数据卷形态下不成立——
-> ① [deployment.md:146](../../guide/deployment.md) 称默认 store「落在 `$HOME/.local/share/pnpm/store`」：默认落点在跨文件系统时是 per-filesystem store（见 2.2），即 `$DATA_DIR/.pnpm-store`；
-> ② [configuration.md:355](../../guide/configuration.md)（en-US 同）称不可用时「回退 `$HOME` 下 pnpm 默认位置」：回退后的实际落点同样是 `$DATA_DIR/.pnpm-store`。
-> [deployment.md:167](../../guide/deployment.md) 的「回退 pnpm 默认位置」措辞本身正确，只需补注实际落点。这也是「回退若仍在发生，第二份会继续增长」的原因。
+> 📌 **口径更正（2026-11-24 已落地）**：本批前有两处表述在数据卷形态下不成立——
+> ① [deployment.md](../../guide/deployment.md) 的「pnpm store 与依赖缓存」节曾称默认 store「落在 `$HOME/.local/share/pnpm/store`」：默认落点在跨文件系统时是 per-filesystem store（见 2.2），即 `$DATA_DIR/.pnpm-store`；
+> ② [configuration.md](../../guide/configuration.md)（en-US 同）的 `PNPM_CONFIG_STORE_DIR` 行曾称不可用时「回退 `$HOME` 下 pnpm 默认位置」：回退后的实际落点同样是 `$DATA_DIR/.pnpm-store`。
+> 两处均已按实际落点改写（同批覆盖 `docker-compose.yml` 与 `.env.full.example` 的注释），[deployment.md](../../guide/deployment.md) 的「回退 pnpm 默认位置」措辞保留并补注实际落点与「双份 store」小节。这也是「回退若仍在发生，第二份会继续增长」的原因。
 
 ### 2.4 单份 store 为什么也能到 8.7 GB
 
@@ -63,7 +63,7 @@
 ## 3. 不变量
 
 - **I1 受管 store 唯一**：数据卷内至多一份受管 store（`$DATA_DIR/pnpm-store`），不得长期存在第二份自动 store。
-- **I2 检出优先于删除**：入口与平台只做检出与告警，**不得**自动删除用户数据目录。
+- **I2 检出优先于删除**：入口与平台只做检出与告警，**不得**自动删除用户数据目录。检出不写入目标目录（不建目录、不 prune、不显式 `chown`）；以 root 启动时既有的数据卷属主归一化（`chown -R $DATA_DIR`）仍覆盖整个卷，不排除该目录——只改属主、不改内容，属既有行为。
 - **I3 清理可判据**：清理前必须确认「`pnpm store path` 指向受管目录」+「无运行中任务」+「目标为单一明确路径」。
 - **I4 文档与实际行为一致**：回退口径、备份排除项必须与 pnpm 实际落点一致，不得沿用「回退到 `$HOME`」的错误表述。
 
@@ -86,10 +86,10 @@
 3. 删除遗留：停容器后按**单一明确路径**删除 `data/.pnpm-store`（先 `du -sh` + `stat` 核对，避免误删受管目录）；
 4. 复核：重启后 `pnpm store path` 仍指向 `/app/data/pnpm-store/v*`，且 `data/.pnpm-store` 不再重建。
 
-### 5.2 防复发（本批次实施范围）
+### 5.2 防复发（本批次实施范围，2026-11-24 已落地）
 
-1. **入口检出告警**：启动时若 `$DATA_DIR/.pnpm-store` 存在且与受管 store 不同，打印 `warn`（含路径、体积提示与清理命令），不自动删除（I2）；回退分支的告警文案同步更正为 pnpm 实际落点（I4）。
-2. **文档同步（zh + en-US）**：`deployment.md §pnpm store 与依赖缓存` 新增「双份 store 成因与判定」，更正 `:146` 的默认落点表述、给 `:167` 补注实际落点，备份示例 `--exclude` 同时覆盖 `./pnpm-store` 与 `./.pnpm-store`；`configuration.md:355` 与 en-US 镜像的 `PNPM_CONFIG_STORE_DIR` 行同步更正回退口径。
+1. **入口检出告警**（`entrypoint.sh`）：受管 store 生效且 `$DATA_DIR/.pnpm-store` 存在时打印一条 `warn`（含路径、体积核对与清理命令），不自动删除（I2）；回退分支（根路径 / 相对路径 / 创建失败 / 探针不可写）的告警文案同步更正为 pnpm 实际落点，回退期间不再误报「遗留」。新增 `entrypoint.test.mjs` 六例：遗留存在（恰一条 warn + 目录零改动）/ root 启动形态（compose 默认）/ 不存在（不输出遗留告警）/ 受管 store 即该目录（不告警）/ 等价形态（尾斜杠、`./` 段、软链三变体，不告警）/ 回退发生（只报回退）。
+2. **文档同步（zh + en-US）**：`deployment.md §pnpm store 与依赖缓存` 新增「双份 store 成因与判定」小节，更正默认落点表述、补注回退实际落点，备份示例 `--exclude` 同时覆盖 `./pnpm-store` 与 `./.pnpm-store`；`configuration.md` 与 en-US 镜像的 `PNPM_CONFIG_STORE_DIR` 行同步更正回退口径。
 3. **本设计文档 + governance 索引**：根因与判据集中在此，避免同一事实散落在部署文档注释里。
 
 ### 5.3 明确不做
@@ -100,15 +100,19 @@
 
 ## 6. 验收标准
 
-1. 入口在数据卷根存在遗留 `.pnpm-store` 时输出恰一条 warn，且**不**触碰该目录（含权限 / 属主）；不存在时零输出。
-2. 回退分支文案与 pnpm 实际落点一致（`$DATA_DIR/.pnpm-store`），不再声称 `$HOME`。
-3. `deployment.md` 与 en-US 镜像页结构对齐（新增小节 H2 可映射），备份命令的排除项覆盖两种目录名。
-4. 文档门禁链路（`gates:docs`）全绿，含 mirror / anchor / guide parity。
+1. 入口在默认部署（`DATA_DIR` 即数据卷挂载点根）下存在遗留 `.pnpm-store` 时输出恰一条 warn；不删除、不 prune、不建目录、不写入内容，且入口不对该目录做额外 `mkdir` / 显式 `chown`（root 启动时的整卷属主归一化属既有行为，见 §3 I2）；不存在时零输出。
+2. 回退分支文案与 pnpm 实际落点一致（默认部署下为 `$DATA_DIR/.pnpm-store`），不再声称 `$HOME`；`docker-compose.yml` / `.env.full.example` 的注释同口径。
+3. `deployment.md` 与 en-US 镜像页结构对齐（H2 数量不变，新增小节两侧各一处 H3 可映射），备份命令的排除项覆盖两种目录名。
+4. 文档门禁链路（`gates:docs`）全绿；`deployment.md` 的 zh / en 结构对等由人工核对（`docs:check:guides` 的 `GUIDE_PAIRS` 未覆盖该页）。
 5. 清理后受管 store 单份存在，`pnpm store path` 与入口日志一致。
+
+> 验收状态（2026-11-24）：1-4 由本批用例、`gates:docs` 与人工结构核对覆盖（1 的等价形态另有 3 种变体——尾斜杠 / `./` 段 / 软链，同 1 个用例内覆盖）；5 属运维动作，待宿主执行 §5.1 后复核（不随代码发布）。
 
 ## 7. 风险与已知边界
 
-- **误删风险**：两目录名字相近（`pnpm-store` / `.pnpm-store`），运维命令必须写全路径；入口只告警不删除。
+- **误删风险**：两目录名字相近（`pnpm-store` / `.pnpm-store`），运维命令必须写全路径；入口只告警不删除，且对尾斜杠 / `./` / 软链等等价形态按真实路径判定，不把正在使用的受管 store 报成遗留。
+- **检出面受默认部署约束**：pnpm 的真实落点是「安装目录所在文件系统的挂载点根」，入口按 `$DATA_DIR` 推导。自定义 `DATA_DIR` 为子目录、或把 `RUN_WORK_ROOT` 指到另一个文件系统时，实际遗留目录可能在别处而入口检不出（告警文案已限定「默认部署下」）；此时按 §4 判据手工核对。
+- **属主面**：root 启动的既有数据卷属主归一化（`chown -R $DATA_DIR`）覆盖整个数据卷，不排除遗留目录——只改属主、不改内容，属既有行为（§3 I2）。
 - **硬链接假象**：`du` 对同一次遍历内的硬链接只计一次，因此「runs 很小」不代表可以删 store——删除受管 store 会让新安装冷下载，但已存在的 run 工作区文件仍有效。
 - **回退不可完全避免**：只读挂载、`PUID`/`PGID` 未授权、相对路径都会触发回退；告警只能让问题可见，不改变 fail-open 语义。
 - **容量无硬上限**：仓库数 × 依赖数是线性驱动，本设计不引入配额（超出前解决方案：`pnpm store prune` + 按版本清理）。

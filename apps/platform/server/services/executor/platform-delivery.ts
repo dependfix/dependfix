@@ -116,7 +116,14 @@ export interface PlatformDeliveryResult {
  * 区分"push 失败 vs PR 创建失败 vs supersede 失败"。
  */
 export class PlatformDeliveryError extends Error {
-    readonly code: 'push_failed' | 'pr_creation_failed' | 'supersede_failed'
+    readonly code:
+        | 'push_failed'
+        | 'push_failed_non_fast_forward'
+        | 'push_failed_auth'
+        | 'push_failed_network'
+        | 'pr_creation_failed'
+        | 'supersede_failed'
+
     readonly branchPushed: boolean
 
     constructor(code: PlatformDeliveryError['code'], message: string, branchPushed: boolean) {
@@ -124,6 +131,45 @@ export class PlatformDeliveryError extends Error {
         this.name = 'PlatformDeliveryError'
         this.code = code
         this.branchPushed = branchPushed
+    }
+}
+
+/** git 推送失败的粗分类（用于失败分类落 stage / kind 与重试入口判定）。 */
+export type PushFailureKind = 'non-fast-forward' | 'auth' | 'network' | 'unknown'
+
+/**
+ * 按 git stderr / 错误文本粗分类推送失败。
+ *
+ * 只做**关键短语白名单**匹配（不做模糊正则猜测），未命中一律 `unknown`，避免把仓库自身问题
+ * 误标成可重试的网络失败。判定优先级固定为 non-FF → auth → network：
+ * - non-fast-forward：远端拒绝非快进更新（同名分支有其他提交 / force-with-lease 过期 / 受保护）
+ * - auth：凭据缺失或被拒（token 过期、权限不足、终端提示被禁用）
+ * - network：DNS / 连接被重置或超时 / TLS 握手 / HTTP 5xx 等瞬态故障（可重试）
+ * 5xx 只认 HTTP 语境（`HTTP 5xx` / `returned error: 5xx`），避免把分支名 / 端口里的三位数误判。
+ */
+export function classifyPushFailure(raw: string): PushFailureKind {
+    const text = raw.toLowerCase()
+    if (/non-fast-forward|fetch first|failed to push some refs|\[rejected\]/.test(text)) {
+        return 'non-fast-forward'
+    }
+    if (/authentication failed|could not read username|terminal prompts disabled|permission denied \(publickey\)|invalid username or password|\b401\b|\b403\b/.test(text)) {
+        return 'auth'
+    }
+    if (/could not resolve host|failed to connect|connection reset|connection timed out|connection refused|operation timed out|network is unreachable|remote end hung up|tls handshake|ssl certificate|ssl_error|gnutls_handshake|early eof|rpc failed|http 5\d\d|returned error: 5\d\d/.test(text)) {
+        return 'network'
+    }
+    return 'unknown'
+}
+
+/** 分类 → 结构化错误码（unknown 保持既有 `push_failed`，分类口径见 run-failure-taxonomy）。 */
+const pushFailureCode = (
+    kind: PushFailureKind,
+): Extract<PlatformDeliveryError['code'], 'push_failed' | 'push_failed_non_fast_forward' | 'push_failed_auth' | 'push_failed_network'> => {
+    switch (kind) {
+        case 'non-fast-forward': return 'push_failed_non_fast_forward'
+        case 'auth': return 'push_failed_auth'
+        case 'network': return 'push_failed_network'
+        default: return 'push_failed'
     }
 }
 
@@ -157,7 +203,8 @@ async function resolveRemoteBranchTip(
  * 与 [container-executor.pushFixBranch] 等价实现——本文件保留独立版本，便于 planFixAndPrDelivery + deliverFixAndPr
  * 形成自包含的交付单元（不依赖 container-executor 的私有函数），单测可直接 import。
  *
- * 凭据走 `http.extraheader`（base64 basic auth），不进 argv/URL（防 execFile 错误回显泄露 token）。
+ * 凭据走 `http.extraheader`（base64 basic auth），不进 URL（argv 内凭据由 `sanitizeString` 脱敏，
+ * 防止 execFile 错误回显泄露 token）。
  * 签名隔离：同 push 侧策略（`GIT_PUSH_SIGNING_ISOLATION_ARGS`，见 engine 的 git-signing.ts）——
  * 避免宿主 `push.gpgSign=true` 让 push 带 `--signed` 而在服务端不支持时失败。
  * hooks 隔离：同 push 侧策略（`GIT_PUSH_HOOKS_ISOLATION_ARGS`）——`push --no-verify` 跳过被修复
@@ -170,7 +217,8 @@ async function resolveRemoteBranchTip(
  * 默认分支 / 非自有分支维持非快进语义。此处置不改变本项目对 origin 的推送禁令
  * （[GitHub 协作规范 §4](../../../../../docs/standards/github-collaboration.md#_4-推送授权)）。
  *
- * 失败原样抛 PlatformDeliveryError(code='push_failed')。
+ * 失败抛 PlatformDeliveryError：按 git 文本细分为 `push_failed_non_fast_forward` / `push_failed_auth` /
+ * `push_failed_network`，未命中保持 `push_failed`（unknown）。
  */
 export async function pushFixBranchWithCredential(
     branchName: string,
@@ -207,7 +255,7 @@ export async function pushFixBranchWithCredential(
         }
     } catch (err) {
         const raw = err instanceof Error ? err.message : String(err)
-        throw new PlatformDeliveryError('push_failed', `推送修复分支失败：${raw}`, false)
+        throw new PlatformDeliveryError(pushFailureCode(classifyPushFailure(raw)), `推送修复分支失败：${raw}`, false)
     }
 }
 

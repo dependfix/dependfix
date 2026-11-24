@@ -32,12 +32,15 @@ const childProcessMock = vi.hoisted(() => {
 vi.mock('node:child_process', () => childProcessMock)
 
 const platformDeliveryMock = vi.hoisted(() => ({
+    // 与真实 PlatformDeliveryError 同签名（code, message, branchPushed），避免替身与实现漂移
     PlatformDeliveryError: class PlatformDeliveryError extends Error {
         code: string
-        constructor(message: string, code: string) {
+        branchPushed: boolean
+        constructor(code: string, message: string, branchPushed = false) {
             super(message)
             this.name = 'PlatformDeliveryError'
             this.code = code
+            this.branchPushed = branchPushed
         }
     },
     planFixAndPrDelivery: vi.fn(),
@@ -384,7 +387,7 @@ describe('ContainerExecutor.execute - fix-and-pr mode', () => {
         platformDeliveryMock.planFixAndPrDelivery.mockResolvedValue(fakePlan)
         // PR 创建失败（带 code）
         platformDeliveryMock.deliverFixAndPr.mockRejectedValue(
-            new platformDeliveryMock.PlatformDeliveryError('GitHub API rate limit exceeded', 'pr_creation_failed'),
+            new platformDeliveryMock.PlatformDeliveryError('pr_creation_failed', 'GitHub API rate limit exceeded', true),
         )
 
         childProcessMock.execFile
@@ -412,9 +415,9 @@ describe('ContainerExecutor.execute - fix-and-pr mode', () => {
         } as never)
         platformDeliveryMock.createPlatformOctokit.mockReturnValue(fakeOctokit)
         platformDeliveryMock.planFixAndPrDelivery.mockResolvedValue(fakePlan)
-        // push 失败（带 push_failed code）
+        // push 失败（未细分 code）
         platformDeliveryMock.deliverFixAndPr.mockRejectedValue(
-            new platformDeliveryMock.PlatformDeliveryError('push failed: 401', 'push_failed'),
+            new platformDeliveryMock.PlatformDeliveryError('push_failed', '推送修复分支失败：fatal: something unexpected', false),
         )
 
         childProcessMock.execFile
@@ -428,6 +431,37 @@ describe('ContainerExecutor.execute - fix-and-pr mode', () => {
 
         expect(result.exitCode).toBe(2)
         expect(result.error?.code).toBe('push_failed')
+    })
+
+    it('透传细分 push code（push_failed_network）到 error.code', async () => {
+        const runResult = makeRunResult()
+        const fakeOctokit = { rest: {} }
+        const fakePlan = { branchName: 'dependfix/auto-fix-test', title: 'fix', body: 'body', labels: [] }
+
+        dependfixAppMock.mockImplementation(function (this: { run: ReturnType<typeof vi.fn> }) {
+            this.run = vi.fn().mockResolvedValue(fakeDependfixRunResult(runResult, 0))
+        } as never)
+        platformDeliveryMock.createPlatformOctokit.mockReturnValue(fakeOctokit)
+        platformDeliveryMock.planFixAndPrDelivery.mockResolvedValue(fakePlan)
+        platformDeliveryMock.deliverFixAndPr.mockRejectedValue(
+            new platformDeliveryMock.PlatformDeliveryError(
+                'push_failed_network',
+                '推送修复分支失败：fatal: unable to access: Could not resolve host: github.com',
+                false,
+            ),
+        )
+
+        childProcessMock.execFile
+            .mockResolvedValueOnce({ stdout: '', stderr: 'Cloning into \'.\'...' })
+            .mockResolvedValueOnce({ stdout: 'aaa\n', stderr: '' })
+            .mockResolvedValueOnce({ stdout: 'bbb\n', stderr: '' })
+
+        const executor = new ContainerExecutor({ workRoot: tempRoot, timeoutMs: 10_000 })
+        const ctx = makeCtx({ config: { ...baseConfig, mode: 'fix-and-pr' } })
+        const result = await executor.execute(ctx)
+
+        expect(result.exitCode).toBe(2)
+        expect(result.error?.code).toBe('push_failed_network')
     })
 
     it('rethrows non-PlatformDeliveryError as Error', async () => {

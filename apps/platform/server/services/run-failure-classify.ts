@@ -162,7 +162,13 @@ const FAILURE_CODE_MAP: Readonly<Record<string, FailureCodeMapping>> = {
     // 提交集合判定：未声明的已跟踪改动 / 只有生成物或未跟踪文件 → 未交付，需人工清理工作区
     UNEXPECTED_CHANGES: { stage: 'deliver', kind: 'deterministic' },
     NO_CHANGES: { stage: 'deliver', kind: 'deterministic' },
+    // 推送失败的细分（2026-11-24 决策翻转「保持 unknown、不解析 message」；见 run-failure-taxonomy §7）：
+    // 平台在 push 现场按 git 文本白名单分类并落结构化 code——non-FF / 凭据属确定性失败（重试无益），
+    // 网络类属瞬态（retry / batch-resume 只接管 transient）。未命中仍保持 `push_failed` + unknown。
     push_failed: { stage: 'deliver', kind: 'unknown' },
+    push_failed_non_fast_forward: { stage: 'deliver', kind: 'deterministic' },
+    push_failed_auth: { stage: 'deliver', kind: 'deterministic' },
+    push_failed_network: { stage: 'deliver', kind: 'transient' },
     PR_CREATION_FAILED: { stage: 'deliver', kind: 'deterministic' },
     pr_creation_failed: { stage: 'deliver', kind: 'deterministic' },
     ROLLBACK_FAILED: { stage: 'deliver', kind: 'deterministic' },

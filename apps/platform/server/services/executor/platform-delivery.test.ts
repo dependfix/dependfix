@@ -59,6 +59,7 @@ const {
     planFixAndPrDelivery,
     pushFixBranchWithCredential,
     shouldPlatformDeliver,
+    classifyPushFailure,
     PlatformDeliveryError,
 } = await import('./platform-delivery')
 
@@ -251,7 +252,7 @@ describe('pushFixBranchWithCredential', () => {
         expect(pushArgs.some((a) => a.startsWith('--force-with-lease='))).toBe(false)
     })
 
-    it('throws PlatformDeliveryError(push_failed) when git push fails', async () => {
+    it('连接失败按网络类细分（push_failed_network，可重试）', async () => {
         childProcessMock.execFile.mockRejectedValue(new Error('Failed to connect to github.com:443'))
         let caught: unknown
         try {
@@ -260,7 +261,40 @@ describe('pushFixBranchWithCredential', () => {
             caught = err
         }
         expect(caught).toBeInstanceOf(PlatformDeliveryError)
-        expect(caught).toMatchObject({ code: 'push_failed', branchPushed: false })
+        expect(caught).toMatchObject({ code: 'push_failed_network', branchPushed: false })
+    })
+
+    it('非快进拒绝细分（push_failed_non_fast_forward）', async () => {
+        childProcessMock.execFile.mockRejectedValue(new Error('! [rejected]        main -> main (non-fast-forward)'))
+        let caught: unknown
+        try {
+            await pushFixBranchWithCredential('main', '/tmp', 't')
+        } catch (err) {
+            caught = err
+        }
+        expect(caught).toMatchObject({ code: 'push_failed_non_fast_forward' })
+    })
+
+    it('凭据被拒细分（push_failed_auth）', async () => {
+        childProcessMock.execFile.mockRejectedValue(new Error('remote: Invalid username or password.'))
+        let caught: unknown
+        try {
+            await pushFixBranchWithCredential('main', '/tmp', 't')
+        } catch (err) {
+            caught = err
+        }
+        expect(caught).toMatchObject({ code: 'push_failed_auth' })
+    })
+
+    it('未命中白名单文本保持 push_failed（unknown，不猜）', async () => {
+        childProcessMock.execFile.mockRejectedValue(new Error('fatal: something unexpected happened'))
+        let caught: unknown
+        try {
+            await pushFixBranchWithCredential('main', '/tmp', 't')
+        } catch (err) {
+            caught = err
+        }
+        expect(caught).toMatchObject({ code: 'push_failed' })
     })
 })
 
@@ -426,5 +460,36 @@ describe('shouldPlatformDeliver（双路径守卫）', () => {
                 prNumber: 9,
             },
         })).toBe(false)
+    })
+})
+
+// ---------------------------------------------------------------------------
+// classifyPushFailure（推送失败粗分类）
+// ---------------------------------------------------------------------------
+
+describe('classifyPushFailure', () => {
+    it('按关键短语白名单分类四态', () => {
+        expect(classifyPushFailure('! [rejected] main -> main (fetch first)')).toBe('non-fast-forward')
+        expect(classifyPushFailure('error: failed to push some refs to https://github.com/o/r.git')).toBe('non-fast-forward')
+        // force-with-lease 过期同样以 [rejected] 呈现
+        expect(classifyPushFailure('! [rejected] main -> main (stale info)')).toBe('non-fast-forward')
+        expect(classifyPushFailure('remote: Permission denied (publickey).')).toBe('auth')
+        expect(classifyPushFailure('fatal: could not read Username for https://github.com: terminal prompts disabled')).toBe('auth')
+        expect(classifyPushFailure('fatal: unable to access: Could not resolve host: github.com')).toBe('network')
+        expect(classifyPushFailure('error: RPC failed; HTTP 502 curl 22')).toBe('network')
+        expect(classifyPushFailure('The requested URL returned error: 503')).toBe('network')
+        expect(classifyPushFailure('fatal: the remote end hung up unexpectedly')).toBe('network')
+        expect(classifyPushFailure('fatal: something unexpected happened')).toBe('unknown')
+        expect(classifyPushFailure('')).toBe('unknown')
+    })
+
+    it('非网络语境的三位数 / ssl 字样不误判为网络', () => {
+        expect(classifyPushFailure('error: src refspec release-517 does not match any')).toBe('unknown')
+        expect(classifyPushFailure(`couldn't find remote ref pull/503/head`)).toBe('unknown')
+        expect(classifyPushFailure('ssl-config lint failed')).toBe('unknown')
+    })
+
+    it('优先级：同时含 rejected 与 403 时判非快进（先于凭据）', () => {
+        expect(classifyPushFailure('! [rejected] main -> main (fetch first)\nremote: HTTP 403')).toBe('non-fast-forward')
     })
 })

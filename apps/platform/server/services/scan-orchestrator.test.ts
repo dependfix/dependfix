@@ -472,7 +472,7 @@ describe('scan-orchestrator.service', () => {
             expect(run.status).toBe('failed')
             expect(run.errorJson).toContain('push_failed')
             expect(run.runUrl).toBeNull()
-            // push_failed 细分需看 message（网络 vs 权限），保守归 deliver + unknown
+            // 未细分的 push_failed 保持 deliver + unknown（分类口径见 run-failure-taxonomy §7）
             expect(run.failureCode).toBe('push_failed')
             expect(run.failureStage).toBe('deliver')
             expect(run.failureKind).toBe('unknown')

@@ -536,11 +536,16 @@ export class ContainerExecutor implements ScanExecutor {
                                 logsJson: memLogger.toJson(), logsDropped: memLogger.dropped,
                             }
                         }
-                        // push_failed：分支未推
+                        // push_failed（含细分的 non-FF / auth / network）：分支未推。
+                        // 其它码（如 supersede_failed）不应走到这里——显式兜底为 push_failed，
+                        // 避免出现「码与文案矛盾」的隐式假设。
+                        const pushCode = deliveryError.code.startsWith('push_failed')
+                            ? deliveryError.code
+                            : 'push_failed'
                         return {
                             exitCode: 2,
                             error: {
-                                code: 'push_failed',
+                                code: pushCode,
                                 message: `推送修复分支失败：${sanitizeErrorMessage(deliveryError.message)}`,
                             },
                             startedAt,

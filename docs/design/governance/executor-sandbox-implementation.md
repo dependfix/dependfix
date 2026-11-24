@@ -317,7 +317,7 @@ C53 引入 A 模式 `dispatched` 三分支（`scan-run-state.ts`），M25 新增
 |:--|:--|:--|:--|:--|:--|
 | 修复成功 + push 成功 + PR 成功 | — | — | `completed` | PR URL | finally 立即清理 |
 | 修复成功 + push 成功 + PR 失败 | `pr_creation_failed` | — | `dispatched` | branch URL（兜底） | moveToPending 保留 24h |
-| 修复成功 + push 失败 | `push_failed` | — | `failed` | null | finally 立即清理 |
+| 修复成功 + push 失败 | `push_failed`（及细分 `push_failed_non_fast_forward` / `push_failed_auth` / `push_failed_network`） | — | `failed` | null | finally 立即清理 |
 | 引擎内部交付失败（commit / verify / rollback / FATAL） | `engine_delivery_failed` | `COMMIT_FAILED` / `VERIFICATION_FAILED` / `ROLLBACK_FAILED` / `FATAL` | `failed` | null | finally 立即清理 |
 | 引擎进程级 exitCode=2 + result 存在 | `engine_exit_2` | — | `failed` | null | finally 立即清理 |
 | 修复成功 + 修复动作执行失败 | `execution_failed` | — | `failed` | null | finally 立即清理 |
@@ -341,9 +341,9 @@ C53 引入 A 模式 `dispatched` 三分支（`scan-run-state.ts`），M25 新增
 | `isReportOnly` + 引擎 config 覆写 | `container-executor.ts` | 模式 / commit 覆写的**单一事实源**：report-only 只读（不 clone、不降级、`commit: false`）；fix / fix-and-pr 降级为 `mode:'fix' + commit:true`（平台接管 push / PR）。clone 判定与 config 覆写必须同源（错配 → 空 workDir 上 commit → `COMMIT_FAILED`） |
 | **platform-delivery 模块** | `executor/platform-delivery.ts` | **M25 新增**：平台侧 fix-and-pr 完整交付单元（plan / push / create / close supersede） |
 | `planFixAndPrDelivery(octokit, owner, repo, result)` | `platform-delivery.ts` | 复用引擎 `computeFixFingerprint` + `findDependfixOpenPR` + `computeFixAndPrPlan`，返回 skip / create 决策 |
-| `pushFixBranchWithCredential(branch, workDir, token)` | `platform-delivery.ts` | 与 `pushFixBranch` 等价，独立导出便于单测；失败抛 `PlatformDeliveryError(push_failed)` |
+| `pushFixBranchWithCredential(branch, workDir, token)` | `platform-delivery.ts` | 与 `pushFixBranch` 等价，独立导出便于单测；失败按 git 文本细分为 `push_failed_non_fast_forward` / `push_failed_auth` / `push_failed_network`，未命中保持 `push_failed`（口径见 [run-failure-taxonomy §4.3](./run-failure-taxonomy.md)） |
 | `deliverFixAndPr(ctx)` | `platform-delivery.ts` | 编排 push + create + close supersede；失败抛 `PlatformDeliveryError(pr_creation_failed / supersede_failed)` |
-| `PlatformDeliveryError` | `platform-delivery.ts` | 带 `code` + `branchPushed` 状态的结构化错误（区分 push_failed vs pr_creation_failed） |
+| `PlatformDeliveryError` | `platform-delivery.ts` | 带 `code` + `branchPushed` 状态的结构化错误（区分 push_failed 细分 vs pr_creation_failed）；`supersede_failed` 仅存在于 union，supersede 失败只 `warn` 不抛 |
 | `moveToPending(workDir, runId, pendingRoot, retentionMs)` | `container-executor.ts` | 移动 workDir 到 `_pending/{runId}/` + 写 `.meta.json`（含 `expiresAt`） |
 | `cleanupRemoteBranch(branch, workDir, token?)` | `container-executor.ts` | best-effort 远程分支清理；当前 **不主动调用**（保留远程分支供用户手动开 PR） |
 

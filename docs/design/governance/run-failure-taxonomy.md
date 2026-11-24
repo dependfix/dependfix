@@ -28,7 +28,7 @@
 
 ### 2.2 失败信息的三个来源
 
-- **A. 执行器 `error.code`（平台侧，写入 `errorJson`）**：`clone_timeout` / `execution_timeout` / `execution_failed` / `push_failed` / `pr_creation_failed`（`container-executor.ts`）；`sandbox_unavailable`（`sandbox-executor.ts`）；`result_fetch_failed`（`scan-orchestrator.service.ts`）；`run_url_not_resolved` / `workflow_not_configured`（`action-trigger-executor.ts`）；`orchestration_failed`（编排 catch-all）。
+- **A. 执行器 `error.code`（平台侧，写入 `errorJson`）**：`clone_timeout` / `execution_timeout` / `execution_failed` / `push_failed`（及细分 `push_failed_non_fast_forward` / `push_failed_auth` / `push_failed_network`）/ `pr_creation_failed`（`container-executor.ts`）；`sandbox_unavailable`（`sandbox-executor.ts`）；`result_fetch_failed`（`scan-orchestrator.service.ts`）；`run_url_not_resolved` / `workflow_not_configured`（`action-trigger-executor.ts`）；`orchestration_failed`（编排 catch-all）。
 - **B. 引擎 `RunResult.errors[].{stage, category}`（业务侧）**：`stage ∈ {fetch, filter, fix, repair, verify, report}`；`category` 见 §2.4。
 - **C. 状态机派生（`scan-run-state.ts`）**：把引擎类别映射为平台错误码 `engine_delivery_failed` / `engine_exit_2`，并决定 `status`。
 
@@ -92,7 +92,7 @@
 | `install` | 依赖安装 / lockfile 修复 | `ENVIRONMENT_ERROR`（环境性安装失败，2026-10-13 M43.3 新增发射点；**非归因**——见 §4.3）；其余 lockfile 失败落在 `FixAction.error`（`LockfileFailureCategory`，**不**进 `result.errors`，经失败动作计入 exit code） |
 | `fix` | 修复应用 | `PROCESS_FAILED`、`OVERRIDE_PROTECTED`、`FAMILY_LOCKSTEP_FAILED` |
 | `verify` | 验证门禁 | `VERIFICATION_FAILED`、`PRE_EXISTING_FAILURE`、`SCRIPT_NOT_FOUND`、`network_violation`、验证命令超时 |
-| `deliver` | commit / push / PR 交付 | `COMMIT_FAILED`、`push_failed`、`PR_CREATION_FAILED`、`pr_creation_failed`、`ROLLBACK_FAILED` |
+| `deliver` | commit / push / PR 交付 | `COMMIT_FAILED`、`push_failed`（及细分 `push_failed_non_fast_forward` / `push_failed_auth` / `push_failed_network`）、`PR_CREATION_FAILED`、`pr_creation_failed`、`ROLLBACK_FAILED` |
 | `runtime` | 执行器 / 编排 / 环境 | `execution_timeout`、`execution_failed`、`sandbox_unavailable`、`orchestration_failed`、`engine_exit_2`、`ABORTED`（防御性映射）、`FATAL` |
 | `cleanup` | 分支 / PR 清理（best-effort） | `BRANCH_DELETE_FAILED`、`PR_CLOSE_FAILED`、`CLEANUP_*` |
 | `unknown` | 无法判定 | `engine_delivery_failed` 无细分、缺失信息 |
@@ -119,7 +119,7 @@
 - `ABORTED` → `runtime` + `transient`（运行级取消：平台执行超时 / 运维中止后引擎协作式收尾，可重试）。同 `ENVIRONMENT_ERROR` 属**防御性映射**：超时由执行器以 `execution_timeout` 记录（`errorJson` 优先），本项保留目的是「内部回退读 `result.errors` 的路径一旦可变更达时，该信号应落 `runtime` + 可重试」而非 `engine_exit_2`（后者是「所有仓库失败」的笼统码，会掩盖"被中止"这一事实）。引擎侧该类别**不**进跳过类清单（计非零退出码，避免"被中止"与"跑完了"外观不可区分）。
 - `engine_delivery_failed` → 按 `errorJson.message` 中的 `（${category}）` 细分到具体 stage / kind；无法解析时 `unknown` + `deterministic`。
 - `clone_timeout` / `execution_timeout` / `sandbox_unavailable` / `NETWORK_ERROR` / `RATE_LIMITED` / `result_fetch_failed` / `run_url_not_resolved` → `transient`（`execution_timeout` 置信度较低，可标 `unknown` 或 `transient`，见开放问题）。
-- `push_failed` → `deliver` + `unknown`（可能是网络，也可能是权限；细分需看 message，见开放问题）。
+- `push_failed` → `deliver` + `unknown`（未命中白名单文本的兜底）；**细分（2026-11-24 决策翻转）**：平台在 push 现场按 git 文本白名单落结构化 code——`push_failed_non_fast_forward`（远端拒绝非快进）/ `push_failed_auth`（凭据缺失或被拒）→ `deliver` + `deterministic`（重试无益）；`push_failed_network`（DNS / 连接 / TLS / 5xx）→ `deliver` + `transient`（`retry` 与 `batch-resume` 只接管 transient，因此网络类自然进入可重试入口）。**边界**：`non-fast-forward` 中的 force-with-lease 过期（`(stale info)`）不自动重试——须先研判是否并发抢占（每次 push 前会 `ls-remote` 重取 tip）；`fix` 模式（无 PR、直推默认分支）走普通 `Error` → `execution_failed`，不在本细分范围；网络类重试是**整轮重跑**（指纹去重跳过同内容 PR），成本需在运行详情自行权衡。
 - `pr_creation_failed`（status=dispatched）→ `deliver` + `deterministic`：分支已推、PR 未建，需人工/重试交付。
 - `OVERRIDE_PROTECTED` / `EMPTY_REPO_LIST` / `SCRIPT_NOT_FOUND` / `AUTHENTICATION_FAILED` / `PERMISSION_DENIED` / `ALERTS_DISABLED` / `REPO_NOT_FOUND` → `deterministic`（配置 / 权限）。
 - GitHub `GITHUB_API_ERROR` → `source` + `unknown`。
@@ -272,6 +272,7 @@
 - **已决策（M37.1 / 2026-10-06）**：`failure_code` / `failure_stage` / `failure_kind` 三列均落库，以支持 SQL 筛选与后续重试入口；策略变更经回填脚本重算。
 - **已决策（M37.1 实现期）**：`execution_timeout` 归 `runtime` + `transient`（大仓库 / 慢网络可重试；真实挂死场景由人工在详情研判）。
 - **已决策（M37.1 实现期）**：`push_failed` 保持 `deliver` + `unknown`，不解析 message 区分网络 / 权限（解析脆弱，交人工）。
+- **已决策（2026-11-24，翻转上条）**：改为在 **push 现场**按 git 文本白名单分类并落结构化 code（`push_failed_non_fast_forward` / `push_failed_auth` → deterministic；`push_failed_network` → transient），不做事后 message 模糊正则：分类只发生在失败发生点、规则为白名单前缀、未命中仍落 `push_failed` + unknown。翻转理由：`push_failed` 长期停在 unknown 导致「网络抖动也需人工翻日志、且无法自动重试」，而重试入口只认 transient。
 - **已决策（M37.1 实现期）**：`dispatched`（PR 创建失败 / 结果未就绪）纳入失败分类——`pr_creation_failed` → `deliver` + `deterministic`；`result_fetch_failed` / `run_url_not_resolved` → `runtime` + `transient`。`degraded`（业务完成 + 路径偏离）**不**参与失败分类；`dispatched` 且**无任何错误码**（B 模式已受理待回执）亦不分类，避免把进行中的派发记录混入 `byFailureStage.unknown`。
 - **风险**：分类漂移（新错误码未纳入映射）→ 用集中映射表 + `unknown` 兜底 + 单测守护；未映射码保留 `code` 供审计。
 - **风险**：回填误判 → 仅做保守推断，无法判定一律 `unknown`（引擎 `result.errors` 未落库，细分依赖 `engine_delivery_failed` message 回读）。

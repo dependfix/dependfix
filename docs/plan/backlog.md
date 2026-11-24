@@ -55,7 +55,7 @@
 
 ### 候选评估中（待评估 / 本阶段延后项）
 
-> **候选池概览（2026-11-23 M66 规划后复算）**：本区 **22 项**（`### 候选评估中` 段内 `^- \*\*` 逐行计数；M66 上收 6 条后由 28 复算）；每次上收 / 新增 / 移出后按段内实测更新本句与首行，不保留历史链路。P 标签覆盖不全（未标注者评估时补，不默认升级）；1.0 分档见 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)。
+> **候选池概览（2026-11-24 再平衡后复算）**：本区 **23 项**（`### 候选评估中` 段内 `^- \*\*` 逐行计数；M66 上收 6 条后由 28 复算，2026-11-24 再平衡移出 1 条回补（22 → 23））；每次上收 / 新增 / 移出后按段内实测更新本句与首行，不保留历史链路。P 标签覆盖不全（未标注者评估时补，不默认升级）；1.0 分档见 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)。
 > **1.0 门槛与分档**：分档、门槛判定与批次计划单点声明于 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)（2026-10-30 冻结口径，不随候选上收收缩；本文件不重复维护数字）。
 
 - **备份 `.tmp` 清扫缺年龄门槛（P3 🛠️，2026-10-31 M53.2 收口登记）** —— `cleanupOldBackups` 对 `*.bak.tmp` 无条件回收；单实例串行路径不可达冲突，但并发 `db:restore` 或多实例共卷启动时可能删掉对端正在写的临时文件（rename ENOENT → 该轮快照丢失，fail-open 后仅剩日志）。待评估：加入 `mtime < now - 10min` 年龄门槛或按 PID 命名临时文件。触发：启用多实例 / 多容器共享数据卷，或出现并发恢复需求时。
@@ -126,6 +126,10 @@
   - **风险与缓解**：可变引用削弱可复现性 → 仅作便利入口；force push 失败留中间态 → 步骤置于 tag 推送之后并 fail-fast。
 
 - **backlog 容量治理：分片或健康预算复核（P3 📚 治理，2026-11-21 issue #269 研判登记）** —— 现状：健康字符余量已近零（实测见 `archive/index.md §4`），新增候选与字段规范化都会贴顶。**待评估**：① 按「长期主线 / 短期候选 / 已知边界」拆到独立文件或 archive 分片；② 或复核 §4.2 健康预算（须同源改 `doc-governance.md §4.2` 与 `archive/index.md §4`）；③ 再评估候选条目字段规范化（issue #269 本批延后项）。**验收**：拆分后 `check-doc-governance` 0 新增 warning、跨文件链接 0 死链。**不做**：不靠调高阈值绕过压缩。**触发**：下一次新增候选触发 warning。
+
+**2026-11-24 阶段容量再平衡移出**（来源：M66 累计 3 批插队命中 §3.1.1 阈值 1，用户 2026-11-24 确认移出；不占阶段编号）：
+
+- **无补丁版本告警的稳定结论（P3 🛠️）** —— 目标：`not-fixable` 桶当前不区分「无补丁版本（`first_patched_version=null`）」与其他不可自动修复形态；补子状态区分、dismiss 建议与平台展示，并保持 skipped 家族总计数守恒（`not-fixable` 与新子状态之和不变）。**范围**：`packages/engine/src/github/dependabot-fetcher.ts:95-96` 无补丁标记（不改变 fixable 语义；新增字段则含 `packages/core/src/alerts/index.ts`，按 `source === 'dependabot' && !fixable` 推导则无需改）；`packages/engine/src/app/repo-fix.ts:359-362` / `alert-outcomes.ts:213` 的 `not-fixable` 子状态（或新枚举）；`packages/core/src/report/types.ts` / `summary-counters.ts` 与平台运行详情、zh / en i18n（`belowTarget` 区间过滤只作回归断言，M62.3 已闭环）。**验收标准**：AC1 `first_patched_version=null` 的告警在 `not-fixable` 内落可区分子状态（或新枚举），同轮只计一次；AC2 报告与运行详情可判读「无补丁」并给出 dismiss 建议（仅建议，不自动 dismiss）；AC3 既有 `not-fixable` 归因语义与 `belowTarget` 区间过滤零回归，新增枚举须有迁移说明与用例锁定；AC4 平台映射与 zh / en i18n 同批更新，不回落 raw key。**不做**：不自动 dismiss；不改 advisory 数据源；不重复实现 M62.3 的区间过滤。**依赖**：`belowTarget` 区间过滤（回归基线）；`'not-fixable'` 现有跳过家族。**交付物**：3-5 commits / 6-12 files / 200-450 行（复用子状态取下界，新增枚举取上界）。**风险与缓解**：结论口径与 skipped 家族混淆 → 优先复用 `not-fixable` 子状态，新增枚举须写迁移说明；平台展示漏 i18n → AC4 锁定。**移出记录**：2026-11-23 曾作为 M66.2 上收，2026-11-24 因再平衡移出（原计划体量 3-5 commits / 6-12 files / 200-450 行，与回补的 pnpm store 治理批对等）；重新上收条件为 M66 收口后按类型平衡重排，或「无补丁」结论在跳过清单复现投诉时。**交付形态**：范围含平台运行详情与 zh / en i18n（用户可见面），重新上收时须按 [规划规范 §2.6](../standards/planning.md) 判定 UI / API-only 并给出主路径证据。
 
 ### 待上收候选（评估完成，等待用户决策）
 
@@ -424,7 +428,7 @@
 | 内容类型 | 位置 |
 |:--|:--|
 | 当前阶段活跃任务 | M66 执行结果可信与失败归因（2026-11-23 规划，6 原子，见 [todo.md](todo.md)）；插队容量治理见 [planning.md §3.1.1](../standards/planning.md#_3-1-1-插队后的阶段容量再平衡-hard-requirement-2026-10-19) |
-| 下一阶段（未规划） | 按本文件候选池重新评估（22 条候选 + 3 条待上收）；M59 / M60 / M63 / M65 残余留在本文件；**1.1.0 已于 2026-11-15 发布**，定时发布启用仍在「待上收候选」段等待观察窗口 |
+| 下一阶段（未规划） | 按本文件候选池重新评估（23 条候选 + 3 条待上收）；M59 / M60 / M63 / M65 残余留在本文件；**1.1.0 已于 2026-11-15 发布**，定时发布启用仍在「待上收候选」段等待观察窗口 |
 | 已完成阶段归档 | [todo-archive.md](todo-archive.md)（阶段索引 + [archive/](archive/) 分片） |
 | 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M0-M65 已归档） |
 | 长期主线 / 候选 / 待人工验收 / 已知边界 | 本文档（按四象限结构） |

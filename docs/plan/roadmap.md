@@ -74,7 +74,7 @@
 | M63: 平台对外只读观测面 | 日志聚合 + v1 只读面（5 → 9 端点）+ API key / scope / 限流 / 访问日志 + 契约守卫 + MCP remote（用户 2026-11-20 方案 A） | P1 | 已归档（2026-11-20 规划 / 归档；5 原子，见 [详情](archive/roadmap-phases-m63.md) + [归档](archive/todo-archive-phases-m63.md)） |
 | M64: 执行面安全与交付闭环 | 执行子进程 env 硬化 + 外联审计覆盖面收口 + 沙箱 install 快速失败与预算透传 + 批次级续跑入口 + 规划文档模型 v1（用户 2026-11-21 方案 A） | P1-P2 | 已归档（2026-11-21 规划 / 2026-11-21 归档；5 原子，见 [详情](archive/roadmap-phases-m64.md) + [归档](archive/todo-archive-phases-m64.md)） |
 | M65: 平台可观测性与健康 | Sentry 错误 / 性能 / 日志接入 + 健康检查与外部 uptime 接入 + 邮件传输超时与周报节拍约束 + PR Check provider 原生日志富化 + 可观测性门禁与脱敏矩阵（用户 2026-11-21 选主题 B） | P1-P2 | 已归档（2026-11-21 规划 / 2026-11-23 归档；5 原子，容器健康探针已实测，见 [M65 详情分片](archive/roadmap-phases-m65.md) + [M65 归档分片](archive/todo-archive-phases-m65.md)） |
-| M66: 执行结果可信与失败归因 | peer-only 同 major 回退 + 无补丁版本告警的稳定结论 + checkpoint `unknown` 重试 + PR 分支清理与 `push_failed` 细分 + 验证跳过交付可观测性 + 门户亚像素（用户 2026-11-23 选主题 A） | P2-P3 | 规划中（2026-11-23 规划，6 原子，见 [todo.md](todo.md)） |
+| M66: 执行结果可信与失败归因 | peer-only 同 major 回退 + checkpoint `unknown` 重试 + PR 分支清理与 `push_failed` 细分 + 验证跳过交付可观测性 + 门户亚像素 + API 密钥管理入口（插队；原「无补丁版本告警的稳定结论」已于 2026-11-24 再平衡移出 backlog）（用户 2026-11-23 选主题 A） | P2-P3 | 规划中（2026-11-23 规划，6 原子，见 [todo.md](todo.md)） |
 
 > **本路线图定位**：按 [规划规范 §2.1](../standards/planning.md) 仅维护阶段概览（目标 / 优先级 / 状态）。详细实施记录 / commit 引用 / 关键决策 / 经验教训见对应归档段（详见下方"## 详细任务"索引）。
 
@@ -87,7 +87,7 @@
 
 ## 当前阶段
 
-M66 执行结果可信与失败归因（2026-11-23 规划，6 原子）：peer-only 同 major 回退到 manifest 直接依赖 + 无补丁版本告警与 advisory 区间口径 + checkpoint `unknown` 重试与证据 + 关闭 PR 分支清理与 `push_failed` 细分 + 验证跳过的交付可观测性 + 门户面板左缘亚像素抖动。执行顺序、容量基线与验收标准见 [todo.md](todo.md)。
+M66 执行结果可信与失败归因（2026-11-23 规划，6 原子）：peer-only 同 major 回退到 manifest 直接依赖 + checkpoint `unknown` 重试与证据 + 关闭 PR 分支清理与 `push_failed` 细分 + 验证跳过的交付可观测性 + 门户面板左缘亚像素抖动 + API 密钥管理入口（插队，已闭环）。原第二原子「无补丁版本告警与 advisory 区间口径」已于 2026-11-24 阶段容量再平衡移出至 [backlog.md](backlog.md)。执行顺序、容量基线与验收标准见 [todo.md](todo.md)。
 
 ---
 
@@ -95,7 +95,7 @@ M66 执行结果可信与失败归因（2026-11-23 规划，6 原子）：peer-o
 
 - 当前阶段任务：M66 执行结果可信与失败归因（详见 [todo.md](todo.md)）
 - 已归档阶段：[todo-archive.md](todo-archive.md)（阶段索引 + 分片；M0-M65 已归档；分片治理见 [archive/index.md](archive/index.md)）
-- 下一阶段（未规划）：按候选池重新评估（22 条候选 + 3 条待上收，见 [backlog.md](backlog.md)）
+- 下一阶段（未规划）：按候选池重新评估（23 条候选 + 3 条待上收，见 [backlog.md](backlog.md)）
 - 后续阶段任务（延期项 + 未排期增强候选）：[backlog.md](backlog.md)
 
 ## 交付原则

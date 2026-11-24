@@ -18,33 +18,34 @@
 
 ## 当前阶段：M66 执行结果可信与失败归因（2026-11-23 规划）
 
-> **目标**：把「同 major 可修但交付不了」「无补丁告警每天出现在跳过清单」「checkpoint 偶发 unknown」「PR 关闭后分支残留 / push 失败不可归因」四类执行结果问题收敛为稳定结论与可判读证据；同时把验证跳过在交付载体中的可观测性与视觉基线的亚像素抖动收口。
+> **目标**：把「同 major 可修但交付不了」「checkpoint 偶发 unknown」「PR 关闭后分支残留 / push 失败不可归因」三类执行结果问题收敛为稳定结论与可判读证据；同时把验证跳过在交付载体中的可观测性与视觉基线的亚像素抖动收口。（原第四类「无补丁告警每天出现在跳过清单」已于 2026-11-24 阶段容量再平衡移出至 [backlog.md](backlog.md)，见下方容量再平衡记录。）
 >
-> **来源**：用户 2026-11-23 选定主题 A。上收 6 条候选——peer-only 同 major 回退到 manifest 直接依赖（P2）、无补丁版本告警的稳定结论（P3，区间部分已随 M62.3 上收）、checkpoint `unknown` 重试与证据（P3）、关闭 PR 分支清理与 `push_failed` 细分（P2）、验证跳过的交付可观测性残余（P3 🎨）、门户面板左缘亚像素抖动（P2 🧪）。直接输入为 2026-11-13 / 11-16 运行日志复盘、M52.4 视觉残余与 M48.4 交付边界。
+> **来源**：用户 2026-11-23 选定主题 A。上收 6 条候选——peer-only 同 major 回退到 manifest 直接依赖（P2）、无补丁版本告警的稳定结论（P3，区间部分已随 M62.3 上收；2026-11-24 再平衡移出）、checkpoint `unknown` 重试与证据（P3）、关闭 PR 分支清理与 `push_failed` 细分（P2）、验证跳过的交付可观测性残余（P3 🎨）、门户面板左缘亚像素抖动（P2 🧪）。直接输入为 2026-11-13 / 11-16 运行日志复盘、M52.4 视觉残余与 M48.4 交付边界。
 >
 > **§3.4 五步交叉核验（2026-11-23 实测；已有实现只列缺口，不重复上收）**：
 > ① 归档扫描 `peer-only|first_patched_version|stash create|push_failed|deliverySkips|dialog-select-open-dark` → 已有「peer-only manualReview 归因」「checkpoint freshLock 重试」「supersede 分支回收」「交付跳过契约」「亚像素登记」；缺口分别是：无补丁无稳定结论、非 `freshLock` unknown 无处置、平台 PR 反馈关闭未删分支、`push_failed` 固定 unknown、验证跳过未进交付载体；
 > ② `git log --all --grep`：peer-only 归因 `7f2c28f4` / `06f6b580`；checkpoint freshLock 重试 `ea323c1c`；supersede 删分支 `04c6689a`（T212；`e1aad1e4` 为模块迁移）；交付跳过 `aa900622` / `67a75964`；亚像素登记 `b436030f`——均为部分实现，无整项重复；
 > ③ 代码 anchor：`packages/engine/src/github/dependabot-fetcher.ts:95-96` 以 `first_patched_version !== null` 判 fixable；`packages/engine/src/fixers/dependency/index.ts:333-346` 对 peer-only 只给 `manualReview`；`packages/engine/src/app/verification-checkpoint.ts:242-252` 仅 `freshLock` 时重试；`packages/engine/src/app/branch-cleanup.ts:112-146` 在 supersede 关闭后删分支，而 `apps/platform/server/services/pr-feedback/service.ts:190-192` 只关闭不删；`apps/platform/server/services/run-failure-classify.ts:165` 固定 `deliver` + `unknown`（[taxonomy §7](../design/governance/run-failure-taxonomy.md#_7-风险与开放问题) M37.1 决策）；`deliverySkips` 与 `verificationSkippedByReason` 并存；`apps/platform/tests/visual/README.md:136` 记录 1/10 抖动；
-> ④ 决策前提：用户已选主题 A；peer-only 回退形态（D1）、无补丁结论承载（D2）、非 freshLock unknown 处置（D3）、平台关闭分支与 `push_failed` 映射（D4）、`deliverySkips` 归属（D5）、视觉根因（D6）均留 D 阶段；
-> ⑤ backlog 同步：6 条上收（候选池 28 → 22），保留「批次续跑并发原子性」等未上收项；同批清理已上收历史口径（Axiom 决策注 / installer 括注 / T705 Sentry 括注）与空派生段，`check-doc-governance` 无新增 warning。
+> ④ 决策前提：用户已选主题 A；peer-only 回退形态（D1）、无补丁结论承载（D2，已随 M66.2 移出撤销）、非 freshLock unknown 处置（D3）、平台关闭分支与 `push_failed` 映射（D4）、`deliverySkips` 归属（D5）、视觉根因（D6）均留 D 阶段；
+> ⑤ backlog 同步：6 条上收（候选池 28 → 22；2026-11-24 再平衡回补 → 23），保留「批次续跑并发原子性」等未上收项；同批清理已上收历史口径（Axiom 决策注 / installer 括注 / T705 Sentry 括注）与空派生段，`check-doc-governance` 无新增 warning。
 >
-> **容量基线（逐原子交付物求和，规划轮估算）**：commits 19-27 / files 36-59 / 行 1,370-2,520（含 2026-11-23 插队 M66.7；行 = diff 改动量含删除；测量方 = 规划角色）。
-> 类型（按主类型计数）：🛠️4（M66.1-M66.4）+ 🎨2（M66.5 / M66.7）+ 🧪1（M66.6）；🛡️ 内嵌 M66.4 与 API 安全审计临时批、🚀 内嵌 M66.1 / M66.2 / M66.7（交付能力）。
-> **插队（2026-11-23 / 11-24 用户授权）**：M66.7 API 密钥管理入口（3-4 commits / 5-8 files / 200-350 行）+「API 安全审计闭环」临时批（2-3 / 4-6 / 120-220）+「pnpm store 双份并存治理」临时批（3-4 / 7-10 / 250-450，2026-11-24 追加）。**累计 3 批已命中 [§3.1.1](../standards/planning.md#_3-1-1-插队后的阶段容量再平衡-hard-requirement-2026-10-19) 阈值 1（≥ 3 批）→ 必须再平衡**（50% 阈值因容量基线端点歧义不计：基线 `:32` 已含 M66.7）：建议移出 M66.2（P3，200-450 行，与新增批次体量对等）至 `backlog.md`，处置待用户确认。**剩余窗口**：M66.1-M66.6 全部未开始，15 个已规划原子 / 批次尚未执行；确认后的再平衡须按 §3.1.1「记录（三处一致）」同步本行、新增批次正文与阶段归档索引。含插队的执行预算 24-34 commits / 47-75 files / 1,740-3,190 行。M66.7 + 安全审计配套已于 2026-11-24 闭环。
+> **容量基线（逐原子交付物求和，规划轮估算；行 = diff 改动量含删除；测量方 = 规划角色）**：原子基线 commits 16-22 / files 30-47 / 行 1,170-2,070（M66.1 / M66.3-M66.6 五原子 + M66.7 插队原子）；**含待执行「pnpm store 双份并存治理」临时批的执行预算 19-26 / 37-57 / 1,420-2,520**；剔除已闭环 M66.7 的剩余执行预算 16-22 / 32-49 / 1,220-2,170。2026-11-24 再平衡前为 19-27 / 36-59 / 1,370-2,520（移出 M66.2 3-5 / 6-12 / 200-450、回补 pnpm 批 3-4 / 7-10 / 250-450）。
+> 类型（按主类型计数）：🛠️3（M66.1 / M66.3 / M66.4）+ 🎨2（M66.5 / M66.7）+ 🧪1（M66.6）；🛠️ 内嵌「pnpm store 双份并存治理」临时批（磁盘 / 运维面）、🛡️ 内嵌 M66.4 与 API 安全审计临时批、🚀 内嵌 M66.1 / M66.7（交付能力）。
+> **插队（2026-11-23 / 11-24 用户授权）**：M66.7 API 密钥管理入口（3-4 commits / 5-8 files / 200-350 行）+「API 安全审计闭环」临时批（2-3 / 4-6 / 120-220）+「pnpm store 双份并存治理」临时批（3-4 / 7-10 / 250-450，2026-11-24 追加）。**累计 3 批命中 [§3.1.1](../standards/planning.md#_3-1-1-插队后的阶段容量再平衡-hard-requirement-2026-10-19) 阈值 1（≥ 3 批）→ 已再平衡**（50% 阈值因容量基线端点歧义不计）。剩余窗口：M66.1 + M66.3-M66.6 与「pnpm store 双份并存治理」临时批均未开始。M66.7 + 安全审计配套已于 2026-11-24 闭环。
 >
-> **执行顺序**：M66.7（可用性插队，先做）→「API 安全审计闭环」临时批 →「pnpm store 双份并存治理」临时批 → M66.1 → M66.2 → M66.3 → M66.4 → M66.5 → M66.6（先恢复 MCP remote 可用性与审计，再修可修性 / 交付证据；M66.6 放最后，避免 UI / 基线连带）。
+> **容量再平衡：移出 M66.2「无补丁版本告警的稳定结论」→ [backlog.md](backlog.md)；插队 3 批（2026-11-23 / 11-24）；用户 2026-11-24 确认。**
 >
-> **D 阶段决策点**：D1（M66.1）回退形态（根 manifest vs 成员 manifest 直接依赖）、锁定范围与回滚单元；D2（M66.2）复用既有 `'not-fixable'` 还是新增细分原因、报告呈现位置；D3（M66.3）非 `freshLock` unknown 是否补一次有界重试、证据字段；D4（M66.4）平台 PR 反馈关闭后删分支的时机、`push_failed` 前缀映射与 M37.1 决策翻转记录；D5（M66.5）`deliverySkips` 家族登记 vs 保持独立字段；D6（M66.6）根因（门户定位取整 / 滚动条宽度）与处置（亚像素修正 vs 元素级取景）。
+> **执行顺序**：M66.7（可用性插队，已闭环）→「API 安全审计闭环」临时批（已闭环）→「pnpm store 双份并存治理」临时批 → M66.1 → M66.3 → M66.4 → M66.5 → M66.6（先恢复 MCP remote 可用性与审计，再修可修性 / 交付证据；M66.6 放最后，避免 UI / 基线连带）。
 >
-> **前置 / 风险**：peer-only 回退涉及目标仓库 manifest 写入，必须限定单包字段 + 原文件回滚；无补丁结论只在 `first_patched_version=null` 时生效，不重复实现 M62.3 的 `belowTarget` 过滤；checkpoint 只对非 freshLock unknown 增量处置；平台删分支仅限 `dependfix/auto-fix-*` 且带 headSha / 归属校验；`push_failed` 只在明确前缀映射，未知保持 `unknown`；视觉处置若改元素级取景，须用反例标定保留灵敏度。
+> **D 阶段决策点**：D1（M66.1）回退形态（根 manifest vs 成员 manifest 直接依赖）、锁定范围与回滚单元；D3（M66.3）非 `freshLock` unknown 是否补一次有界重试、证据字段；D4（M66.4）平台 PR 反馈关闭后删分支的时机、`push_failed` 前缀映射与 M37.1 决策翻转记录；D5（M66.5）`deliverySkips` 家族登记 vs 保持独立字段；D6（M66.6）根因（门户定位取整 / 滚动条宽度）与处置（亚像素修正 vs 元素级取景）。（D2 随 M66.2 移出，编号保留不复用。）
+>
+> **前置 / 风险**：peer-only 回退涉及目标仓库 manifest 写入，必须限定单包字段 + 原文件回滚；checkpoint 只对非 freshLock unknown 增量处置；平台删分支仅限 `dependfix/auto-fix-*` 且带 headSha / 归属校验；`push_failed` 只在明确前缀映射，未知保持 `unknown`；视觉处置若改元素级取景，须用反例标定保留灵敏度；pnpm store 治理的入口检出必须保持 fail-open（读目录失败只 warn 不阻断）。
 
 ### 进度总览
 
 | 大条目 | 小条目 | 状态 | 提交 | 审计 | 容量 |
 |:--|:--|:--|:--|:--|:--|
 | M66.1 peer-only 同 major 回退 | — | ⬜ 待开始 | — | — | 3-4 commits / 6-9 files / 250-450 行 |
-| M66.2 无补丁告警稳定结论 | — | ⬜ 待开始 | — | — | 3-5 commits / 6-12 files / 200-450 行 |
 | M66.3 checkpoint 非 `freshLock` unknown 处置 | — | ⬜ 待开始 | — | — | 2-3 commits / 4-6 files / 120-220 行 |
 | M66.4 平台分支回收与 `push_failed` 细分 | — | ⬜ 待开始 | — | — | 3-4 commits / 6-10 files / 250-450 行 |
 | M66.5 验证跳过的交付可观测性 | — | ⬜ 待开始 | — | — | 3-4 commits / 5-8 files / 200-350 行 |
@@ -52,6 +53,7 @@
 | M66.7 API 密钥管理入口（插队） | — | ✅ 已闭环（2026-11-24） | `382b782a`..`9f4da628`（5，含安全审计配套） | UI deep R1/R2 Reject → R3 Pass；服务端 deep R1/R2 Reject → R3 Pass | 计划 3-4 commits / 5-8 files / 200-350 行；实际 5 commits / 38 files（含 19 张视觉基线）/ +807 −19 |
 
 > `提交` 列为首末 commit 区间与**该条目自身** commit 数；`审计` 列为 Review Gate 轮次结论；小条目列在原子内拆分子任务时填写。
+> M66.2「无补丁版本告警的稳定结论」已于 2026-11-24 按 §3.1.1 阶段容量再平衡移出至 [backlog.md](backlog.md)（候选池 +1），编号不复用；剩余 5 原子 + 1 临时批见阶段头「执行顺序」。
 
 ### M66.1 peer-only 同 major 修复回退到 manifest 直接依赖（P2 🛠️）
 
@@ -73,24 +75,6 @@
 - **依赖**：M62.3 跨 major 判定；M64.3 预算透传；[dependency-fixer-records.md §12](../design/modules/dependency-fixer-records.md)。
 - **交付物**：3-4 commits / 6-9 files（manifest 写回 + 结论分流 + 用例 + 文档）/ 250-450 行；单 commit ≤ 10 files。
 - **风险与缓解**：manifest 写入混入无关改动 → 只改目标包字段并逐字节回滚；多成员 manifest 提升点不确定 → 先按依赖树可达性排序并输出理由；提升后 peer 约束冲突 → 验证失败即回滚并落 `needs_manual`。
-
-### M66.2 无补丁版本告警的稳定结论（P3 🛠️）
-
-- **目标**：`not-fixable` 桶当前不区分「无补丁版本（`first_patched_version=null`）」与其他不可自动修复形态；本原子补子状态区分、dismiss 建议与平台展示，并保持 skipped 家族总计数守恒（`not-fixable` 与新子状态之和不变）。
-- **优先级**：P3（`deepmerge` 在 5 个仓库反复出现，升级永远修不了；现有 `not-fixable` 无法区分「无补丁」与「可修但不可自动修」，处置建议缺失）。
-- **范围**：
-  - `packages/engine/src/github/dependabot-fetcher.ts:95-96`：无补丁标记（不改变 fixable 语义；新增字段则含 `packages/core/src/alerts/index.ts`，按 `source === 'dependabot' && !fixable` 推导则无需改）；
-  - `packages/engine/src/app/repo-fix.ts:359-362` / `alert-outcomes.ts:213`：`not-fixable` 内的子状态（或 D2 新枚举）；
-  - `packages/core/src/report/types.ts` / `summary-counters.ts` 与平台运行详情、zh / en i18n：子状态与 dismiss 建议展示；`belowTarget` 区间过滤只作回归断言（M62.3 已闭环）。
-- **验收标准**：
-  - AC1：`first_patched_version=null` 的告警在 `not-fixable` 内落可区分子状态（或 D2 新枚举），同轮只计一次；
-  - AC2：报告与运行详情可判读「无补丁」并给出 dismiss 建议（仅建议，不自动 dismiss）；
-  - AC3：既有 `not-fixable` 归因语义与 `belowTarget` 区间过滤回归断言零回归；若 D2 新增枚举，计数迁移由迁移说明与用例锁定；
-  - AC4：D2 若选择新增枚举，平台映射与 zh / en i18n 同批更新，不回落 raw key。
-- **不做什么**：不自动 dismiss；不改 advisory 数据源；不重复实现 M62.3 的区间过滤。
-- **依赖**：M62.3 `belowTarget` 区间过滤（只作回归基线）；`'not-fixable'` 现有跳过家族。
-- **交付物**：3-5 commits / 6-12 files（子状态 / 新枚举 + 报告 / 详情 / i18n + 用例）/ 200-450 行（D2 选复用子状态取下界，新增枚举取上界）。
-- **风险与缓解**：结论口径与 skipped 家族混淆 → 优先复用 `not-fixable` 子状态，新增枚举须写迁移说明；平台展示漏 i18n → AC4 锁定。
 
 ### M66.3 checkpoint 非 `freshLock` unknown 的处置与证据（P3 🛠️）
 
@@ -187,4 +171,4 @@
 ### 追加临时待办（不占阶段条目编号）
 
 - **API 安全审计闭环（2026-11-23 用户授权插队；可用性修复配套）** —— 目标：key 创建 / 吊销落 AuditEvent；无效 key 的 401 尝试按 IP 限速记录（同 IP + keyHint 去重、每 IP 每分钟最多 5 条）；会话回退边界写入文档。范围：`apps/platform/server/entities/audit-event.ts`（新增 `api_key_created` / `api_key_deleted` 类型）、`apps/platform/server/services/api-key-audit.ts`、`api/v1/keys/index.post.ts` 与 `[id].delete.ts`、`apps/platform/server/utils/api-key-guard.ts`（401 日志）、`docs/guide/api-v1.md` 与 `platform-public-api.md §5`。验收：① 创建 / 吊销各产生 1 条 AuditEvent（payload 无明文 / 哈希）；② 无效 key 请求产生限速日志（IP / keyHint / 路径，不含完整 key；同 IP + keyHint 1 分钟去重、每 IP 每分钟最多 5 条）；③ 文档声明会话回退无 scope / 限流 / 访问日志；④ 既有 keys / guard 用例零回归。不做：不改 key TTL / scope；不引入 Redis 多实例限流；不改 `api_request_log` schema（401 走进程日志）。交付物：2-3 commits / 4-6 files / 120-220 行。**闭环（2026-11-24）**：`ca9fc249` / `8df962f5` / `7bf19000`；审计 deep R1/R2 Reject → R3 Pass；mutation 2/2（去掉每 IP 上限、keyHint 改回 `dfk_` 前缀均使用例变红）。
-- **pnpm store 双份并存与无界增长治理（2026-11-24 用户授权追加；严重磁盘问题）** —— 目标：消除数据卷内「受管 store + pnpm 自动 per-filesystem store」双份并存导致的占用翻倍，并让该类遗留可被发现、可被判据清理；设计口径见 [pnpm-store-hygiene.md](../design/governance/pnpm-store-hygiene.md)。背景：2026-11-24 宿主机实测 `/root/projects/dependfix` 16 GB = `data/pnpm-store` 8.7 GB + `data/.pnpm-store` 6.6 GB（同一批依赖两份，`data/runs` 仅 85 MB）。范围：① `apps/platform/docker/entrypoint.sh` 启动时检出 `$DATA_DIR/.pnpm-store`（存在且 ≠ 受管 store → 恰一条 warn，含路径与清理命令，不自动删除）+ 回退分支文案更正为 pnpm 实际落点；② `apps/platform/docker/entrypoint.test.mjs` 用例（遗留目录存在 / 不存在 / 与受管 store 同路径三态 + 不触碰该目录的断言）；③ `docs/guide/deployment.md` 与 `docs/i18n/en-US/guide/deployment.md` 新增「双份 store 成因与判定」，备份 `--exclude` 覆盖 `./pnpm-store` 与 `./.pnpm-store`；④ `docs/guide/configuration.md` 与 en-US 的 `PNPM_CONFIG_STORE_DIR` 行更正回退口径。验收：① 数据卷根存在遗留 `.pnpm-store` 时入口输出恰一条 warn 且不改动其内容 / 属主，不存在时零输出；② 回退文案不再声称回退到 `$HOME`；③ zh / en 结构可映射 + 备份排除项两种目录名齐备；④ `gates:docs` 全绿；⑤ 运维清理 runbook（prune → 停容器 → 单路径删除 → 复核 `pnpm store path`）落在设计文档 §5.1。不做：不自动删除 / 自动 prune 用户数据卷目录；不做 store 体积指标接口与阈值告警（按规划规范 §3.1 评估后登记 backlog，先观察清理后的增长曲线）；不改 `RUN_WORK_ROOT` 与镜像分层。交付物：3-4 commits / 7-10 files / 250-450 行。**风险与依赖**：入口新增检出必须保持 fail-open（读目录失败只 warn 不阻断）；已完成的 [`pnpm-store-hygiene.md`](../design/governance/pnpm-store-hygiene.md) 与 governance 索引为本批前置。**交付形态（§2.6）**：无头（入口 `warn` + 运维 runbook，经 `docker logs` 可达）；不新增 UI / API，理由：诊断面属部署运维，界面化无额外可达性收益。**§3.4 交叉核验（2026-11-24）**：① 归档仅 M47.4「pnpm store 持久化与提交卫生」，无遗留检出 / 清理内容；② M47.4 清单 5 个 commit（`6acaf252` / `083b7a66` / `50e55e61` / `64f10c57` / `1dd677e3`）逐条 `git show` 无 `.pnpm-store` 检出；③ anchor：`apps/platform/docker/entrypoint.sh:81` 只派生受管路径、无 `.pnpm-store` 探测；`docs/guide/deployment.md:146`（默认落点）与 `docs/guide/configuration.md:355`（回退口径）仍按 `$HOME` 表述——缺口成立。**容量**：累计插队达 3 批，命中 §3.1.1 阈值 1 → 再平衡待用户确认（见阶段头注）。
+- **pnpm store 双份并存与无界增长治理（2026-11-24 用户授权追加；严重磁盘问题）** —— 目标：消除数据卷内「受管 store + pnpm 自动 per-filesystem store」双份并存导致的占用翻倍，并让该类遗留可被发现、可被判据清理；设计口径见 [pnpm-store-hygiene.md](../design/governance/pnpm-store-hygiene.md)。背景：2026-11-24 宿主机实测 `/root/projects/dependfix` 16 GB = `data/pnpm-store` 8.7 GB + `data/.pnpm-store` 6.6 GB（同一批依赖两份，`data/runs` 仅 85 MB）。范围：① `apps/platform/docker/entrypoint.sh` 启动时检出 `$DATA_DIR/.pnpm-store`（存在且 ≠ 受管 store → 恰一条 warn，含路径与清理命令，不自动删除）+ 回退分支文案更正为 pnpm 实际落点；② `apps/platform/docker/entrypoint.test.mjs` 用例（遗留目录存在 / 不存在 / 与受管 store 同路径三态 + 不触碰该目录的断言）；③ `docs/guide/deployment.md` 与 `docs/i18n/en-US/guide/deployment.md` 新增「双份 store 成因与判定」，备份 `--exclude` 覆盖 `./pnpm-store` 与 `./.pnpm-store`；④ `docs/guide/configuration.md` 与 en-US 的 `PNPM_CONFIG_STORE_DIR` 行更正回退口径。验收：① 数据卷根存在遗留 `.pnpm-store` 时入口输出恰一条 warn 且不改动其内容 / 属主，不存在时零输出；② 回退文案不再声称回退到 `$HOME`；③ zh / en 结构可映射 + 备份排除项两种目录名齐备；④ `gates:docs` 全绿；⑤ 运维清理 runbook（prune → 停容器 → 单路径删除 → 复核 `pnpm store path`）落在设计文档 §5.1。不做：不自动删除 / 自动 prune 用户数据卷目录；不做 store 体积指标接口与阈值告警（按规划规范 §3.1 评估后登记 backlog，先观察清理后的增长曲线）；不改 `RUN_WORK_ROOT` 与镜像分层。交付物：3-4 commits / 7-10 files / 250-450 行。**风险与依赖**：入口新增检出必须保持 fail-open（读目录失败只 warn 不阻断）；已完成的 [`pnpm-store-hygiene.md`](../design/governance/pnpm-store-hygiene.md) 与 governance 索引为本批前置。**交付形态（§2.6）**：无头（入口 `warn` + 运维 runbook，经 `docker logs` 可达）；不新增 UI / API，理由：诊断面属部署运维，界面化无额外可达性收益。**§3.4 交叉核验（2026-11-24）**：① 归档仅 M47.4「pnpm store 持久化与提交卫生」，无遗留检出 / 清理内容；② M47.4 清单 5 个 commit（`6acaf252` / `083b7a66` / `50e55e61` / `64f10c57` / `1dd677e3`）逐条 `git show` 无 `.pnpm-store` 检出；③ anchor：`apps/platform/docker/entrypoint.sh:81` 只派生受管路径、无 `.pnpm-store` 探测；`docs/guide/deployment.md:146`（默认落点）与 `docs/guide/configuration.md:355`（回退口径）仍按 `$HOME` 表述——缺口成立。**容量**：累计插队达 3 批，命中 §3.1.1 阈值 1 → **再平衡已于 2026-11-24 经用户确认执行**：移出 M66.2「无补丁版本告警的稳定结论」至 `backlog.md`（三处一致：① 阶段头「容量再平衡」行 / ② 本条 / ③ 阶段归档时在 `archive/archive-log.md` 批次记录登记「插队 3 批 / 再平衡移出 1 项」）。

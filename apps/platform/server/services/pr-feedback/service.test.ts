@@ -4,6 +4,12 @@ import type { Octokit } from '@octokit/rest'
 import { buildFeedbackMarker } from './decision'
 import { runPrFeedbackForRepository } from './service'
 
+// 分支清理的审计写入走真实 DB 初始化；单测替身只保留调用记录（清理逻辑本身另有断言）
+const { mockRecordDeliveryCleanupEvent } = vi.hoisted(() => ({ mockRecordDeliveryCleanupEvent: vi.fn() }))
+vi.mock('#server/services/sandbox-delivery-cleanup', () => ({
+    recordDeliveryCleanupEvent: mockRecordDeliveryCleanupEvent,
+}))
+
 const SHA = 'a'.repeat(40)
 const now = new Date('2026-10-30T12:00:00Z')
 const hoursAgo = (hours: number) => new Date(now.getTime() - hours * 3_600_000)
@@ -15,6 +21,7 @@ interface Harness {
     createComment: ReturnType<typeof vi.fn>
     closePull: ReturnType<typeof vi.fn>
     getPull: ReturnType<typeof vi.fn>
+    deleteRef: ReturnType<typeof vi.fn>
     savedAudits: Record<string, unknown>[]
 }
 
@@ -25,6 +32,11 @@ function makeHarness(options: {
     comments?: string[]
     commentError?: Error
     prState?: 'open' | 'closed' | (() => 'open' | 'closed')
+    head?: { ref: string, sha: string, repoFullName: string | null }
+    deleteRefError?: Error
+    defaultBranch?: string
+    /** 让 `pr_feedback_closed` 审计写库抛错（验证审计失败不阻断分支回收） */
+    failClosedAudit?: boolean
 } = {}): Harness {
     const savedAudits: Record<string, unknown>[] = []
     const createComment = vi.fn(async () => {
@@ -34,9 +46,19 @@ function makeHarness(options: {
         return {}
     })
     const closePull = vi.fn(async () => ({}))
+    const head = options.head ?? { ref: 'dependfix/auto-fix-abc12345', sha: SHA, repoFullName: 'acme/app' }
     const getPull = vi.fn(async () => ({
-        data: { state: typeof options.prState === 'function' ? options.prState() : (options.prState ?? 'open') },
+        data: {
+            state: typeof options.prState === 'function' ? options.prState() : (options.prState ?? 'open'),
+            head: { ref: head.ref, sha: head.sha, repo: head.repoFullName ? { full_name: head.repoFullName } : null },
+        },
     }))
+    const deleteRef = vi.fn(async () => {
+        if (options.deleteRefError) {
+            throw options.deleteRefError
+        }
+        return {}
+    })
     const commentBodies = options.comments ?? []
 
     const repos: Record<string, unknown> = {
@@ -45,6 +67,7 @@ function makeHarness(options: {
                 id: 'repo-1',
                 owner: 'acme',
                 name: 'app',
+                defaultBranch: options.defaultBranch ?? 'main',
                 prFeedback: options.prFeedback === undefined ? null : options.prFeedback,
             })),
         },
@@ -59,6 +82,9 @@ function makeHarness(options: {
         AuditEvent: {
             create: vi.fn((input: Record<string, unknown>) => input),
             save: vi.fn(async (input: Record<string, unknown>) => {
+                if (options.failClosedAudit && input.type === 'pr_feedback_closed') {
+                    throw new Error('SQLITE_BUSY: database is locked')
+                }
                 savedAudits.push(input)
                 return input
             }),
@@ -77,10 +103,11 @@ function makeHarness(options: {
                 createComment,
             },
             pulls: { update: closePull, get: getPull },
+            git: { deleteRef },
         },
     } as unknown as Octokit
 
-    return { ds, octokit, commentBodies, createComment, closePull, getPull, savedAudits }
+    return { ds, octokit, commentBodies, createComment, closePull, getPull, deleteRef, savedAudits }
 }
 
 const defaultRun = { prNumber: 7, finishedAt: hoursAgo(1) }
@@ -120,6 +147,133 @@ describe('runPrFeedbackForRepository', () => {
         expect(result).toEqual({ commented: 1, closed: 1, errors: 0 })
         expect(h.closePull).toHaveBeenCalledWith(expect.objectContaining({ pull_number: 7, state: 'closed' }))
         expect(h.savedAudits.map((audit) => audit.type)).toEqual(['pr_feedback_commented', 'pr_feedback_closed'])
+    })
+
+    it('关闭后回收 head 分支：本仓 + dependfix/auto-fix-* + sha 匹配 → 删除并写清理审计', async () => {
+        mockRecordDeliveryCleanupEvent.mockReset()
+        const h = makeHarness({
+            prFeedback: '{"closeFailed":true}',
+            run: defaultRun,
+            prCheck: failedCheck,
+        })
+        const result = await runPrFeedbackForRepository({ ds: h.ds, octokit: h.octokit, repositoryId: 'repo-1', now })
+
+        expect(result).toEqual({ commented: 1, closed: 1, errors: 0 })
+        expect(h.deleteRef).toHaveBeenCalledWith({
+            owner: 'acme',
+            repo: 'app',
+            ref: 'heads/dependfix/auto-fix-abc12345',
+        })
+        expect(mockRecordDeliveryCleanupEvent).toHaveBeenCalledWith(
+            expect.objectContaining({ owner: 'acme' }),
+            expect.objectContaining({ id: 'run-1' }),
+            'dependfix/auto-fix-abc12345',
+            'deleted',
+        )
+    })
+
+    it('head sha 与 PRCheck 不一致（有新提交）→ 跳过删除并记录原因', async () => {
+        mockRecordDeliveryCleanupEvent.mockReset()
+        const h = makeHarness({
+            prFeedback: '{"closeFailed":true}',
+            run: defaultRun,
+            prCheck: failedCheck,
+            head: { ref: 'dependfix/auto-fix-abc12345', sha: 'b'.repeat(40), repoFullName: 'acme/app' },
+        })
+        const result = await runPrFeedbackForRepository({ ds: h.ds, octokit: h.octokit, repositoryId: 'repo-1', now })
+
+        expect(result).toEqual({ commented: 1, closed: 1, errors: 0 })
+        expect(h.deleteRef).not.toHaveBeenCalled()
+        expect(mockRecordDeliveryCleanupEvent).toHaveBeenCalledWith(
+            expect.anything(), expect.anything(), 'dependfix/auto-fix-abc12345', 'skipped', 'head_sha_mismatch',
+        )
+    })
+
+    it('fork head / 源仓库缺失 / 非 auto-fix 分支 → 跳过删除（非自有分支零误删）', async () => {
+        const cases: { head: { ref: string, sha: string, repoFullName: string | null }, reason: string }[] = [
+            { head: { ref: 'dependfix/auto-fix-abc12345', sha: SHA, repoFullName: 'someone/fork' }, reason: 'fork_head' },
+            // head.repo 为 null（源仓库已删除 / fork 已删）同样按 fork 跳过
+            { head: { ref: 'dependfix/auto-fix-abc12345', sha: SHA, repoFullName: null }, reason: 'fork_head' },
+            { head: { ref: 'feature/x', sha: SHA, repoFullName: 'acme/app' }, reason: 'branch_out_of_scope' },
+        ]
+        for (const { head, reason } of cases) {
+            mockRecordDeliveryCleanupEvent.mockReset()
+            const h = makeHarness({ prFeedback: '{"closeFailed":true}', run: defaultRun, prCheck: failedCheck, head })
+            const result = await runPrFeedbackForRepository({ ds: h.ds, octokit: h.octokit, repositoryId: 'repo-1', now })
+
+            expect(result.closed).toBe(1)
+            expect(h.deleteRef).not.toHaveBeenCalled()
+            expect(mockRecordDeliveryCleanupEvent).toHaveBeenCalledWith(
+                expect.anything(), expect.anything(), head.ref, 'skipped', reason,
+            )
+        }
+    })
+
+    it('head 是默认分支（同名）→ 跳过删除', async () => {
+        mockRecordDeliveryCleanupEvent.mockReset()
+        const h = makeHarness({
+            prFeedback: '{"closeFailed":true}',
+            run: defaultRun,
+            prCheck: failedCheck,
+            defaultBranch: 'dependfix/auto-fix-abc12345',
+            head: { ref: 'dependfix/auto-fix-abc12345', sha: SHA, repoFullName: 'acme/app' },
+        })
+        await runPrFeedbackForRepository({ ds: h.ds, octokit: h.octokit, repositoryId: 'repo-1', now })
+
+        expect(h.deleteRef).not.toHaveBeenCalled()
+        expect(mockRecordDeliveryCleanupEvent).toHaveBeenCalledWith(
+            expect.anything(), expect.anything(), 'dependfix/auto-fix-abc12345', 'skipped', 'default_branch',
+        )
+    })
+
+    it('仓库全名大小写不同（用户输入 vs GitHub 规范）→ 仍按本仓处理', async () => {
+        const h = makeHarness({
+            prFeedback: '{"closeFailed":true}',
+            run: defaultRun,
+            prCheck: failedCheck,
+            head: { ref: 'dependfix/auto-fix-abc12345', sha: SHA, repoFullName: 'Acme/App' },
+        })
+        await runPrFeedbackForRepository({ ds: h.ds, octokit: h.octokit, repositoryId: 'repo-1', now })
+
+        expect(h.deleteRef).toHaveBeenCalledWith({
+            owner: 'acme',
+            repo: 'app',
+            ref: 'heads/dependfix/auto-fix-abc12345',
+        })
+    })
+
+    it('关闭审计写库失败（SQLITE_BUSY）不阻断分支回收', async () => {
+        mockRecordDeliveryCleanupEvent.mockReset()
+        const h = makeHarness({
+            prFeedback: '{"closeFailed":true}',
+            run: defaultRun,
+            prCheck: failedCheck,
+            failClosedAudit: true,
+        })
+        const result = await runPrFeedbackForRepository({ ds: h.ds, octokit: h.octokit, repositoryId: 'repo-1', now })
+
+        // 审计抛错会进外层 catch（errors+1），但回收已先执行——分支不会永久残留
+        expect(result.closed).toBe(1)
+        expect(h.deleteRef).toHaveBeenCalledTimes(1)
+        expect(mockRecordDeliveryCleanupEvent).toHaveBeenCalledWith(
+            expect.anything(), expect.anything(), 'dependfix/auto-fix-abc12345', 'deleted',
+        )
+    })
+
+    it('删除失败 → 记 failed 审计，反馈主流程不报错', async () => {
+        mockRecordDeliveryCleanupEvent.mockReset()
+        const h = makeHarness({
+            prFeedback: '{"closeFailed":true}',
+            run: defaultRun,
+            prCheck: failedCheck,
+            deleteRefError: new Error('Reference does not exist'),
+        })
+        const result = await runPrFeedbackForRepository({ ds: h.ds, octokit: h.octokit, repositoryId: 'repo-1', now })
+
+        expect(result).toEqual({ commented: 1, closed: 1, errors: 0 })
+        expect(mockRecordDeliveryCleanupEvent).toHaveBeenCalledWith(
+            expect.anything(), expect.anything(), 'dependfix/auto-fix-abc12345', 'failed', expect.any(String),
+        )
     })
 
     it('非失败结论 / 窗口外 / 无 PRCheck / 无 PR 交付 → 不动作', async () => {

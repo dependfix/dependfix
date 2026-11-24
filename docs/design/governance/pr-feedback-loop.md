@@ -20,7 +20,7 @@
 
 1. 平台创建的 PR 进入**观察态**：由监测器节拍驱动，结果落 `PRCheck` 且 run 详情可见。
 2. checks 失败时按 `headSha` **幂等评论一次**（说明失败 job + 归因）。
-3. `closeFailedPr` 显式开启时关闭 PR 并写审计。
+3. `closeFailedPr` 显式开启时关闭 PR，随后回收 head 分支（仅本仓 + `dependfix/auto-fix-*` + sha 未漂移，见 §5），最后写关闭审计——回收先于审计，避免审计写库失败阻断回收。
 4. 观察有上限（PR 终态 / 配置窗口），**不阻塞 worker、不长时间持锁**。
 5. 关闭与重试**默认关**，开启后行为逐条可测。
 
@@ -52,7 +52,7 @@ deliverFixAndPr（创建 / 命中同内容 PR）
 | 对象 | 幂等键 | 载体 |
 |:--|:--|:--|
 | 评论 | `(repositoryId, prNumber, headSha)` | 评论区 HTML marker：`<!-- dependfix:pr-feedback headSha=<sha> -->`（b 批只有「评论」一种副作用，故不带 `kind`；新增副作用时再加） |
-| 关闭 | `(repositoryId, prNumber, headSha)` | **动作前查 PR 状态**（`pulls.get`，非 open 即跳过）+ `audit_event(pr_feedback_closed)` |
+| 关闭 | `(repositoryId, prNumber, headSha)` | **动作前查 PR 状态**（`pulls.get`，非 open 即跳过）+ `audit_event(pr_feedback_closed)`；关闭后按 `head` 回收分支（`cleanupClosedPullRequestBranch`：fork / 默认分支 / 非 `dependfix/auto-fix-*` / sha 不一致一律跳过，结局落 `delivery_branch_cleanup`） |
 | 重试 | `(repositoryId, prNumber, headSha)` | `audit_event(pr_feedback_retried)` |
 
 - 评论幂等**以 GitHub 侧 marker 为准**（列表评论判断），不新增列：重启后仍幂等，且与 CLI 侧评论风格一致
@@ -73,7 +73,7 @@ deliverFixAndPr（创建 / 命中同内容 PR）
 3. **评论**：`conclusion ∈ (failure, timed_out, action_required)` → 评论一次（§4 marker）。
    评论正文：结论 + 失败来源（provider/name，来自 `PRCheck.failureSourcesJson`，最多 5 条）+ 自动评论说明
    + 关闭提示（若开启）。**不含归因标签**（平台侧归因见 M51.2，评论区不重复展示）。
-4. **关闭**：`closeFailed` 开启 ∧ 上述失败状 ∧ PR 仍 open → 关闭并写审计。
+4. **关闭**：`closeFailed` 开启 ∧ 上述失败状 ∧ PR 仍 open → 关闭 → 回收 head 分支（仅当 head 属于本仓库、分支名匹配 `dependfix/auto-fix-*` 且 `head.sha === PRCheck.headSha`）→ 写关闭审计——与引擎 supersede 路径对齐，避免同指纹交付下一轮撞 non-fast-forward（`push_failed_non_fast_forward`）。
    **平台不使用 `self_caused` 判据**（无父提交比对），因此关闭门槛比 CLI 低——这是本设计的显式取舍：
    默认关闭、开启后审计可追溯、PR 正文与评论均标注「自动关闭」。要求用户在仓库级配置中显式开启。
 5. **重试**（用户已裁定本批不实施）：`retryFailed` 开启 ∧ 失败 ∧ 同 `headSha` 未重试过 → 重新触发既有修复链一次。

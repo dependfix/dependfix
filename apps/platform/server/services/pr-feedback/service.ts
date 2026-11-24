@@ -8,6 +8,7 @@ import { IsNull, MoreThanOrEqual, Not, type DataSource } from 'typeorm'
 import type { Octokit } from '@octokit/rest'
 import { closePullRequest, commentOnPullRequest } from '@dependfix/engine'
 import type { Logger } from '@dependfix/core'
+import { cleanupClosedPullRequestBranch } from './branch-cleanup'
 import { parsePrFeedbackConfig } from './config'
 import { buildFeedbackCommentBody, hasFeedbackMarker, isFeedbackFailureConclusion } from './decision'
 import { isPrFeedbackObservationOpen } from './observation'
@@ -190,6 +191,20 @@ export async function runPrFeedbackForRepository(params: {
             if (config.closeFailed) {
                 await closePullRequest(octokit, repository.owner, repository.name, prNumber)
                 result.closed += 1
+                // 先回收 head 分支再写审计：审计写库失败（SQLITE_BUSY 等）会抛到外层 catch，
+                // 而 PR 已关闭 → 下一轮不会再进入本分支，分支将永久残留（正是本能力要消灭的形态）。
+                // 回收自身已吞掉删除失败并落清理审计，不阻断反馈主流程。
+                await cleanupClosedPullRequestBranch({
+                    octokit,
+                    repository,
+                    run,
+                    expectedHeadSha: prCheck.headSha,
+                    head: {
+                        ref: pull.data.head.ref,
+                        sha: pull.data.head.sha,
+                        repoFullName: pull.data.head.repo?.full_name ?? null,
+                    },
+                })
                 await recordFeedbackAudit(ds, 'pr_feedback_closed', {
                     repositoryId,
                     scanRunId: run.id,

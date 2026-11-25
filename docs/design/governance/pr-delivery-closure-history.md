@@ -58,8 +58,9 @@
 | `issue` | 按失败指纹开 issue（去重、关闭后不重开），随后仍回滚 | 否 | issue |
 | `draft` | 不回滚，照常提交 / 推送，PR 以**草稿**创建 | 是（草稿 PR） | draft PR |
 
-- 仅 `fix-and-pr` 生效；`fix` 模式下（平台执行链）能力主线不在引擎 PR 面，因此**只记录**
-  `summary.deliverySkipped*`，由平台展示「交付跳过」（见 §16.5）。
+- 引擎 CLI / Action 的 `issue` / `draft` 仅在 `fix-and-pr` 生效；平台容器执行链（`fix + commit`）按
+  仓库级 `baselineRedCarrier` 独立支持 `issue` / `draft`（2026-11-25 M67.2），默认 `skip` 只记录
+  `summary.deliverySkipped*` 并展示「交付跳过」（见 §16.5）。
 - dry-run 一律按 `skip`：dry-run 无交付面可降级，且必须回滚。
 - 配置校验：非法值 fail-fast（`ON_BASELINE_RED must be one of: skip, issue, draft`）。
 
@@ -93,8 +94,10 @@
 - `RunSummary` 新增 `deliverySkipped`（去重仓库数）、`deliverySkipIssues`（本次新建 issue 数）、
   `deliverySkipDraftPrs`（草稿 PR 数），由 `computeSummary` 按记录幂等派生。
 - 平台：运行列表的告警列展示「交付跳过 N 个仓库」标签；运行详情（`repo-history-dialog` 的
-  结果行与 `run-detail-dialog` 元信息）另附载体计数（新建 issue / 草稿 PR）——避免把
-  「无 PR / 0 修复」误读成「扫描无告警」。旧 `summaryJson` 缺字段时按 0 处理（不渲染）。
+  结果行与 `run-detail-dialog` 元信息）另附载体计数（新建 issue / 草稿 PR）与 `summary.deliverySkipCarriers`
+  跳转链接——避免把「无 PR / 0 修复」误读成「扫描无告警」。旧 `summaryJson` 缺字段时按 0 / 空处理（不渲染）。
+  平台容器链的载体是**运行后置**动作：报告在引擎内生成时仍可能是 `report only (skip)`，落库
+  `summaryJson`（含量与链接）为平台侧权威视图。
 
 ### 16.6 退出码中性（不变）
 
@@ -103,9 +106,9 @@
 
 ### 16.7 已知边界
 
-1. 平台执行链（`fix + commit`）只记录 summary，不创建 issue / 草稿 PR：平台交付面在
-   `platform-delivery`，与引擎 `fix-and-pr` 的载体创建不是同一路径（候选已于 2026-11-25 上收
-   [M67.2](../../plan/todo.md)，落地后本边界失效）。
+1. ~~平台执行链（`fix + commit`）只记录 summary，不创建 issue / 草稿 PR~~：2026-11-25 M67.2 落地后，
+   平台按仓库级 `baselineRedCarrier` 支持 `issue` / `draft`（默认 `skip` 仅记录）；issue 复用引擎指纹
+   与去重，草稿 PR 由平台在引擎继续提交后创建，运行详情经 `summary.deliverySkipCarriers` 提供跳转链接。
 2. issue 去重只扫最近 100 条 issue；更早的同指纹 issue 不会被命中（fail-open：最多多开一条）。
 3. 人工关闭 issue 即视为已确认；后续同指纹运行不再新建（报告仍记 `deliverySkipped`）。
 4. 指纹不含错误文本：同一命令的不同根因会落在同一个 issue（人工跟踪粒度取舍，见 §16.3）。

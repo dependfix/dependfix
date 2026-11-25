@@ -166,6 +166,7 @@ rollbackGranularity
 mirrorCiScripts
 retryFailed
 onBaselineRed
+deliveryOwner
 waitPrChecks
 closeFailedPr
 prCheckTimeoutMs
@@ -310,7 +311,7 @@ notification_log: id, created_at, updated_at, delivery_key, category, scope_type
 notification_preference: id, created_at, updated_at, user_id, category, channel, enabled
 organization: id, created_at, updated_at, name, ai_api_key_encrypted, ai_provider, ai_model, ai_base_url, ai_api_url, notification_settings_json
 pr_check: id, created_at, updated_at, repository_id, pr_number, head_sha, author_login, conclusion, pr_state, check_run_id, details_url, error_message, signals_json, overall_status, failure_sources_json, provider_logs_json, alert_firing, acknowledged_at, acknowledged_by_user_id, last_polled_at
-repository: id, created_at, updated_at, organization_id, owner, name, platform, default_branch, package_manager, credential_id, action_workflow_file, executor_kind, ai_enabled, ai_trigger, note, last_scan_at, tags, sandbox_limits, sandbox_image, verify_commands, pr_check_focus, vercel_project_id, cloudflare_account_id, cloudflare_worker_tag, pr_feedback, execution_timeout_ms, verify_command_timeout_ms, install_timeout_ms, clone_timeout_ms, allow_major_upgrade
+repository: id, created_at, updated_at, organization_id, owner, name, platform, default_branch, package_manager, credential_id, action_workflow_file, executor_kind, ai_enabled, ai_trigger, note, last_scan_at, tags, sandbox_limits, sandbox_image, verify_commands, pr_check_focus, vercel_project_id, cloudflare_account_id, cloudflare_worker_tag, pr_feedback, execution_timeout_ms, verify_command_timeout_ms, install_timeout_ms, clone_timeout_ms, allow_major_upgrade, baseline_red_carrier
 scan_result: id, created_at, updated_at, scan_run_id, repository_id, upstream_id, source, severity, package_name, manifest_path, rule_id, summary, fixable, fix_strategy, recommended_version, html_url, ghsa_id, cve_ids, fix_status, error_message, first_seen_at, last_seen_at, occurrence_count, superseded_at
 scan_run: id, created_at, updated_at, repository_id, mode, severity_threshold, executor_kind, build_version, build_commit, status, started_at, finished_at, summary_json, exit_code, environmental_failure_count, memory_max_bytes, peak_rss_bytes, oom_killed, resource_json, error_json, failure_code, failure_stage, failure_kind, retried_from_run_id, triggered_by_user_id, logs_json, logs_dropped, ai_config_snapshot, run_url, pr_number, batch_run_id, execution_timeout_ms
 schedule: id, created_at, updated_at, kind, name, cron, timezone, selector_kind, selector_json, mode, severity_threshold, enabled, last_triggered_at, last_batch_run_id, organization_id
@@ -377,6 +378,7 @@ verification: id, created_at, updated_at, identifier, value, expires_at
 - **受影响对象**：目标仓库本身存在失败验证（基线红）、仍希望交付修复的使用者。
 - **变更**：新增配置 `DEPENDFIX_ON_BASELINE_RED`（`RuntimeConfig.onBaselineRed`）/ Action input `on-baseline-red`，取值 `skip`（默认）/ `issue` / `draft`。默认 `skip` 与引入前逐字一致（记录审计 + 回滚，不交付）；`issue` 额外开 issue 追踪，`draft` 不回滚、以草稿 PR 交付。dry-run 一律按 `skip`；非法值 fail-fast。
 - **迁移动作**：无强制动作。若过去因基线红「修复被静默丢弃」而困扰，显式设为 `issue` 或 `draft`。
+- **平台内部字段**：`deliveryOwner`（`engine` / `platform`，无 env / CLI 通道）供平台容器链声明「交付由平台接管」；仅该值下 `draft` 档才允许引擎在 `fix` 模式继续提交，CLI 语义不变。
 - **验证**：`DEPENDFIX_ON_BASELINE_RED=draft pnpm run dev -- fix-and-pr`，报告 `deliverySkips[].carrier.mode` 为 `draft` 且 PR 为草稿状态。
 
 ### 8.5 `PRCheck.signalsJson` 存的是收敛后信号

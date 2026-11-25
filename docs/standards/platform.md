@@ -82,6 +82,14 @@ Nuxt 4（全栈 SSR + API Routes，`app/` + `server/`）/ TypeScript strict / UI
 - **配置面**：`NUXT_PUBLIC_ALLOW_MAJOR_UPGRADE_DEFAULT`（构建期 `ALLOW_MAJOR_UPGRADE_DEFAULT`）只影响**新建仓库**；写入需 admin / org_admin，变化记 `major_upgrade_policy_update`；**不新增**引擎 CLI / Action / env 隐式通道。
 - **可观测**：仓库视图返回开关状态；运行摘要 `cross-major` 计数与人工标签表达「被跳过」，已授权但准入不满足时日志输出 `require a cross-major upgrade ... manual review`。
 
+### 6.4 仓库级基线红交付载体（`baselineRedCarrier`）
+
+- **枚举与默认**：`skip`（默认）/ `issue` / `draft`；迁移与实体默认 `skip`，既有运行结果零回归。
+- **生效范围**：仅**容器执行器**的 `fix + commit` 交付链（平台接管 push / PR）；`github-action` / `sandbox` 不消费该字段，表单仅在 `container` 时展示。
+- **行为**：`issue` 按「仓库集 + 失败命令集」指纹复用引擎 `deliverSkipIssue`（同指纹不重复、关闭后不重开）；`draft` 需引擎继续提交后由平台创建草稿 PR（`draft: true`，正文带既有失败说明）；配置 `draft` 但本次未发生基线红时仍按原扫描模式交付。`fix` 模式下的基线红 `draft` 改以草稿 PR 交付（不推默认分支）。
+- **计数**：`summary.deliverySkipIssues` 只计本次新建 issue；`summary.deliverySkipDraftPrs` 只计本次新建草稿 PR（复用既有 PR 不计数）；载体链接经 `summary.deliverySkipCarriers` 暴露给运行详情。
+- **配置面**：写入需 admin / org_admin；`baselineRedCarrier` 实际变化记 `baseline_red_carrier_update` 审计；非法枚举 400。
+
 ## 7. 前端规范（app/）
 
 - Vue 3 Composition API + `<script setup lang="ts">`；禁止 `any`；模板不写复杂逻辑（抽 computed / 函数）。

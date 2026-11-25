@@ -14,8 +14,34 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
 jobs:
+  # 发布计划只读探测（schedule only）：无版本变更时在 install 之前短路整个 release job。
+  # 探测不写 release-plan.md，重复执行幂等；探测异常 fail-open（输出 has_changes=true）。
+  # workflow_dispatch 跳过本 job，release 直接全量执行。
+  probe:
+    name: Release probe
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      has_changes: ${{ steps.probe.outputs.has_changes }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Setup Node.js environment
+        uses: actions/setup-node@v7
+        with:
+          node-version: "lts/*"
+      - name: Probe release plan (read-only)
+        id: probe
+        run: node scripts/create-release-plan.mjs --check
   release:
     name: Release
+    needs: probe
+    if: ${{ !cancelled() && (github.event_name != 'schedule' || needs.probe.outputs.has_changes != 'false') }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:

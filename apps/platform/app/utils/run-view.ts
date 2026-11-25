@@ -105,6 +105,43 @@ export const deliverySkipIssues = (summary: Record<string, unknown> | null) => s
 /** 本次运行创建的草稿 PR 数（`draft` 档）。 */
 export const deliverySkipDraftPrs = (summary: Record<string, unknown> | null) => summaryNumber(summary, 'deliverySkipDraftPrs')
 
+/** 基线红载体链接（issue / 草稿 PR；旧 summaryJson 缺字段时为空数组）。 */
+export interface DeliverySkipCarrierRow {
+    kind: 'issue' | 'draft-pr'
+    number: number
+    url: string
+    repositories: string[]
+}
+
+export const deliverySkipCarriers = (summary: Record<string, unknown> | null): DeliverySkipCarrierRow[] => {
+    const value = summary?.deliverySkipCarriers
+    if (!Array.isArray(value)) {
+        return []
+    }
+    return value.flatMap((item) => {
+        if (!item || typeof item !== 'object') {
+            return []
+        }
+        const record = item as Record<string, unknown>
+        let kind: DeliverySkipCarrierRow['kind'] | null = null
+        if (record.kind === 'issue') {
+            kind = 'issue'
+        } else if (record.kind === 'draft-pr') {
+            kind = 'draft-pr'
+        }
+        const number = typeof record.number === 'number' && Number.isFinite(record.number) ? record.number : 0
+        const url = typeof record.url === 'string' ? record.url : ''
+        // 仅允许 https 链接（summary 来自运行结果快照，避免 javascript: 等协议进入 href）
+        if (!kind || number <= 0 || !url.startsWith('https://')) {
+            return []
+        }
+        const repositories = Array.isArray(record.repositories)
+            ? record.repositories.filter((repo): repo is string => typeof repo === 'string' && repo.length > 0)
+            : []
+        return [{ kind, number, url, repositories }]
+    })
+}
+
 /**
  * 命令级 OOM 次数（`summary.commandOomKills`；与运行级 `oomKilled` 分层）。
  *

@@ -5,6 +5,7 @@ import {
     baselineSkippedCommands,
     commandOomCommands,
     commandOomKills,
+    deliverySkipCarriers,
     deliverySkipDraftPrs,
     deliverySkipIssues,
     deliverySkipped,
@@ -262,6 +263,24 @@ describe('verificationsSkipped', () => {
         expect(verificationSkipSummary({ verificationSkippedByReason: { budget: 1, 'no-write': 2 } }, t))
             .toBe('runs.verificationSkipSummaryItem|runs.verificationSkipReason.budget|1|runs.verificationSkipImpact.blocked'
                 + ' · runs.verificationSkipSummaryItem|runs.verificationSkipReason.noWrite|2|runs.verificationSkipImpact.noContent')
+    })
+})
+
+describe('deliverySkipCarriers', () => {
+    it('解析 issue / 草稿 PR 链接，过滤旧数据与非 https 协议', () => {
+        expect(deliverySkipCarriers({
+            deliverySkipCarriers: [
+                { kind: 'issue', number: 7, url: 'https://github.com/o/r/issues/7', repositories: ['o/r'] },
+                { kind: 'draft-pr', number: 8, url: 'https://github.com/o/r/pull/8', repositories: [] },
+                { kind: 'issue', number: 9, url: 'javascript:alert(1)', repositories: [] },
+                { kind: 'unknown', number: 10, url: 'https://example.com', repositories: [] },
+            ],
+        })).toEqual([
+            { kind: 'issue', number: 7, url: 'https://github.com/o/r/issues/7', repositories: ['o/r'] },
+            { kind: 'draft-pr', number: 8, url: 'https://github.com/o/r/pull/8', repositories: [] },
+        ])
+        expect(deliverySkipCarriers({})).toEqual([])
+        expect(deliverySkipCarriers(null)).toEqual([])
     })
 })
 

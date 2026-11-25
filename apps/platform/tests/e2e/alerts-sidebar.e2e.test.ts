@@ -107,6 +107,14 @@ test.describe('alerts 去重视图受影响运行 Sidebar', () => {
                 alertsSkippedByReason: { 'cross-major': 4, 'no-patch': 1 },
                 alertsTruncated: 6,
                 alertsTruncatedBySeverity: { critical: 2, high: 4 },
+                deliverySkipped: 1,
+                deliverySkipIssues: 1,
+                deliverySkipCarriers: [{
+                    kind: 'issue',
+                    number: 7,
+                    url: 'https://github.com/foo/bar/issues/7',
+                    repositories: ['foo/bar'],
+                }],
             },
             exitCode: 1,
             environmentalFailureCount: 1,
@@ -149,6 +157,10 @@ test.describe('alerts 去重视图受影响运行 Sidebar', () => {
         // Dependabot 无补丁版本：独立标签 + dismiss 建议（仅建议，不自动 dismiss）
         await expect(breakdown).toContainText('无补丁版本（建议 dismiss） 1')
         await expect(breakdown).toContainText('可在 Dependabot 中 dismiss')
+        // 基线红载体：运行详情可直接跳转到 issue
+        const carrierLink = detail.locator('.run-detail__carrier-links a')
+        await expect(carrierLink).toContainText('关联 issue #7')
+        await expect(carrierLink).toHaveAttribute('href', 'https://github.com/foo/bar/issues/7')
         await expect(breakdown).toContainText('Critical 2')
         await expect(page.locator('.run-detail__run-url')).toHaveAttribute('href', String(run.runUrl))
     })

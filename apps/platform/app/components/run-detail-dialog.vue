@@ -4,6 +4,7 @@ import type { DataTableColumn } from 'caomei-ui'
 import { Copy, Download, RefreshCw } from '@lucide/vue'
 import {
     alertsFound,
+    deliverySkipCarriers,
     deliverySkipDraftPrs,
     deliverySkipIssues,
     deliverySkipped,
@@ -166,6 +167,7 @@ const { commandOomCount, commandOomText, commandOomVisible, runLevelOomVisible }
 const networkViolationText = computed(() => networkViolationSummary(detail.value?.summary ?? null, t))
 /** 自包含交付记录（branch + commit）；无记录时不渲染该项 */
 const deliveryInfo = computed(() => runDelivery(detail.value?.summary ?? null))
+const deliveryCarrierRows = computed(() => deliverySkipCarriers(detail.value?.summary ?? null))
 const deliveryText = computed(() => {
     const info = deliveryInfo.value
     if (!info?.branch) {
@@ -367,6 +369,22 @@ watch(() => props.runId, (runId) => {
                         <template v-if="deliverySkipDraftPrs(detail.summary) > 0">
                             · {{ t('runs.deliverySkipDraftPrs', {count: deliverySkipDraftPrs(detail.summary)}) }}
                         </template>
+                    </strong>
+                </div>
+                <div v-if="!isRunResultMissing(detail) && deliveryCarrierRows.length > 0" class="run-detail__meta-item">
+                    <span class="run-detail__meta-label">{{ t('runs.deliverySkipCarriersLabel') }}</span>
+                    <strong class="run-detail__carrier-links">
+                        <a
+                            v-for="carrier in deliveryCarrierRows"
+                            :key="`${carrier.kind}-${carrier.number}`"
+                            :href="carrier.url"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                        >
+                            {{ carrier.kind === 'issue'
+                                ? t('runs.deliverySkipCarrierIssue', {number: carrier.number})
+                                : t('runs.deliverySkipCarrierDraftPr', {number: carrier.number}) }}
+                        </a>
                     </strong>
                 </div>
                 <div v-if="!isRunResultMissing(detail) && verificationsSkipped(detail.summary) > 0" class="run-detail__meta-item">
@@ -750,6 +768,12 @@ watch(() => props.runId, (runId) => {
     &__meta-label {
         color: $color-text-muted;
         font-size: $font-size-sm;
+    }
+
+    &__carrier-links {
+        display: flex;
+        flex-wrap: wrap;
+        gap: $space-2;
     }
 
     &__run-url {

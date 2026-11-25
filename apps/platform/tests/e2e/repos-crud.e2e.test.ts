@@ -179,6 +179,10 @@ test.describe('仓库管理 CRUD', () => {
         await page.locator('#allowMajorUpgrade').click()
         await expect(page.locator('#allowMajorUpgrade')).toHaveAttribute('aria-checked', 'true')
 
+        // 基线红交付载体：默认仅跳过，显式改为创建 issue
+        await page.locator('#baselineRedCarrier').click()
+        await page.locator('.caomei-select__item', { hasText: '创建 issue' }).click()
+
         await page.locator('.caomei-dialog__content button:has-text("保存")').click()
         await expect(page.locator('.caomei-message--success')).toContainText('仓库已添加', { timeout: 15000 })
 
@@ -192,11 +196,13 @@ test.describe('仓库管理 CRUD', () => {
             executionTimeoutMs: number | null
             verifyCommandTimeoutMs: number | null
             allowMajorUpgrade: boolean
+            baselineRedCarrier: string
         }[]
         const created = repos.find((r) => r.owner === owner)
         expect(created?.executionTimeoutMs).toBe(45 * 60000)
         expect(created?.verifyCommandTimeoutMs).toBe(20 * 60000)
         expect(created?.allowMajorUpgrade).toBe(true)
+        expect(created?.baselineRedCarrier).toBe('issue')
 
         // 编辑回显：毫秒还原为可读单位
         const row = page.locator('.caomei-data-table__row', { hasText: owner })
@@ -205,6 +211,7 @@ test.describe('仓库管理 CRUD', () => {
         await expect(page.locator('input#executionTimeout')).toHaveValue('45m')
         await expect(page.locator('input#verifyCommandTimeout')).toHaveValue('20m')
         await expect(page.locator('#allowMajorUpgrade')).toHaveAttribute('aria-checked', 'true')
+        await expect(page.locator('#baselineRedCarrier')).toContainText('创建 issue')
     })
 
     test('保存校验：错误在弹窗内定位到字段，且支持时长单位', async ({ page }) => {

@@ -53,6 +53,8 @@ interface RepoForm {
     cloneTimeout: string
     /** 跨大版本升级授权（默认关闭） */
     allowMajorUpgrade: boolean
+    /** 基线红交付载体（默认 skip） */
+    baselineRedCarrier: 'skip' | 'issue' | 'draft'
 }
 
 /** 可定位错误的字段键（与表单控件一一对应；服务端 issues 的 path 映射到同一组键）。 */
@@ -75,6 +77,7 @@ type FieldKey = 'owner'
     | 'verifyCommandTimeout'
     | 'installTimeout'
     | 'cloneTimeout'
+    | 'baselineRedCarrier'
 
 /** 字段键 → 控件 id（聚焦首个错误字段用；与模板中的 id 保持一致）。 */
 const FIELD_INPUT_IDS: Record<FieldKey, string> = {
@@ -97,6 +100,7 @@ const FIELD_INPUT_IDS: Record<FieldKey, string> = {
     verifyCommandTimeout: 'verifyCommandTimeout',
     installTimeout: 'installTimeout',
     cloneTimeout: 'cloneTimeout',
+    baselineRedCarrier: 'baselineRedCarrier',
 }
 
 /** 服务端 zod issue path 首段 → 表单字段键。 */
@@ -117,6 +121,7 @@ const ISSUE_PATH_FIELDS: Record<string, FieldKey> = {
     verifyCommandTimeoutMs: 'verifyCommandTimeout',
     installTimeoutMs: 'installTimeout',
     cloneTimeoutMs: 'cloneTimeout',
+    baselineRedCarrier: 'baselineRedCarrier',
 }
 
 /** `prCheckFocus.<维度>` → 表单字段键。 */
@@ -177,6 +182,7 @@ const emptyForm = (): RepoForm => ({
     installTimeout: '',
     cloneTimeout: '',
     allowMajorUpgrade: allowMajorUpgradeDefault,
+    baselineRedCarrier: 'skip',
 })
 
 const form = ref<RepoForm>(emptyForm())
@@ -464,6 +470,7 @@ watch(() => props.visible, (open) => {
                 installTimeout: formatDurationInput(repo.installTimeoutMs),
                 cloneTimeout: formatDurationInput(repo.cloneTimeoutMs),
                 allowMajorUpgrade: repo.allowMajorUpgrade === true,
+                baselineRedCarrier: (repo.baselineRedCarrier ?? 'skip') as RepoForm['baselineRedCarrier'],
             }
         : emptyForm()
 })
@@ -506,6 +513,7 @@ const submit = async () => {
             installTimeoutMs: parseDurationInput(form.value.installTimeout).ms,
             cloneTimeoutMs: parseDurationInput(form.value.cloneTimeout).ms,
             allowMajorUpgrade: form.value.allowMajorUpgrade,
+            baselineRedCarrier: form.value.baselineRedCarrier,
         }
         if (props.repo) {
             await $fetch(`/api/repos/${props.repo.id}`, {
@@ -728,6 +736,23 @@ const submit = async () => {
                 />
                 <small class="text-muted">{{ t('repos.allowMajorUpgradeHint') }}</small>
                 <small v-if="allowMajorUpgradeDefault && !props.repo" class="text-muted">{{ t('repos.allowMajorUpgradeDefaultOn') }}</small>
+            </div>
+            <div v-if="form.executorKind === 'container'" class="repo-form__field">
+                <label for="baselineRedCarrier">{{ t('repos.baselineRedCarrier') }}</label>
+                <CaomeiSelect
+                    id="baselineRedCarrier"
+                    v-model="form.baselineRedCarrier"
+                    :options="[
+                        {label: t('repos.baselineRedCarrierSkip'), value: 'skip'},
+                        {label: t('repos.baselineRedCarrierIssue'), value: 'issue'},
+                        {label: t('repos.baselineRedCarrierDraft'), value: 'draft'}
+                    ]"
+                    option-label="label"
+                    option-value="value"
+                    :invalid="!!fieldErrors.baselineRedCarrier"
+                />
+                <small class="text-muted">{{ t('repos.baselineRedCarrierHint') }}</small>
+                <small v-if="fieldErrors.baselineRedCarrier" class="text-danger">{{ fieldErrors.baselineRedCarrier }}</small>
             </div>
             <div class="repo-form__focus">
                 <div class="repo-form__focus-title">

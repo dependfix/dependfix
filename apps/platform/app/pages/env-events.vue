@@ -64,6 +64,7 @@ const typeOptions = computed(() => [
     { label: t('envEvents.typeVerifyCommandsUpdate'), value: 'verify_commands_update' },
     { label: t('envEvents.typeExecutionLimitsUpdate'), value: 'execution_limits_update' },
     { label: t('envEvents.typeMajorUpgradePolicyUpdate'), value: 'major_upgrade_policy_update' },
+    { label: t('envEvents.typeBaselineRedCarrierUpdate'), value: 'baseline_red_carrier_update' },
     { label: t('envEvents.typeNotificationSettingsUpdate'), value: 'notification_settings_update' },
     { label: t('envEvents.typePrFeedbackCommented'), value: 'pr_feedback_commented' },
     { label: t('envEvents.typePrFeedbackClosed'), value: 'pr_feedback_closed' },
@@ -122,6 +123,8 @@ const typeLabel = (type: string) => {
             return t('envEvents.typeExecutionLimitsUpdate')
         case 'major_upgrade_policy_update':
             return t('envEvents.typeMajorUpgradePolicyUpdate')
+        case 'baseline_red_carrier_update':
+            return t('envEvents.typeBaselineRedCarrierUpdate')
         case 'notification_settings_update':
             return t('envEvents.typeNotificationSettingsUpdate')
         case 'pr_feedback_commented':

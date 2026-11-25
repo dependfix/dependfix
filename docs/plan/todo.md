@@ -46,7 +46,7 @@
 | M67.1 无补丁版本告警的稳定结论 | — | ✅ 已完成 | 4（d22b8af7 / a5c2a4b8 / f92bd9db / 本条登记） | standard R1 Pass（3W）→ R2 Reject（W2）→ R3 Pass | 计划 3-4 commits / 8-10 files / 220-400 行；实际 4 commits / 26 files / +278 −35（测试、双语与设计稿同源扩散） |
 | M67.2 平台基线红交付载体与仓库级配置 | 3（M67.2.1-M67.2.3） | ⬜ 待开始 | — | — | 计划 7-10 commits / 13-20 files / 460-930 行 |
 | M67.3 发布工作流无变更周空跑短路 | — | ⬜ 待开始 | — | — | 计划 2-3 commits / 3-5 files / 100-220 行 |
-| M67.4 破坏性提交机检 | — | ⬜ 待开始 | — | — | 计划 3-4 commits / 6-8 files / 180-360 行 |
+| M67.4 破坏性提交机检 | — | ✅ 已完成 | 4（09448936 / c621d41e / 7715e323 / 本条登记） | deep R1 Pass（3W）→ R2 Reject（B1）→ R3 Reject（B2）→ R4 Pass | 计划 3-4 commits / 6-8 files / 180-360 行；实际 4 commits / 10 files / +496 −9（footer 容错与负例标定） |
 | M67.5 备份 `.tmp` 清扫年龄门槛 | — | ✅ 已完成 | 3（6a178ef2 / e2300fef / 本条登记） | standard R1 Pass（3W）→ R2 Pass | 计划 2-3 commits / 3-5 files / 80-160 行；实际 3 commits / 6 files / +107 −8（含规范与登记） |
 
 > 状态 / 提交 / 审计由执行与归档批次回填；`提交` 列填该条目自身 commit 区间与数量，`审计` 列填 Review Gate 轮次结论。
@@ -151,6 +151,7 @@
 - **依赖**：2026-11-21 评估结论；`no-diff-stats` ISO 日期修复（`6527b608`）；[git.md §3.9](../standards/git.md#_3-9-破坏性提交人工审查)。
 - **交付物**：3-4 commits / 6-8 files / 180-360 行；① 脚本 + 单测 ② husky + CI ③ 规范实施状态。
 - **风险与缓解**：误拦合规消息 → 先用真实历史范围回归，再按「任一命中」严格判定；force push 后范围失真 → 只校验本次事件范围；本地无 node → 沿用 `npx --no-install` 失败即阻断（与 commitlint 一致）。
+- **执行记录（2026-11-25）**：`scripts/check-breaking-commit.mjs` 同时服务 `--message-file`（husky）与 `--range`（CI）；footer 只取末尾 trailer 区，兼容 `-s` 的 `Signed-off-by` 与 `-v` 的注释 / 剪刀线裸 diff；`BREAKING-CHANGE:` 按缺 footer 处理；`approved-with-migration` 要求 footer 区非空 `Migration:` 行（git.md 已同步）。CI 在 Test job frozen install 后按 push `before..HEAD` / PR `base.sha..HEAD` 校验，dispatch 与全零 before 跳过；husky 在 commitlint 之后调用。已知边界：`core.commentChar` 非 `#` 时注释识别失效；无空行分隔的裸 footer 不视为合法 footer（文档已声明，发布链可能仍按 breaking 推导）。commits `09448936` / `c621d41e` / `7715e323` / 本条登记。审计 deep R1 Pass（3W）→ R2 Reject（signoff 尾块）→ R3 Reject（verbose 剪刀线）→ R4 Pass；验证：脚本 20 passed、scripts 全量 1224、真实 hook 正反向、lint 0 error / 6 warning、typecheck 7 项目、gates:docs 22、ai-governance 0 warning、YAML 可解析。
 
 ### M67.5 备份 `.tmp` 清扫年龄门槛（P3 🛠️）
 

@@ -1,4 +1,4 @@
-# 经验归档分片：§九十四 - §九十九（执行结果可信与失败归因）
+# 经验归档分片：§九十四 - §九十五（执行结果可信与交付链残余）
 
 > 本分片自 2026-11-25 M66 归档批次起启用（[§79-§85 分片](./experience-archive-§79-§85-ops-release.md) 收录至 §九十三、400 行贴顶）。章节编号**全局唯一、跨文件稳定**，分片仅按范围切分不影响锚点；L3 主题索引见 [experience-archive.md](./experience-archive.md)。
 
@@ -19,3 +19,14 @@
 9. **未交付结论只统计未交付对象**——run 级 `alertsFixed` 会把已正常交付仓库的修复算成「未交付」。做法：汇总只取**被跳过仓库自身**的 `fixed` 之和，为 0 时不输出该结论行；报告与运行详情共用同一交付影响文案。落点：`packages/core/src/report/markdown-generator.ts`、`app/utils/run-view.ts`。
 
 - **落点**：`apps/platform/docker/entrypoint.sh`、`packages/engine/src/fixers/dependency/peer-only-promotion.ts`、`apps/platform/server/services/pr-feedback/`、`apps/platform/server/services/executor/platform-delivery.ts`、`packages/core/src/report/markdown-generator.ts`、`apps/platform/app/utils/run-view.ts`、[testing §6.7](../../standards/testing.md)、`apps/platform/tests/visual/README.md`。
+
+---
+
+## 九十五、M67 归档批次经验沉淀（派生兜底掩盖显式写入 / 平台配置四段接线）
+
+**批次**：M67（2026-11-26 归档）。**准入依据**：③ 同类复现（「测试全绿但接线缺失」在 M22.6 构建产物门控与 M64 §九十二 执行参数三段接线已出现）+ ② 决策需溯源（平台接管交付的内部 `deliveryOwner` 字段为什么存在）。
+
+1. **派生兜底会掩盖显式写入丢失**——同一结论既可由显式记录、又可由属性派生时，集成测试的断言只证明「最终形态正确」，删掉显式写入用例仍绿。做法：在**写入函数**上做直调单测并断言 sink（Map 键/值 / 计数 / 去向），再对每条删改做变异标定；集成用例只负责路径组合。落点：`packages/engine/src/app/{alert-outcomes.ts,not-fixable-outcome.test.ts}`、`packages/core/src/report/alert-outcomes.ts`。
+2. **平台仓库级配置必须四段各一条断言**——「实体/迁移 → API → orchestrator ctx → executor 消费点」任一段都可能静默丢字段（本次 B1：执行器单测手写 ctx 全绿，orchestrator 未透传导致运行时恒默认值）。做法：每段至少一条断言，并在最终消费点断言「配置值 → 引擎参数」；JSON 快照扩展字段同时断言写入端与读取渲染端；本模式与 §九十二「参数解析 → 接线 → 消费点」同族，本次扩为四段。落点：`apps/platform/server/services/scan-orchestrator.test.ts`、`executor/container-executor-engine-config.test.ts`、`app/utils/run-view.test.ts`。
+
+- **落点**：`packages/engine/src/app/`、`packages/core/src/report/`、`apps/platform/server/services/scan-orchestrator.service.ts`、`apps/platform/server/services/executor/`、`apps/platform/app/utils/run-view.ts`、[development §5.1.45](../../standards/development.md)（契约字段逐段核对，既有 L2；本次为执行缺口）。

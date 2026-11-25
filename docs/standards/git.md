@@ -186,6 +186,8 @@ commit message 应聚焦于"当次提交的改动"+"可供事后复查的信息"
 
 **判定**：提交主题含 `!`（`<type>[(<scope>)]!:`）或 footer 含 `BREAKING CHANGE:` 即属破坏性提交，两种形态都须走本节审查。`BREAKING CHANGE:` footer **必须存在**——只写 `!` 不合规（发布链以 footer 生成发布说明，`!` 可能照样 bump 版本却不进 CHANGELOG）；只写 footer 不带 `!` 合法，建议补齐 `!` 便于按 header 识别。连字符 `BREAKING-CHANGE:` 不进 CHANGELOG 发布说明（`noteKeywords` 仅识别空格形态），但 `release:plan` 仍按 breaking 推导 bump——版本抬升而发布说明缺失，故本项目按缺 footer 处理。历史存量 footer-only 破坏性提交不回补 `!`。
 
+footer 必须与正文空行分隔；无空行分隔的列首裸 `BREAKING CHANGE:` 不视为合法 footer（`release:plan` 仍可能按 breaking 推导，作者须改为标准 footer 并走审查）。
+
 **时机**：`git add` 之后、`git commit` 之前；`--amend` 前同样执行。
 
 **主体**：项目所有者或其明确授权的确认人。A 阶段 Review Gate、作者自检与 `conventional-committer` 的格式检查均不替代这道确认；确认记录是自证标识，审计只校验存在性、位置与格式。
@@ -194,11 +196,14 @@ commit message 应聚焦于"当次提交的改动"+"可供事后复查的信息"
 
 ```
 Breaking-Review: <确认人标识> <YYYY-MM-DD> <approved|approved-with-migration>
-BREAKING CHANGE: <破坏面说明；结论为 approved-with-migration 时给出迁移路径>
+Migration: <迁移路径；仅 approved-with-migration 必填，可指向关联文档>
+BREAKING CHANGE: <破坏面说明>
 ```
 
+引用上述模板写文档时须缩进或放入行内代码：机检只把末尾的 trailer 块当作 footer（并忽略 `git commit -v` 注释行、并入 `-s` 追加的 Signed-off-by 块），正文中间列首的裸模板行不参与判定。
+
 - **确认人标识**：单个无空格 token；默认 `owner`，授权人写其 GitHub 用户名。公开仓库不写真实姓名与邮箱——提交历史会永久保留并被 fork / 镜像。
-- **结论枚举**：仅 `approved` 与 `approved-with-migration`。后者必须在正文或关联文档给出迁移路径，未给视为未通过；「同意但延后到下一窗口」不是提交时点结论，延后即不提交。
+- **结论枚举**：仅 `approved` 与 `approved-with-migration`。后者必须在 footer 区（与 `BREAKING CHANGE:` 同处末尾 trailer 区，可位于任一 trailer 块）提供非空 `Migration:` 行（迁移路径，可指向关联文档），未给视为未通过；「同意但延后到下一窗口」不是提交时点结论，延后即不提交。
 - **历史不回补**：已入历史的破坏性提交不追溯补记录。
 
 **重确认**：确认后提交树或提交消息文本发生任何变化（含 `--amend`）都须重新确认；比较时 `Breaking-Review:` 行本身不计入。
@@ -209,7 +214,7 @@ BREAKING CHANGE: <破坏面说明；结论为 approved-with-migration 时给出�
 
 **执行分工**：A 阶段只核验「是否破坏性」并提示记录格式——消息在 A 阶段之后才生成，记录本体由 `conventional-committer` 在提交前写入，提交后用 `git log -1 --format=%B` 复核。
 
-**机检状态**：`commit-msg` 与 CI 共用脚本的机检登记在 [backlog](../plan/backlog.md) 追踪；落地后只校验记录的存在、位置与格式，不替代人工确认。机器人 PR（Dependabot / dependfix）的合并路径不受本条约束。
+**机检状态（2026-11-25 已落地）**：`commit-msg` 与 CI 共用 `scripts/check-breaking-commit.mjs`——本地经 `.husky/commit-msg` 的 `--message-file`，CI 经 `--range`（push 取 `before..HEAD`、PR 取 `base.sha..HEAD`、dispatch 跳过）。机检只校验记录与 `Migration:` 的存在、位置与格式，不替代人工确认，也不追溯历史提交；机器人 PR（Dependabot / dependfix）的合并路径不受本条约束。
 
 ## 4. AI 行为准则
 

@@ -405,7 +405,7 @@ if (value) { ... }  // 对 0, "", false 失效
 | [documentation.md §2](../../../../docs/standards/documentation.md) | 长表格行含粗体 / 全角括号 / 多个行内代码 | lint-md 报 `no-space-in-inline-code` 时是否用「行拆分 + 前缀二分」定位最小片段（不整文件 `--fix`），并回读该行确认未丢空格？ |
 | [testing.md §6.9](../../../../docs/standards/testing.md) | 去重 / 跳过类谓词（`alreadyRecorded` 等） | 每个参与判定的键是否有「另一实体同值仍各自记录」的反向例？是否用「只保留单一键」的变异标定？ |
 | [release-pipeline.md §4.3 / §6](../../../../docs/design/governance/release-pipeline.md) | 发布版本口径 / 发布执行 / 产物复核 | 版本是否按 `release:plan` 推导（未人工降级）？发布提交是否 master tip 且窗口内冻结 master？产物是否按 npm / tag / Release / 镜像分别取证？发版专属门禁（安全门禁 / preflight / e2e / 视觉）是否补跑并分别落盘？ |
-| [git.md §3.9](../../../../docs/standards/git.md#_3-9-破坏性提交人工审查) | 破坏性提交（主题 `!` 或 `BREAKING CHANGE:` footer）/ 提交消息审查 | 审查输入含拟定消息或已提交 commit 时（`git log -1 --format=%B` / `git show --stat`），`Breaking-Review:` 是否位于 `BREAKING CHANGE:` **之前**，且格式为「单 token 标识 + `YYYY-MM-DD` + `approved` 或 `approved-with-migration`」？标识形态是否合法（`owner` / GitHub 用户名 token，未写真实姓名、邮箱）——确认人授权性不由审计判定（自证标识）？结论为 `approved-with-migration` 时是否给出迁移路径？只写 `!` 无 footer、连字符 `BREAKING-CHANGE:` 是否被判不合规？破坏面实现与其记录是否同 commit（不与无关改动混批）？ |
+| [git.md §3.9](../../../../docs/standards/git.md#_3-9-破坏性提交人工审查) | 破坏性提交（主题 `!` 或 `BREAKING CHANGE:` footer）/ 提交消息审查 | 审查输入含拟定消息或已提交 commit 时（`git log -1 --format=%B` / `git show --stat`），`Breaking-Review:` 是否位于 `BREAKING CHANGE:` **之前**，且格式为「单 token 标识 + `YYYY-MM-DD` + `approved` 或 `approved-with-migration`」？标识形态是否合法（`owner` / GitHub 用户名 token，未写真实姓名、邮箱）——确认人授权性不由审计判定（自证标识）？结论为 `approved-with-migration` 时是否提供非空 `Migration:` 迁移路径行？只写 `!` 无 footer、连字符 `BREAKING-CHANGE:` 是否被判不合规？破坏面实现与其记录是否同 commit（不与无关改动混批）？ |
 
 > **维护纪律**：本矩阵为严格约束检查点的**单点落点**，其他文档 / skill / agent 只做一行链接引用（见上方「规范单点声明」）。矩阵行与条款对应（**同一条款可对应多行**，见上方说明）；条款废弃 / 合并时同步删行。
 

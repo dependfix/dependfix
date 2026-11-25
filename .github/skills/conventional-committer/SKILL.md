@@ -94,7 +94,7 @@ scope 反映改动所在的目录或职责，必须英文、小写、kebab-case�
 破坏性提交指主题含 `!`（`<type>[(<scope>)]!:`）或 footer 含 `BREAKING CHANGE:` 的提交，两种形态都须走本节审查；`BREAKING CHANGE:` footer 必须存在，只写 `!` 不带 footer 不合规。
 
 - **先确认后落库**：先判定是否破坏性，再取得项目所有者或授权人确认；A 阶段 Review Gate 与本文档的格式检查都不替代它，未确认不得提交。
-- **记录格式**：`Breaking-Review: <确认人标识> <YYYY-MM-DD> <approved|approved-with-migration>`。标识为单个 token（默认 `owner`，授权人用 GitHub 用户名），置于 `BREAKING CHANGE:` **之前**；`approved-with-migration` 须给出迁移路径。
+- **记录格式**：`Breaking-Review: <确认人标识> <YYYY-MM-DD> <approved|approved-with-migration>`。标识为单个 token（默认 `owner`，授权人用 GitHub 用户名），置于 `BREAKING CHANGE:` **之前**；`approved-with-migration` 须提供非空 `Migration:` 迁移路径行。
 - **重确认**：提交树或消息文本变化（含 amend）需重新确认。
 
 判定细节（连字符形态、engines-only）、批次与机检状态见 [git.md §3.9](../../../docs/standards/git.md#_3-9-破坏性提交人工审查)（权威声明）。

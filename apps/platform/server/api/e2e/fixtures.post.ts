@@ -127,6 +127,7 @@ const scanRunSchema = z.object({
             'subdirectory-manifest': z.number().int().min(0).optional(),
             'cross-major': z.number().int().min(0).optional(),
             'not-fixable': z.number().int().min(0).optional(),
+            'no-patch': z.number().int().min(0).optional(),
             'override-protected': z.number().int().min(0).optional(),
             'repeated-failure': z.number().int().min(0).optional(),
             'peer-only': z.number().int().min(0).optional(),

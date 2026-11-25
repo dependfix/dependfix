@@ -1035,6 +1035,7 @@
             "skippedShort": "跳过 {count}",
             "truncatedBySeverity": "截断（按严重级别）",
             "skippedByReason": "跳过（按原因）",
+            "noPatchHint": "其中 {count} 条无补丁版本：可在 Dependabot 中 dismiss（仅建议，本工具不会自动 dismiss），待上游发布补丁后再评估",
             "other": "其他 / 未分类",
             "reason": {
                 "subdirectoryManifest": "子目录 / 根直接清单",
@@ -1043,6 +1044,7 @@
                 "transitiveOnly": "仅传递依赖（自动跨大版本不适用）",
                 "installBaselineFailed": "修复前安装失败（依赖升级链跳过）",
                 "notFixable": "不可自动修复",
+                "noPatch": "无补丁版本（建议 dismiss）",
                 "overrideProtected": "保护名单",
                 "repeatedFailure": "同告警重复失败（尝试上限）",
                 "peerOnly": "仅 peer 依赖（需人工处置）"

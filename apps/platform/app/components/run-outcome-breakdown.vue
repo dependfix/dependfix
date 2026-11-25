@@ -21,6 +21,7 @@ const skipped = computed(() => skippedTotal(props.summary))
 const truncated = computed(() => truncatedTotal(props.summary))
 const skippedRows = computed(() => skippedBreakdown(props.summary))
 const truncatedRows = computed(() => truncatedBreakdown(props.summary))
+const noPatchCount = computed(() => skippedRows.value.find((row) => row.key === 'no-patch')?.count ?? 0)
 
 /** 有未修复 / 跳过 / 截断时都要给出构成：仅「无写入」不足以说明告警处置结果。 */
 const show = computed(() => unfixed.value > 0 || skipped.value > 0 || truncated.value > 0)
@@ -76,6 +77,9 @@ const reasonLabel = (key: string) => t(skipReasonI18nKey(key) ?? 'runs.breakdown
                 {{ reasonLabel(row.key) }} {{ row.count }}
             </CaomeiTag>
         </div>
+        <p v-if="noPatchCount > 0" class="run-outcome-breakdown__hint">
+            {{ t('runs.breakdown.noPatchHint', {count: noPatchCount}) }}
+        </p>
     </section>
 </template>
 
@@ -104,6 +108,12 @@ const reasonLabel = (key: string) => t(skipReasonI18nKey(key) ?? 'runs.breakdown
 
     &__label {
         color: $color-text-muted;
+    }
+
+    &__hint {
+        margin: 0;
+        color: $color-text-muted;
+        font-size: $font-size-sm;
     }
 }
 </style>

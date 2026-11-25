@@ -137,20 +137,21 @@ describe('isRunResultMissing', () => {
 describe('skippedBreakdown / truncatedBreakdown', () => {
     it('按原因 / 严重级别稳定顺序展开，只返回 >0 项', () => {
         const summary = {
-            alertsSkipped: 6,
-            alertsSkippedByReason: { 'not-fixable': 2, 'cross-major': 4 },
+            alertsSkipped: 7,
+            alertsSkippedByReason: { 'not-fixable': 2, 'no-patch': 1, 'cross-major': 4 },
             alertsTruncated: 3,
             alertsTruncatedBySeverity: { medium: 1, critical: 2 },
         }
         expect(skippedBreakdown(summary)).toEqual([
             { key: 'cross-major', count: 4 },
             { key: 'not-fixable', count: 2 },
+            { key: 'no-patch', count: 1 },
         ])
         expect(truncatedBreakdown(summary)).toEqual([
             { key: 'critical', count: 2 },
             { key: 'medium', count: 1 },
         ])
-        expect(skippedTotal(summary)).toBe(6)
+        expect(skippedTotal(summary)).toBe(7)
         expect(truncatedTotal(summary)).toBe(3)
     })
 
@@ -269,6 +270,7 @@ describe('skipReasonI18nKey', () => {
         expect(skipReasonI18nKey('mixed-instance')).toBe('runs.breakdown.reason.mixedInstance')
         expect(skipReasonI18nKey('transitive-only')).toBe('runs.breakdown.reason.transitiveOnly')
         expect(skipReasonI18nKey('cross-major')).toBe('runs.breakdown.reason.crossMajor')
+        expect(skipReasonI18nKey('no-patch')).toBe('runs.breakdown.reason.noPatch')
         expect(skipReasonI18nKey('other')).toBeUndefined()
     })
 

@@ -103,8 +103,8 @@ test.describe('alerts 去重视图受影响运行 Sidebar', () => {
                 alertsUnfixed: 20,
                 alertsConverged: 0,
                 environmentalFailures: 1,
-                alertsSkipped: 4,
-                alertsSkippedByReason: { 'cross-major': 4 },
+                alertsSkipped: 5,
+                alertsSkippedByReason: { 'cross-major': 4, 'no-patch': 1 },
                 alertsTruncated: 6,
                 alertsTruncatedBySeverity: { critical: 2, high: 4 },
             },
@@ -146,6 +146,9 @@ test.describe('alerts 去重视图受影响运行 Sidebar', () => {
         const breakdown = detail.locator('.run-outcome-breakdown')
         await expect(breakdown).toContainText('未修复 20 / 26')
         await expect(breakdown).toContainText('跨大版本 / 人工复核 4')
+        // Dependabot 无补丁版本：独立标签 + dismiss 建议（仅建议，不自动 dismiss）
+        await expect(breakdown).toContainText('无补丁版本（建议 dismiss） 1')
+        await expect(breakdown).toContainText('可在 Dependabot 中 dismiss')
         await expect(breakdown).toContainText('Critical 2')
         await expect(page.locator('.run-detail__run-url')).toHaveAttribute('href', String(run.runUrl))
     })

@@ -1035,6 +1035,7 @@
             "skippedShort": "{count} skipped",
             "truncatedBySeverity": "Truncated by severity",
             "skippedByReason": "Skipped by reason",
+            "noPatchHint": "{count} of them have no patched version yet: consider dismissing them in Dependabot (suggestion only; this tool never dismisses automatically) and revisit after the upstream patch ships",
             "other": "Other / unclassified",
             "reason": {
                 "subdirectoryManifest": "Sub-directory / root direct manifest",
@@ -1043,6 +1044,7 @@
                 "transitiveOnly": "Transitive only (auto major upgrade not applicable)",
                 "installBaselineFailed": "Pre-fix install failed (dependency chain skipped)",
                 "notFixable": "Not auto-fixable",
+                "noPatch": "No patched version yet (dismiss suggested)",
                 "overrideProtected": "Protected by policy",
                 "repeatedFailure": "Repeated failure (attempt limit)",
                 "peerOnly": "Peer-only dependency (manual review)"

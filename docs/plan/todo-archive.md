@@ -9,6 +9,7 @@
 
 | 阶段 | 主题 | 归档文件 | 归档日期 |
 |:--|:--|:--|:--|
+| M67 | 交付与发布链可信残余 | [M67](archive/todo-archive-phases-m67.md) | 2026-11-26 |
 | M66 | 执行结果可信与失败归因 | [M66](archive/todo-archive-phases-m66.md) | 2026-11-25 |
 | M65 | 平台可观测性与健康 | [M65](archive/todo-archive-phases-m65.md) | 2026-11-23 |
 | M64 | 执行面安全与交付闭环 | [M64](archive/todo-archive-phases-m64.md) | 2026-11-21 |

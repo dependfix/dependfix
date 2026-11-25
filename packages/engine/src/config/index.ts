@@ -162,6 +162,11 @@ export interface RuntimeConfig {
      * 平台只记录 summary）。口径见 [§16](../../../../docs/design/governance/pr-delivery-closure-history.md#_16-m51-4-基线红-安装失败的交付降级-2026-10-30)。
      */
     onBaselineRed?: BaselineRedDelivery
+    /**
+     * 交付接管方（内部字段，无 env / CLI 通道）：缺省 `engine`；`platform` 时平台容器执行链接管交付，
+     * `draft` 档允许引擎在 `fix` 模式继续提交（否则仍回滚，CLI 语义不变）。
+     */
+    deliveryOwner?: 'engine' | 'platform'
     /** PR 创建后等待 check 终态（`--wait-pr-checks` / `DEPENDFIX_WAIT_PR_CHECKS`，默认 false；仅 fix-and-pr，口径见 [§8](../../../../docs/design/governance/pr-delivery-closure.md)） */
     waitPrChecks?: boolean
     /** check 失败且归因 self_caused 时关闭 PR 并删分支（`--close-failed-pr`，默认 false；需同时等待，其余归因只评论） */

@@ -564,7 +564,8 @@ export { tryLockfileRepair } from './lockfile-repair-action'
  *   `CommitScopeError('UNEXPECTED_CHANGES')`，仅供生成物 / 未跟踪文件时抛 `NO_CHANGES`
  */
 export async function commitLocalChanges(
-    ctx: Pick<AppContext, 'logger' | 'workDir' | 'allActions' | 'authProvider' | 'deliverySkips'>,
+    ctx: Pick<AppContext, 'logger' | 'workDir' | 'allActions' | 'authProvider' | 'deliverySkips'>
+        & { config?: Pick<RuntimeConfig, 'onBaselineRed' | 'dryRun' | 'deliveryOwner'> },
 ): Promise<void> {
     const { logger, workDir, allActions, authProvider } = ctx
 
@@ -586,18 +587,33 @@ export async function commitLocalChanges(
     // 放在 hasGitChanges 之后：无改动的运行仍保留原有「No changes」日志。
     const installBlockedRepos = findInstallBlockedReposWithFixes(allActions)
     if (installBlockedRepos.length > 0) {
-        // run 标记：平台执行链（fix + commit）不经引擎 PR 面 → 只记录跳过，供平台展示「交付跳过」
-        // （载体恒为 `skip`：该路径不产出 issue / draft PR，不能在报告里谎报载体）
-        recordDeliverySkip(ctx, {
-            repositories: installBlockedRepos,
-            failingCommands: collectFailingInstallCommands(allActions, installBlockedRepos),
-            carrier: { mode: 'skip' },
-        })
-        logger.warn(
-            `Install verification is still failing (pre-existing) after the fix for ${installBlockedRepos.join(', ')} `
-            + '— skipping local commit; fix the execution environment or target repository lockfile first',
-        )
-        return
+        const carrier = ctx.config?.onBaselineRed ?? 'skip'
+        // 修复后安装仍既有失败时默认不提交；仅平台接管交付（deliveryOwner=platform）+ draft 档例外：
+        // 继续提交，由平台创建草稿 PR（CLI fix 模式语义不变，仍回滚）。
+        if (carrier === 'draft' && ctx.config?.deliveryOwner === 'platform' && !ctx.config?.dryRun) {
+            recordDeliverySkip(ctx, {
+                repositories: installBlockedRepos,
+                failingCommands: collectFailingInstallCommands(allActions, installBlockedRepos),
+                carrier: { mode: 'draft' },
+            })
+            logger.warn(
+                `Install verification is still failing (pre-existing) after the fix for ${installBlockedRepos.join(', ')} `
+                + '— continuing with a draft PR (onBaselineRed=draft); CI will fail with the same pre-existing error',
+            )
+        } else {
+            // run 标记：平台执行链（fix + commit）的 issue 载体由平台在运行后创建；
+            // 此处只记录 `skip` 档（不谎报载体），避免与平台侧重复计数。
+            recordDeliverySkip(ctx, {
+                repositories: installBlockedRepos,
+                failingCommands: collectFailingInstallCommands(allActions, installBlockedRepos),
+                carrier: { mode: 'skip' },
+            })
+            logger.warn(
+                `Install verification is still failing (pre-existing) after the fix for ${installBlockedRepos.join(', ')} `
+                + '— skipping local commit; fix the execution environment or target repository lockfile first',
+            )
+            return
+        }
     }
 
     // 零修复（只有 .gitignore / allowBuilds 等 side-effect 改动）不产生提交 / PR。

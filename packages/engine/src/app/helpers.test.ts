@@ -494,16 +494,24 @@ describe('commitLocalChanges', () => {
     })
 
     /** ctx 携带可断言的 logger（`warn` 用于防御分支） */
-    function makeCommitCtx(workDir: string, allActions: FixAction[] = []) {
+    function makeCommitCtx(
+        workDir: string,
+        allActions: FixAction[] = [],
+        config?: { onBaselineRed: 'skip' | 'issue' | 'draft', dryRun: boolean, deliveryOwner?: 'engine' | 'platform' },
+    ) {
         const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn() }
+        const deliverySkips: NonNullable<Parameters<typeof commitLocalChanges>[0]['deliverySkips']> = []
         return {
             ctx: {
                 workDir,
                 logger: logger as never,
                 allActions,
                 authProvider: undefined,
+                deliverySkips,
+                ...(config ? { config } : {}),
             },
             logger,
+            deliverySkips,
         }
     }
 
@@ -631,5 +639,58 @@ describe('commitLocalChanges', () => {
 
         expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('Install verification is still failing'))
         expect(execSync('git show HEAD:tracked.txt', { cwd: dir, encoding: 'utf-8' })).toBe('v1\n')
+    })
+
+    it('commits in draft carrier mode when post-fix install is still pre-existing failing', async () => {
+        execSync('git init -q', { cwd: dir })
+        execSync('git config user.name test', { cwd: dir })
+        execSync('git config user.email test@test', { cwd: dir })
+        writeFileSync(join(dir, 'package.json'), '{ "name": "v1" }\n', 'utf-8')
+        execSync('git add . && git commit -qm init', { cwd: dir })
+        writeFileSync(join(dir, 'package.json'), '{ "name": "v2" }\n', 'utf-8')
+
+        const { ctx, logger, deliverySkips } = makeCommitCtx(dir, [
+            deliverableAction(),
+            {
+                type: 'verification',
+                repository: 'foo/bar',
+                target: 'pnpm install --frozen-lockfile',
+                success: false,
+                preExisting: true,
+                durationMs: 1,
+            },
+        ], { onBaselineRed: 'draft', dryRun: false, deliveryOwner: 'platform' })
+
+        await commitLocalChanges(ctx)
+
+        expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('draft PR'))
+        expect(deliverySkips[0]?.carrier).toEqual({ mode: 'draft' })
+        expect(execSync('git show HEAD:package.json', { cwd: dir, encoding: 'utf-8' })).toBe('{ "name": "v2" }\n')
+    })
+
+    it('keeps CLI fix-mode rollback for draft when the platform does not own delivery', async () => {
+        execSync('git init -q', { cwd: dir })
+        execSync('git config user.name test', { cwd: dir })
+        execSync('git config user.email test@test', { cwd: dir })
+        writeFileSync(join(dir, 'package.json'), '{ "name": "v1" }\n', 'utf-8')
+        execSync('git add . && git commit -qm init', { cwd: dir })
+        writeFileSync(join(dir, 'package.json'), '{ "name": "v2" }\n', 'utf-8')
+
+        const { ctx, logger } = makeCommitCtx(dir, [
+            deliverableAction(),
+            {
+                type: 'verification',
+                repository: 'foo/bar',
+                target: 'pnpm install --frozen-lockfile',
+                success: false,
+                preExisting: true,
+                durationMs: 1,
+            },
+        ], { onBaselineRed: 'draft', dryRun: false })
+
+        await commitLocalChanges(ctx)
+
+        expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('Install verification is still failing'))
+        expect(execSync('git show HEAD:package.json', { cwd: dir, encoding: 'utf-8' })).toBe('{ "name": "v1" }\n')
     })
 })

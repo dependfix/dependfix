@@ -18,5 +18,6 @@ export * from './runners'
 export * from './alerts'
 export * from './ai'
 export * from './app'
+export { deliverSkipIssue } from './app/skipped-delivery'
 // auth 抽象层通过子路径 '@dependfix/engine/auth' 暴露（避免与 github 子模块重名）
 export type { AuthProvider, AuthProviderOptions, FromAppParams, FromPatParams } from './auth/auth-provider'

@@ -138,13 +138,13 @@ interface RunResult {
   3. Code Scanning `noOp` **且无 `error`**（模板已应用、文件无改动）→ `converged`；带 `error` 的 `noOp`（无模板 / 路径越界等）不判已收敛；
   4. 同告警失败动作 → `failed`（排除 `environmentalFailure` / `preExisting` / `noOp` / AI 辅助动作；依赖升级的失败归因为**包级**，`FixAction` 无清单维度；Code Quality 不归因）；
   5. `override-protected` / `repeated-failure` 的 `noOp` 动作 → `skipped`；
-  6. `fixable === false` → `skipped('not-fixable')`；
+  6. `fixable === false` → `skipped('not-fixable')`；GitHub Dependabot 且无推荐版本（`first_patched_version=null`）→ `skipped('no-patch')`（建议人工 dismiss，不自动 dismiss）；
   7. 其余不落条目（`not-tried`）。
 
   显式记录优先于派生 `success` 的原因：包级成功谓词会把「同包另一清单已被主动跳过」的实例误判为已修复（如根清单 `vite` 升级成功、`docs/package.json` 的同一告警属子目录清单跳过），方向是 fail-open（少报未修复）。
 - **可对账口径**：`converged` 明细数与 `RunSummary.alertsConverged` **逐条对齐**（两个收敛点用**同一数组**同时计数与记录）。`alertsSkipped` 是 **action 级**计数（同包多告警可能共用一个 `noOp` 动作），故 `skipped` 明细可多于该计数——不构成不一致，消费方勿据此对账。
-- **触发前提**：`success` / `converged` / `failed` 只在修复链路（`fix` / `fix-and-pr`）产生；`report-only` 无修复动作，不可修复的告警仍以 `skipped('not-fixable')` 落条目（与运行模式无关），其余按缺键 `not-tried`（既有 `success` 行保持原值，不被 `report-only` 重置）。
-- **报告体积**：只列非 `not-tried` 条目；`code-quality` findings 恒 `fixable=false`，会以 `skipped('not-fixable')` 落条目（条目本身极小，且平台据此展示「已跳过」而非「待处理」）；`fixable=true` 但无推荐版本的告警不落条目。
+- **触发前提**：`success` / `converged` / `failed` 只在修复链路（`fix` / `fix-and-pr`）产生；`report-only` 无修复动作，不可修复的告警仍以 `skipped('not-fixable')` / `skipped('no-patch')` 落条目（与运行模式无关），其余按缺键 `not-tried`（既有 `success` 行保持原值，不被 `report-only` 重置）。
+- **报告体积**：只列非 `not-tried` 条目；`code-quality` findings 恒 `fixable=false`，会以 `skipped('not-fixable')` 落条目（条目本身极小，且平台据此展示「已跳过」而非「待处理」）；Dependabot 无补丁版本以 `skipped('no-patch')` 落条目；`fixable=true` 但无推荐版本的告警不落条目。
 
 ### 平台写入与下游影响
 

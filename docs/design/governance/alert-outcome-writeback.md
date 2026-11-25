@@ -36,7 +36,7 @@
 | 3 | Code Scanning `noOp` **且无 `error`**（模板已应用、文件无改动） | `converged` | actions 推导 |
 | 4 | 同告警失败动作 | `failed` | 排除 `environmentalFailure` / `preExisting` / `noOp` / AI 辅助动作 |
 | 5 | `override-protected` / `repeated-failure` 的 `noOp` 动作 | `skipped` | actions 推导（`peer-only` 走优先级 1 的显式记录） |
-| 6 | `fixable === false` | `skipped('not-fixable')` | 告警属性 |
+| 6 | `fixable === false` | `skipped('not-fixable')`；GitHub Dependabot 且 `!fixable` 且无推荐版本 → `skipped('no-patch')` | 告警属性 |
 
 **显式记录优先于派生 `success`**：依赖升级的成功谓词是**包级**（同包任一清单升级到达标即命中），
 会把「同包另一清单已被主动跳过」的实例误判为已修复（如根清单 `vite` 升级成功、
@@ -47,7 +47,10 @@
 `skipped` 明细可多于该计数，消费方不得据此对账。
 
 **触发前提**：`success` / `converged` / `failed` 只在修复链路（`fix` / `fix-and-pr`）产生；
-`report-only` 无修复动作，但不可修复的告警仍会以 `skipped('not-fixable')` 落条目（与运行模式无关）。
+`report-only` 无修复动作，但不可修复的告警仍会以 `skipped('not-fixable')` / `skipped('no-patch')` 落条目（与运行模式无关）。
+
+`no-patch` 的判定为 `source === 'dependabot' && !fixable && recommendedVersion === ''`（即 `first_patched_version=null`），
+与其它「不可自动修复」形态分开，便于报告与运行详情建议人工 dismiss（仅建议，不自动 dismiss）。
 
 ## 4. 写回面（平台 reconcile）
 
@@ -83,7 +86,8 @@
   方向为少报未修复，需后续单独修）。
 - 依赖升级失败归因为**包级**（`FixAction` 无清单维度）；Code Quality findings 不参与归因。
 - `skipped` 原因只进报告 `reason`，平台 `errorMessage` 仅承载 `failed` 文案（UI 显示「已跳过」）。
-- summary 的 `alertsSkippedByReason['not-fixable']` 仍含「`fixable=true` 但暂无推荐版本」的告警（既有计数口径未调整），故该计数可多于 `not-fixable` 明细条目。
-- `fixable=true` 但无推荐版本（等上游）的告警**不落条目**（保持 `not-tried`），避免「不可修复」与「暂无修复版本」混为一谈。
+- summary 的 `alertsSkippedByReason['not-fixable']` 仍含「`fixable=true` 但暂无推荐版本」的告警（计数口径未调整），故该计数可多于 `not-fixable` 明细条目；Dependabot 的 `first_patched_version=null` 已单独归入 `no-patch`，不再计入该项。
+- `fixable=true` 但无推荐版本（等上游）的告警**不落条目**（保持 `not-tried`），避免「不可修复」与「暂无修复版本」混为一谈；该形态与 `no-patch`（`fixable=false`）不同。
+- `no-patch` 目前只覆盖**根清单桶**：成员清单 / 子目录 / 单版本直连锁文件桶中的无补丁告警仍按 `subdirectory-manifest` 归因（既有口径），故报告 / 运行详情中的 `no-patch` 计数可能小于仓库内真实无补丁告警数；后续条目再按桶拆分。
 - Code Scanning 的 `success + noOp` 有 6 类来源，只有 compliant 分支不带 `error`；带 `error` 的 `noOp`（无模板 / 路径越界 / 读不到文件 / 模板不适用）不判 `converged`。
 - 活跃行可被后续运行覆盖（含 `success` → `failed`）⇒ dashboard「已修复数」非单调；「修复成就保留」只保证已 supersede 的 `success` 行不被改写。

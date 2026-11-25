@@ -96,7 +96,7 @@
 
 - 当前阶段任务：无（M67 已归档，下一阶段待规划）
 - 已归档阶段：[todo-archive.md](todo-archive.md)（阶段索引 + 分片；M0-M67 已归档；分片治理见 [archive/index.md](archive/index.md)）
-- 下一阶段（未规划）：按候选池重新评估（19 条候选 + 2 条待上收，见 [backlog.md](backlog.md)）
+- 下一阶段（未规划）：按候选池重新评估（20 条候选 + 2 条待上收，见 [backlog.md](backlog.md)）
 - 后续阶段任务（延期项 + 未排期增强候选）：[backlog.md](backlog.md)
 
 ## 交付原则

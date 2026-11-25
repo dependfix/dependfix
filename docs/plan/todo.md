@@ -19,4 +19,4 @@
 ## 当前阶段：无（M67 已归档，下一阶段待规划）
 
 > M67「交付与发布链可信残余」的 5 原子已于 2026-11-26 归档，正文与逐原子验收证据见 [todo 归档分片](archive/todo-archive-phases-m67.md)，阶段概览见 [roadmap 分片](archive/roadmap-phases-m67.md)。
-> 下一阶段按候选池（[backlog.md](backlog.md)：19 条候选 + 2 条待上收）重新评估，经用户决策后立项。
+> 下一阶段按候选池（[backlog.md](backlog.md)：20 条候选 + 2 条待上收）重新评估，经用户决策后立项。

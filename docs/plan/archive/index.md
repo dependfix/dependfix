@@ -23,12 +23,12 @@
 6. 运行 `check:docs` + `check:doc-governance` + `check:doc-size`，全绿后提交。
 7. **全部编辑完成后**（含 backlog 清理、残余登记、速查表与沉淀）再复测 §4 基线（`wc -l` + `check-doc-governance --json` 字符读数），写入 §4 与 `archive-log.md`；测量早于最后一次编辑会让下一批拿到过期基准。
 
-## 4. 当前基线（2026-11-26 M67 归档后实测）
+## 4. 当前基线（2026-11-26 M67 归档后 + issue #284 登记实测）
 
 - `roadmap.md`：里程碑概览 + 当前阶段（**当前无活跃阶段（M67 已于 2026-11-26 归档）；`wc -l` 实测 106 行**）；M0-M38 详情见 [roadmap-phases-m0-m38.md](roadmap-phases-m0-m38.md)，M39-M48 见 [roadmap-phases-m39-m48.md](roadmap-phases-m39-m48.md)，M49-M60 依次见 [m49](roadmap-phases-m49.md) / [m50](roadmap-phases-m50.md) / [m51](roadmap-phases-m51.md) / [m52](roadmap-phases-m52.md) / [m53](roadmap-phases-m53.md) / [m54](roadmap-phases-m54.md) / [m55](roadmap-phases-m55.md) / [m56](roadmap-phases-m56.md) / [m57](roadmap-phases-m57.md) / [m58](roadmap-phases-m58.md) / [m59](roadmap-phases-m59.md) / [m60](roadmap-phases-m60.md)，M61 见 [roadmap-phases-m61.md](roadmap-phases-m61.md)（2026-11-16 迁出），M62 见 [roadmap-phases-m62.md](roadmap-phases-m62.md)（2026-11-19 迁出），M63 见 [roadmap-phases-m63.md](roadmap-phases-m63.md)（2026-11-20 迁出），M64 见 [roadmap-phases-m64.md](roadmap-phases-m64.md)（2026-11-21 迁出），M65 见 [roadmap-phases-m65.md](roadmap-phases-m65.md)（2026-11-23 迁出），M66 见 [roadmap-phases-m66.md](roadmap-phases-m66.md)（2026-11-25 迁出），M67 见 [roadmap-phases-m67.md](roadmap-phases-m67.md)（2026-11-26 迁出）。行数与字符预算见 [文档规范 §3](../../standards/documentation.md#_3-文档行数阈值) / [文档治理执行规范 §4.2](../../design/governance/doc-governance.md#_4-2-字符与密度预算)。
 - `todo.md`：**无活跃阶段（M67 已归档；`wc -l` 实测 22 行）**；M0-M67 已归档。1.0 门槛台账见 [release-1.0-readiness.md](../../design/governance/release-1.0-readiness.md)（1.0.0 已发布，转为发布记录）。
 - `todo-archive.md`：**只保留阶段索引**（56 个阶段索引行，文件 67 行，覆盖 `archive/todo-archive-phases-*.md` 全部分片，倒序）；正文按阶段存放于分片，索引由 `check-doc-governance` 校验。
-- `backlog.md`：长期主线 / 周期性回归验证层 / 短期候选 / 待人工验收 / 已知边界保持活跃；候选条目数 **19**（`### 候选评估中` 段内 `^- \*\*` 机械复算；M67 上收 5 条——本区 4 条 + 待上收 1 条——后本区由 23 → 19、待上收由 3 → 2）；待上收候选 **2**；`wc -l` 438 行、`check-doc-governance` 读数 36,411 字符（复核：`wc -l`；字符用 `check-doc-governance --json`）（UTF-16，低于 45,000 健康上限；阈值见 [文档治理执行规范 §4.2](../../design/governance/doc-governance.md#_4-2-字符与密度预算)）。
+- `backlog.md`：长期主线 / 周期性回归验证层 / 短期候选 / 待人工验收 / 已知边界保持活跃；候选条目数 **20**（`### 候选评估中` 段内 `^- \*\*` 机械复算；M67 上收 5 条——本区 4 条 + 待上收 1 条——后本区由 23 → 19、待上收由 3 → 2，issue #284 新增 1 条 → 20）；待上收候选 **2**；`wc -l` 440 行、`check-doc-governance` 读数 37,336 字符（复核：`wc -l`；字符用 `check-doc-governance --json`）（UTF-16，低于 45,000 健康上限；阈值见 [文档治理执行规范 §4.2](../../design/governance/doc-governance.md#_4-2-字符与密度预算)）。
 - `archive-log.md`：追加型批次日志；本文件与 `todo-archive.md` 不再承载批次流水账。
 
 ## 5. 批次记录

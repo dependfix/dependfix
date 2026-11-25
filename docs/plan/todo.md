@@ -10,7 +10,7 @@
 |:--|:--|
 | 当前阶段任务 | M67 交付与发布链可信残余（5 原子，2026-11-25 规划） |
 | 已完成阶段归档 | [todo-archive.md](todo-archive.md)（阶段索引 + [archive/](archive/) 分片；M0-M66 已归档） |
-| 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M0-M66 已归档，M67 规划中） |
+| 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M0-M66 已归档，M67 执行中） |
 | 未排期 / 延期 / 远期 / 长期主线 / 已知边界 | [backlog.md](backlog.md) |
 | 历史归档索引 | [archive/index.md](archive/index.md) |
 
@@ -43,7 +43,7 @@
 
 | 大条目 | 小条目 | 状态 | 提交 | 审计 | 容量 |
 |:--|:--|:--|:--|:--|:--|
-| M67.1 无补丁版本告警的稳定结论 | — | ⬜ 待开始 | — | — | 计划 3-4 commits / 8-10 files / 220-400 行 |
+| M67.1 无补丁版本告警的稳定结论 | — | ✅ 已完成 | 4（d22b8af7 / a5c2a4b8 / f92bd9db / 本条登记） | standard R1 Pass（3W）→ R2 Reject（W2）→ R3 Pass | 计划 3-4 commits / 8-10 files / 220-400 行；实际 4 commits / 26 files / +278 −35（测试、双语与设计稿同源扩散） |
 | M67.2 平台基线红交付载体与仓库级配置 | 3（M67.2.1-M67.2.3） | ⬜ 待开始 | — | — | 计划 7-10 commits / 13-20 files / 460-930 行 |
 | M67.3 发布工作流无变更周空跑短路 | — | ⬜ 待开始 | — | — | 计划 2-3 commits / 3-5 files / 100-220 行 |
 | M67.4 破坏性提交机检 | — | ⬜ 待开始 | — | — | 计划 3-4 commits / 6-8 files / 180-360 行 |
@@ -64,13 +64,14 @@
 - **验收标准**：
   - AC1：构造 `first_patched_version=null` 的告警 → 在 `not-fixable` 内落可区分子状态（或新跳过原因），同一告警一轮只计一次（用例断言）；
   - AC2：报告与运行详情显示「无补丁版本」并给出 dismiss 建议（仅建议，不自动 dismiss），zh / en 文案同时存在；
-  - AC3：`sum(alertsSkippedByReason) === alertsSkipped` 保持，`belowTarget` 区间过滤与既有 `not-fixable` 归因零回归（`pnpm --filter @dependfix/core test` + `pnpm --filter @dependfix/engine test -- alert` 定向）；
+  - AC3：`sum(alertsSkippedByReason) === alertsSkipped` 保持，`belowTarget` 区间过滤与既有 `not-fixable` 归因零回归（`pnpm --filter @dependfix/core exec vitest run` + `pnpm --filter @dependfix/engine test -- alert` 定向）；
   - AC4：`pnpm run i18n:audit:missing` 与 `pnpm run i18n:check:anchor` 通过；旧 summaryJson 缺新键时回落「其他 / 未分类」仍成立；
   - AC5：平台展示有组件级或 e2e 证据——扩展 `apps/platform/app/utils/run-view.test.ts` 锁定新原因映射，并在 `apps/platform/tests/e2e/alerts-sidebar.e2e.test.ts:98-150`（run-detail-dialog 挂载点）或新增组件测试中断言「无补丁版本」文案与旧 summaryJson 回落，不以 core 单测替代 UI 证据。
 - **不做什么**：不自动 dismiss；不改 advisory 数据源；不重做 M62.3 的 `belowTarget` 区间过滤；不改 skipped 家族总计数语义。
 - **依赖**：M62.3 区间过滤（回归基线）；`'not-fixable'` 现有跳过家族；候选原文与移出记录见 [M66 归档分片](archive/todo-archive-phases-m66.md)「容量再平衡」段与 [archive-log](archive/archive-log.md) 2026-11-25 批记录中的 2026-11-24 再平衡段。
 - **交付物**：3-4 commits / 8-10 files / 220-400 行；建议分组——① core 归因与计数（按 `source === 'dependabot' && !fixable && recommendedVersion === ''` 推导，优先不新增字段）② 报告 / 运行详情 / i18n ③ core / engine / platform 回归用例与设计文档。
 - **风险与缓解**：子状态与总数漂移 → 守恒断言锁定；旧 summaryJson 无新键 → 展示层回退；平台文案漏配 → AC4 机检。
+- **执行记录（2026-11-25）**：D1 选「新增跳过原因」而非子状态——`SKIP_REASONS` 新增 `no-patch`，判定单点化为 `source === 'dependabot' && !fixable && recommendedVersion === ''`；`fixable=true` 但无推荐版本（等上游）仍计 `not-fixable` 且不落明细（`not-tried`）。报告在跳过表后追加 dismiss 建议块；运行详情在分组下追加建议行；PR 正文仅行标签（不追加完整块）。已知边界：仅根清单桶，成员清单 / 子目录 / 单链文件桶仍归 `subdirectory-manifest`。commits `d22b8af7` / `a5c2a4b8` / `f92bd9db` / 本条登记。审计 standard R1 Pass（3W）→ R2 Reject（明细写入缺判别用例）→ R3 Pass；关键验证：core 304、engine 定向 15、platform 2933、lint 0 error / 6 warning、typecheck 7 项目、i18n 双检、gates:docs 22 项、e2e alerts-sidebar 6 passed。
 
 ### M67.2 平台基线红交付载体与仓库级配置（P2 🎨）
 

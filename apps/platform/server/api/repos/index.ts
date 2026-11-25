@@ -136,6 +136,7 @@ const createRepository = async (event: H3Event) => {
         installTimeoutMs: parsed.data.installTimeoutMs ?? null,
         cloneTimeoutMs: parsed.data.cloneTimeoutMs ?? null,
         allowMajorUpgrade: parsed.data.allowMajorUpgrade ?? allowMajorUpgradeDefault,
+        baselineRedCarrier: parsed.data.baselineRedCarrier,
     })
     const saved = await repo.save(entity)
 

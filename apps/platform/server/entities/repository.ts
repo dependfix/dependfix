@@ -1,3 +1,4 @@
+import type { BaselineRedDelivery } from '@dependfix/core'
 import {
     Column,
     Entity,
@@ -209,6 +210,18 @@ export class Repository extends BaseEntity {
      */
     @Column({ type: 'boolean', default: false })
     allowMajorUpgrade!: boolean
+
+    /**
+     * 基线红（修复后安装仍为既有失败）时的交付载体，默认 `skip`。
+     *
+     * - `skip`：仅记录交付跳过（现状）
+     * - `issue`：按「仓库集 + 失败命令集」指纹开 issue（同指纹不重复、关闭后不重开）
+     * - `draft`：照常提交并创建草稿 PR（正文标注 CI 将因既有失败为红）
+     *
+     * 与引擎 `DEPENDFIX_ON_BASELINE_RED` 同枚举；平台执行链读取本字段并在运行期透传给引擎。
+     */
+    @Column({ type: 'varchar', length: 16, default: 'skip' })
+    baselineRedCarrier!: BaselineRedDelivery
 
     /**
      * PR 回环反馈配置（JSON 文本；`null` = 全默认）。

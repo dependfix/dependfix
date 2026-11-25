@@ -40,6 +40,13 @@ describe('repository schemas', () => {
         expect(repositorySchema.parse({ owner: 'a', name: 'b' }).allowMajorUpgrade).toBeUndefined()
     })
 
+    it('基线红载体：创建默认 skip，更新不注入默认值，只接受枚举', () => {
+        expect(repositorySchema.parse({ owner: 'a', name: 'b' }).baselineRedCarrier).toBe('skip')
+        expect(repositoryUpdateSchema.parse({ baselineRedCarrier: 'draft' })).toEqual({ baselineRedCarrier: 'draft' })
+        expect(repositoryUpdateSchema.parse({ note: 'x' })).not.toHaveProperty('baselineRedCarrier')
+        expect(repositoryUpdateSchema.safeParse({ baselineRedCarrier: 'close' }).success).toBe(false)
+    })
+
     it('创建/更新：执行超时字段边界与交叉校验', () => {
         const ok = repositorySchema.safeParse({
             owner: 'a',

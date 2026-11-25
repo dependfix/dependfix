@@ -144,6 +144,8 @@ export const repositoryFieldShape = {
         .max(MAX_CLONE_TIMEOUT_MS, 'clone 超时超出允许范围').nullable().optional(),
     /** 仓库级跨大版本升级授权（默认关闭；开启后仍走完整验证与失败回滚） */
     allowMajorUpgrade: z.boolean().optional(),
+    /** 基线红交付载体（默认 `skip`；`issue` / `draft` 复用引擎指纹与草稿 PR 能力） */
+    baselineRedCarrier: z.enum(['skip', 'issue', 'draft']).optional(),
 } as const
 
 /** 子项超时不得超过执行上限（写入时交叉校验，错误挂在子项字段）。 */
@@ -179,6 +181,7 @@ export const repositoryBase = z.object({
     defaultBranch: repositoryFieldShape.defaultBranch.default('main'),
     packageManager: repositoryFieldShape.packageManager.default('pnpm'),
     executorKind: repositoryFieldShape.executorKind.default('container'),
+    baselineRedCarrier: repositoryFieldShape.baselineRedCarrier.default('skip'),
 })
 
 /** 创建：github-action 必须声明 workflow + 执行超时不变量。 */

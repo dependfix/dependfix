@@ -7,7 +7,12 @@ import { repositoryUpdateSchema } from '#server/schemas/repository'
 import { requireAuth, requireOrgResource, requireRole } from '#server/utils/guard'
 import { createLocalizedError } from '#server/utils/localized-error'
 import { normalizePRCheckFocus } from '#server/utils/pr-check-focus'
-import { recordExecutionLimitsAudit, recordMajorUpgradePolicyAudit, recordVerifyCommandsAudit } from '#server/services/repository-audit'
+import {
+    recordBaselineRedCarrierAudit,
+    recordExecutionLimitsAudit,
+    recordMajorUpgradePolicyAudit,
+    recordVerifyCommandsAudit,
+} from '#server/services/repository-audit'
 import { resolveExecutionCeilingMs } from '#server/utils/execution-limits'
 import { toRepositoryDetailView } from '#server/services/view/repos'
 
@@ -127,8 +132,9 @@ const updateRepository = async (event: H3Event, id: string) => {
         ? parsed.data.cloudflareWorkerTag || null
         : found.cloudflareWorkerTag
 
-    // 变更前的跨大版本授权（审计用；Object.assign 会原地修改 found）
+    // 变更前的跨大版本授权 / 基线红载体（审计用；Object.assign 会原地修改 found）
     const previousAllowMajorUpgrade = found.allowMajorUpgrade
+    const previousBaselineRedCarrier = found.baselineRedCarrier
 
     // 变更前的执行预算快照（审计用；Object.assign 会原地修改 found）
     const previousLimits = {
@@ -161,6 +167,7 @@ const updateRepository = async (event: H3Event, id: string) => {
         installTimeoutMs: parsed.data.installTimeoutMs !== undefined ? parsed.data.installTimeoutMs : found.installTimeoutMs,
         cloneTimeoutMs: parsed.data.cloneTimeoutMs !== undefined ? parsed.data.cloneTimeoutMs : found.cloneTimeoutMs,
         allowMajorUpgrade: parsed.data.allowMajorUpgrade !== undefined ? parsed.data.allowMajorUpgrade : found.allowMajorUpgrade,
+        baselineRedCarrier: parsed.data.baselineRedCarrier ?? found.baselineRedCarrier,
     })
     const saved = await repo.save(found)
 
@@ -184,6 +191,17 @@ const updateRepository = async (event: H3Event, id: string) => {
             name: saved.name,
             previous: previousAllowMajorUpgrade,
             next: saved.allowMajorUpgrade,
+        })
+    }
+
+    // 基线红载体审计：仅在实际变化时登记（自动开 issue / 建 PR 属外部写副作用）
+    if (previousBaselineRedCarrier !== saved.baselineRedCarrier) {
+        await recordBaselineRedCarrierAudit(ds, {
+            repositoryId: saved.id,
+            owner: saved.owner,
+            name: saved.name,
+            previous: previousBaselineRedCarrier,
+            next: saved.baselineRedCarrier,
         })
     }
 

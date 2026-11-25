@@ -132,3 +132,36 @@ export const recordMajorUpgradePolicyAudit = async (
         console.error('[repos][major_upgrade_policy_update] failed to record audit event:', error)
     }
 }
+
+/** 基线红交付载体变更审计（自动开 issue / 建 PR 的外部写副作用，必须留痕）。 */
+export interface BaselineRedCarrierAuditParams {
+    repositoryId: string
+    owner: string
+    name: string
+    previous: string
+    next: string
+}
+
+export const recordBaselineRedCarrierAudit = async (
+    ds: DataSource,
+    params: BaselineRedCarrierAuditParams,
+): Promise<void> => {
+    try {
+        const auditRepo = ds.getRepository(AuditEvent)
+        await auditRepo.save(auditRepo.create({
+            type: 'baseline_red_carrier_update',
+            severity: 'info',
+            repositoryId: params.repositoryId,
+            scanRunId: null,
+            payloadJson: JSON.stringify({
+                repository: `${params.owner}/${params.name}`,
+                previous: params.previous,
+                next: params.next,
+            }),
+            notified: false,
+            notifiedVia: null,
+        } as AuditEvent))
+    } catch (error) {
+        console.error('[repos][baseline_red_carrier_update] failed to record audit event:', error)
+    }
+}

@@ -433,4 +433,25 @@ describe('/api/repos/[id] 三角色鉴权（todo.md §M16.5）', () => {
         expect(afterRepeat.filter((item) => item.repositoryId === created.id)).toHaveLength(1)
     })
 
+    it('基线红载体：变更落库并登记审计，同值重复不新增', async () => {
+        mockRequireOrgResource.mockReset()
+        mockRequireOrgResource.mockImplementation(async () => undefined)
+        const created = await callIndex('POST', '/api/repos', { ...basePayload, name: 'baseline-carrier' }) as { id: string }
+
+        const initial = await callId('GET', `/api/repos/${created.id}`, undefined, { id: created.id }) as Record<string, unknown>
+        expect(initial.baselineRedCarrier).toBe('skip')
+
+        await callId('PUT', `/api/repos/${created.id}`, { baselineRedCarrier: 'issue' }, { id: created.id })
+        const updated = await callId('GET', `/api/repos/${created.id}`, undefined, { id: created.id }) as Record<string, unknown>
+        expect(updated.baselineRedCarrier).toBe('issue')
+
+        const ds = await ensureDatabaseInitialized()
+        const events = await ds.getRepository(AuditEvent).find({ where: { type: 'baseline_red_carrier_update' } })
+        expect(events.filter((item) => item.repositoryId === created.id)).toHaveLength(1)
+
+        await callId('PUT', `/api/repos/${created.id}`, { baselineRedCarrier: 'issue' }, { id: created.id })
+        const afterRepeat = await ds.getRepository(AuditEvent).find({ where: { type: 'baseline_red_carrier_update' } })
+        expect(afterRepeat.filter((item) => item.repositoryId === created.id)).toHaveLength(1)
+    })
+
 })

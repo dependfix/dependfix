@@ -61,6 +61,7 @@ export type AuditEventType =
     | 'verify_commands_update'
     | 'execution_limits_update'
     | 'major_upgrade_policy_update'
+    | 'baseline_red_carrier_update'
     | 'notification_settings_update'
     | 'pr_feedback_commented'
     | 'pr_feedback_closed'
@@ -80,6 +81,7 @@ export const AUDIT_EVENT_TYPES: readonly AuditEventType[] = [
     'verify_commands_update',
     'execution_limits_update',
     'major_upgrade_policy_update',
+    'baseline_red_carrier_update',
     'notification_settings_update',
     'pr_feedback_commented',
     'pr_feedback_closed',

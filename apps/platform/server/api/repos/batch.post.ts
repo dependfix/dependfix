@@ -82,6 +82,7 @@ export default defineEventHandler(async (event) => {
             // 默认关联凭据（docs/plan/todo.md §PR3-3 C50：非空时透传到所有新建仓库；空时 null 保持兼容）
             credentialId: defaultCredentialId,
             allowMajorUpgrade: item.allowMajorUpgrade ?? allowMajorUpgradeDefault,
+            baselineRedCarrier: item.baselineRedCarrier,
         })
         try {
             const saved = await repoRepo.save(entity)

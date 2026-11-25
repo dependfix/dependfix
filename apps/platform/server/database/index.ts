@@ -37,6 +37,7 @@ import { AddScanRunLogsDropped3200000000000 } from './migrations/3200000000000-A
 import { CreateApiKeyTables3300000000000 } from './migrations/3300000000000-CreateApiKeyTables'
 import { AddBatchRunResume3400000000000 } from './migrations/3400000000000-AddBatchRunResume'
 import { AddProviderLogTargets3500000000000 } from './migrations/3500000000000-AddProviderLogTargets'
+import { AddRepositoryBaselineRedCarrier3600000000000 } from './migrations/3600000000000-AddRepositoryBaselineRedCarrier'
 import { runStartupBackup } from './backup'
 import { isQueueWorkerProcess } from '#server/utils/process-role'
 import { Account } from '#server/entities/account'
@@ -134,6 +135,7 @@ export const createDataSourceOptions = (): DataSourceOptions => {
             CreateApiKeyTables3300000000000,
             AddBatchRunResume3400000000000,
             AddProviderLogTargets3500000000000,
+            AddRepositoryBaselineRedCarrier3600000000000,
         ],
         migrationsRun,
         synchronize,

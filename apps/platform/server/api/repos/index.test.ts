@@ -92,6 +92,29 @@ describe('GET /api/repos', () => {
         expect(created.allowMajorUpgrade).toBe(false)
     })
 
+    it('persists baselineRedCarrier (default skip / explicit issue) in views', async () => {
+        const created = await call('POST', '/api/repos', {
+            owner: 'carrier',
+            name: 'repo',
+            platform: 'github',
+            packageManager: 'pnpm',
+            defaultBranch: 'main',
+            executorKind: 'container',
+        }) as { baselineRedCarrier: string }
+        expect(created.baselineRedCarrier).toBe('skip')
+
+        const explicit = await call('POST', '/api/repos', {
+            owner: 'carrier-issue',
+            name: 'repo',
+            platform: 'github',
+            packageManager: 'pnpm',
+            defaultBranch: 'main',
+            executorKind: 'container',
+            baselineRedCarrier: 'issue',
+        }) as { baselineRedCarrier: string }
+        expect(explicit.baselineRedCarrier).toBe('issue')
+    })
+
     it('stores a repository-level sandbox image and returns it in views', async () => {
         const created = await call('POST', '/api/repos', {
             owner: 'sandbox-image',

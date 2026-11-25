@@ -74,7 +74,8 @@
     "regression:phase-close": "node scripts/regression/run-periodic-regression.mjs --profile=phase-close",
     "security:audit-deps": "pnpm audit --prod --audit-level=moderate --ignore-registry-errors --registry=https://registry.npmjs.org",
     "check:doc-governance": "node scripts/check-doc-governance.mjs",
-    "check:api-v1-contract": "node scripts/check-api-v1-contract.mjs"
+    "check:api-v1-contract": "node scripts/check-api-v1-contract.mjs",
+    "check:breaking-commit": "node scripts/check-breaking-commit.mjs"
   },
   "devDependencies": {
     "@intlify/eslint-plugin-vue-i18n": "4.5.1",

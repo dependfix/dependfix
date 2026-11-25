@@ -54,7 +54,8 @@ CI（workflow_dispatch）：质量门（lint/typecheck/test/build）
 版本提升在 **CI 内**自动完成（semantic-release 式全自动），**唯一写回动作**为 release commit + tags：
 
 ```
-CI（schedule）：release:plan → release:version → pnpm changelog
+CI（schedule）：probe（只读；无变更 → install 前短路整个 release job）
+     → release:plan → release:version → pnpm changelog
      → git commit（chore(release): x.y.z [skip ci] + release notes body）→ push master
      → 质量门 → changelog 校验 → release:publish → push tags
 ```
@@ -237,6 +238,16 @@ release.yml Push release tags（全量推送，含 v tag，推送后核验）
 - **统一口径**：三篇文档统一写作「amd64 备份通道（健康复核可用）」；arm64 用户用 GHCR / Docker Hub，或按 OCI digest 拉取（digest 是绕开平台选择的确定路径，但 ACR 在 arm64 主机上的实际拉取未实测）。
 - **证据边界**：2026-11-05 ACR 匿名拉取 + 冒烟只证明 **amd64 运行时 health**（`0.5.0` / `a049a561`，当时 tag 按平台解析为单一 amd64）；2026-11-07 1.0.0 的 registry API 回读证明 index 含双平台。两者证明面不同；**历史 tag 不可假定双架构**（0.5.0 与 1.0.0 的推送路径不同）。
 - **不做什么**：不迁 ACR 企业版、不改主通道与推送逻辑、不重建历史 tag。
+
+### 4.8 无变更周空跑短路（2026-11-25，D3 决策）
+
+- **触发面**：仅 `schedule` 轮次增加前置 `probe` job（checkout + setup-node + `node scripts/create-release-plan.mjs --check`），`workflow_dispatch` 不运行该 job，release 直接全量执行。
+- **短路条件**：探测只读推导发布计划；`plan.size === 0` 时输出 `::notice::` 与 `has_changes=false`，release job 经由 job 级 `if` 整体跳过——install / 审计 / 门禁 / 构建均不执行。
+- **只读与幂等**：`--check` 不写 `release-plan.md`，也不因其已存在而失败；重复执行结果一致。
+- **fail-open**：git 不可用 / 脚本异常时输出 `::warning::` 与 `has_changes=true`，release 走全量，不误短路；探测 job 异常时 release 仍经 `!cancelled()` 执行（`cancel-in-progress: false`，手动取消不启动发布）。probe 失败会保留一个红 job，但 release 可能已成功——按「红 run ≠ 未发布」核对产物。
+- **自愈补扫（范围有限）**：无新 bump 提交但当前 core 版本尚无 `v<version>` / `*@<version>` 任一 tag 时，probe 输出 `has_changes=true`。这仅覆盖「版本已推送、且自基线以来无新 bump 提交」的窗口；若仍有未发布的 feat / fix，正常推导会给出新 bump（既有行为，不补跳过版本），tag 丢失用 `pnpm tag:released` 兜底。版本同步以 core 为基准。
+- **顺序不变**：`verify:changelog --fresh` 与 `check:release-security` 在 release job 内的相对顺序不变；有变更轮次的步骤集合与现流程等价。
+- **未证实**：`schedule` 当前仍按启用清单保持注释，真实无事可发轮次与有变更轮次的 run 时长对照待用户启用定时发布后回填。
 
 ## 5. 文件映射
 

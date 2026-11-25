@@ -289,7 +289,7 @@ pnpm release:preflight --out-dir=artifacts/release-preflight   # 额外写 prefl
 
 `release.yml` 已内嵌 `schedule` 定时发布（每周六 UTC+0 12:00 = UTC+8 20:00，参照 momei），**1.0.0 正式版发布后不会自动启用**——须用户另行授权后再取消 `schedule` 注释（M54.6 明确不启用自动发布；安全告警门禁已内置于 `release.yml`，见「发布前安全检查」）。定时触发时 CI 自动完成：
 
-1. `release:plan`（推导计划，无推导结果则跳过）+ `release:version`（消费计划提升版本）+ `pnpm changelog`（生成日志）+ 提交并推送 master（semantic-release 风格提交：`chore(release): x.y.z [skip ci]` + 根 CHANGELOG 版本段全文）——全流程由 `pnpm release:auto-version` 脚本化执行（无变更安全 no-op，见 [scripts/README.md](../../scripts/README.md)）；
+1. `release:plan`（推导计划，无推导结果则跳过）+ `release:version`（消费计划提升版本）+ `pnpm changelog`（生成日志）+ 提交并推送 master（semantic-release 风格提交：`chore(release): x.y.z [skip ci]` + 根 CHANGELOG 版本段全文）——全流程由 `pnpm release:auto-version` 脚本化执行（无变更安全 no-op，见 [scripts/README.md](../../scripts/README.md)；schedule 无变更轮次会在此前被 probe 短路，不会进入本步）；
 2. 随后执行与手动发布相同的完整流程：质量门 → changelog 校验 → `release:publish`（OIDC）→ push tags。
 
 手动发布（`workflow_dispatch`）时跳过自动版本提升步骤（版本已在本地提升并提交）。
@@ -315,7 +315,7 @@ pnpm release:preflight --out-dir=artifacts/release-preflight   # 额外写 prefl
 
 1. 取消 `on.schedule` 注释 → 合入 master（`workflow_dispatch` 保留为手动入口）。
 2. 观察首个定时窗口：`gh run list --workflow=release.yml --limit 5` 应出现 `schedule` 事件 run；`Auto version & changelog` 步骤产出 `chore(release): x.y.z [skip ci]` 提交，后续步骤走完整质量门与 OIDC 发布。
-3. 确认「无待发布变更」轮次是 no-op（日志 `::notice::没有待发布的版本变更`，job 不红）。
+3. 确认「无待发布变更」轮次由 probe 在 install 前短路：probe 日志含 `::notice::No version changes since …`，step output 为 `has_changes=false`，release job 整体 skipped、run 为绿；不要按 `Auto version` 的旧 no-op 文案核对。
 4. 需要「提交即发布」时再取消 `on.push` 注释；建议 `schedule` 稳定运行 2 周后再开 `push`（`push` 会让每个 master 提交都尝试发布，无变更时 no-op 但占用 CI 时间）。
 5. 回滚开关：先注释掉 `push`，再注释 `schedule`，推送后即恢复手动发布；已发布的版本按「已知限制与排查」回滚（镜像 tag 回退 / `npm deprecate`）。
 

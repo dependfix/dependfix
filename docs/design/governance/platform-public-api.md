@@ -317,7 +317,7 @@ key 绑定 `organizationId`，所有查询强制注入（复用 `resolveOrganiza
 2. 幂等键、按 key 配额、同仓库互斥（`withRepoLock` 已有）三件齐备
 3. 异步任务模型确定：`202 + run id`，轮询 `GET /api/v1/runs/{id}`
 
-**为什么后置**：平台 `platform-delivery.ts` 与引擎 `executeFixAndPrMode` 是两份实现；backlog 已登记两处语义分叉（平台侧同告警尝试计数、平台侧交付载体）。对外开放「修复」会把分叉固化为对外承诺。
+**为什么后置**：平台 `platform-delivery.ts` 与引擎 `executeFixAndPrMode` 是两份实现；backlog 仍登记平台侧同告警尝试计数；平台侧交付载体已于 2026-11-25 上收 [M67.2](../../plan/todo.md)。对外开放「修复」会把分叉固化为对外承诺。
 
 ### 期 4（后置）：交付写操作
 

@@ -55,14 +55,12 @@
 
 ### 候选评估中（待评估 / 本阶段延后项）
 
-> **候选池概览（2026-11-24 再平衡后复算）**：本区 **23 项**（`### 候选评估中` 段内 `^- \*\*` 逐行计数；M66 上收 6 条后由 28 复算，2026-11-24 再平衡移出 1 条回补（22 → 23））；每次上收 / 新增 / 移出后按段内实测更新本句与首行，不保留历史链路。P 标签覆盖不全（未标注者评估时补，不默认升级）；1.0 分档见 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)。
+> **候选池概览（2026-11-25 M67 规划后复算）**：本区 **19 项**（`### 候选评估中` 段内 `^- \*\*` 逐行计数；M67 上收 4 条后由 23 复算）；每次上收 / 新增 / 移出后按段内实测更新本句与首行，不保留历史链路。P 标签覆盖不全（未标注者评估时补，不默认升级）；1.0 分档见 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)。
 > **1.0 门槛与分档**：分档、门槛判定与批次计划单点声明于 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)（2026-10-30 冻结口径，不随候选上收收缩；本文件不重复维护数字）。
 
-- **备份 `.tmp` 清扫缺年龄门槛（P3 🛠️，2026-10-31 M53.2 收口登记）** —— `cleanupOldBackups` 对 `*.bak.tmp` 无条件回收；单实例串行路径不可达冲突，但并发 `db:restore` 或多实例共卷启动时可能删掉对端正在写的临时文件（rename ENOENT → 该轮快照丢失，fail-open 后仅剩日志）。待评估：加入 `mtime < now - 10min` 年龄门槛或按 PID 命名临时文件。触发：启用多实例 / 多容器共享数据卷，或出现并发恢复需求时。
 - **`check:release-security` 输出缺少采集时点（P3 🛠️，2026-11-03 预发布检查发现；2026-11-08 复核）** —— 告警汇总行与 PASS / FAIL 行都不带采集时间，落盘为发布证据时无法自证时点（只能靠文件 mtime 推断）；脚本当前无 `--json` 模式。**范围**：输出首行加 ISO 时间戳。**验收**：输出含采集时点，单测锁定。**不做**：不改告警判定与 fail-closed 语义、不新增 `--json`。**触发条件**：下次改动该脚本，或再次需要以该输出作为发布证据。
 - **镜像构建冗余（P2 🚀，2026-11-07）** —— ① 每架构对三 registry 各构建一次（digest 相同，冷缓存最慢 41m32s）；② 发布提交被 push 与派发各构建一次。待评估：单次多 name 推送 / 复用 digest / push 腿跳过 release 提交。
 - **PR 回环有界重试（P2 🚀，2026-10-30 M51.3 用户裁定延后）** —— 设计稿 `pr-feedback-loop.md` §8 保留 `FeedbackRetryDispatcher` 契约（同 PR 失败后重新触发既有修复链，需配额与触发面）；平台当前无「同 PR 重试」入口，`retryFailed` 开启时每仓库每进程只 warn 一次。待评估：补触发面（API / UI）+ 配额后再实施。触发：出现「PR 红后无人处理、需自动重试」的实际需求时。
-- **平台侧交付载体（issue / 草稿 PR，P2 🎨）** —— 引擎 `fix-and-pr` 已按基线红档位产出载体（issue / 草稿 PR），平台执行链（`fix + commit` + `platform-delivery`）目前只记录 `summary.deliverySkipped*` 并在运行列表 / 详情展示；待评估：平台在交付决策处复用同一失败指纹开 issue / 创建草稿 PR，并补仓库级配置写入面（当前仅 env `DEPENDFIX_ON_BASELINE_RED`，UI / API 不暴露）。触发：平台用户反馈「基线红只有标签、没有可跟踪载体」时。口径见 [pr-delivery-closure.md §16.7](../design/governance/pr-delivery-closure-history.md#_16-7-已知边界)。
 - **批次续跑并发原子性（P3 🛠️，2026-11-21 M64.4 登记）** —— `POST /api/batch-runs/[id]/resume` 的「无进行中子项 / 无 running 派生批次」为读后写检查，两个并发请求可同时通过（async 由队列 jobId 去重兜底为 `SCAN_PENDING_MERGED`，sync 会重复执行一轮）。触发：出现并发续跑导致的重复执行，或引入多实例调度；处置方向：事务内条件插入 / 部分唯一索引 / advisory lock。
 - **镜像脚本只覆盖根 scripts 单一形态**（M48.2 边界）—— `pnpm --filter` / 递归 / env 前缀 / corepack 钉定只披露不执行；触发：目标仓库 CI 大量使用这些形态导致「本地假绿」再现。
 - **白名单内运行前未提交改动的归属**（M48.4 边界）—— 白名单内文件（典型 `package.json`）若在运行前已有用户改动，会与本次修复一并提交；触发：出现「PR 混入无关改动」的用户反馈时评估。
@@ -112,12 +110,6 @@
 
 - **沙箱镜像双架构自包含冒烟与安全姿态（P2 🚀📚）** —— 目标：镜像内 sandbox 自包含入口在 amd64 / arm64 可运行并发版后自动取证；安全姿态单一口径成文。范围：`smoke-test.sh` 增 sandbox 入口断言（`node /app/sandbox/bin.mjs --version` + `skills doctor`），构建期冒烟与 `post-release-smoke` 共用并写 Job Summary；三篇 sandbox 设计稿翻转 fix 放行后状态；`deployment.md` 补运行面提示。验收：① 双架构冒烟通过（无窗口记未证实），注入回归证明灵敏；② Job Summary 含断言结果且失败仅告警；③ 设计稿无 stale；④ `gates:docs` 通过。不做：不改镜像架构 / QEMU；不重建历史镜像；不引入 rootless 之外的新隔离机制。依赖：M59.1/M59.2、M58.4 冒烟与巡检。触发：M59.1/M59.2 闭环后或需 arm64 取证时。
 
-- **发布工作流无变更周的空跑短路（P3 🛠️，2026-11-15 定时发布评估登记）** —— 现状：`release.yml` 的 `Auto version & changelog` 在无版本变更时 no-op，但其后的 `lint` / `gates:docs` / `typecheck` / `test` / `build` / `Build platform` / `release:preflight` 仍全量执行；1.0.0 发布 run（`42351775424`）5 分钟为未含 test / build 的旧流程，现行流程预计 20-30 分钟（测量方 = 2026-11-15 评估会话，按 job 步骤清单估算）。定时启用后无变更周将付同额成本。
-  - **范围**：把 `release:plan` 探测提前到 install 之前（`node scripts/create-release-plan.mjs` 只读 git 历史，不依赖安装），无计划时输出 skip 并短路后续步骤（或拆 plan job + release job，`needs` 门控）；`workflow_dispatch` 路径必须保持全量执行。
-  - **验收标准（草案）**：① 无变更轮次在 install 之前结束，日志含 `::notice::` 跳过原因（以「跳过的 step 数」与 run 时长佐证）；② 探测步骤**不得留下** `release-plan.md`（只读模式；否则 `release:plan` 下次会因文件已存在 exit 1）；③ 有变更轮次与现流程等价（dispatch 跑一次无副作用 run 回归，版本未 bump 时 publish 安全退出）；④ `verify:changelog` 与 `check:release-security` 相对顺序不变（仍在版本提升之后 / 发布之前）。
-  - **不做**：不改版本推导与发布判定逻辑；不合并 schedule 与 workflow_dispatch 的步骤集。
-  - **触发条件**：启用定时发布（本项为启用前置）。
-
 - **发布链自动更新 major tag（P3 🚀，2026-11-15 登记；用户倾向不实施）** —— **状态**：已决策倾向不实施，仅保留恢复触发条件。背景：GitHub 官方与主流 action 按「每次发布把 `vN` 移到当前发布提交」维护（2026-11-15 实测）；本项目 2026-11-15 决策采用「具体版本 + Dependabot bump」，`v1` 冻结在 1.1.0（标签漂移影响可复现性与供应链审计）。
   - **待评估点**：`release.yml` 增「semver 比较 → 仅当前 major 最大版本时 `git tag -fa vN` + force push」，需定义幂等 / immutable releases 兼容 / 回滚口径。
   - **触发条件**：用户希望恢复 `@v1` 滚动便利；或逐仓 bump 成本不可接受。
@@ -126,10 +118,6 @@
   - **风险与缓解**：可变引用削弱可复现性 → 仅作便利入口；force push 失败留中间态 → 步骤置于 tag 推送之后并 fail-fast。
 
 - **backlog 容量治理：分片或健康预算复核（P3 📚 治理，2026-11-21 issue #269 研判登记）** —— 现状：健康字符余量已近零（实测见 `archive/index.md §4`），新增候选与字段规范化都会贴顶。**待评估**：① 按「长期主线 / 短期候选 / 已知边界」拆到独立文件或 archive 分片；② 或复核 §4.2 健康预算（须同源改 `doc-governance.md §4.2` 与 `archive/index.md §4`）；③ 再评估候选条目字段规范化（issue #269 本批延后项）。**验收**：拆分后 `check-doc-governance` 0 新增 warning、跨文件链接 0 死链。**不做**：不靠调高阈值绕过压缩。**触发**：下一次新增候选触发 warning。
-
-**2026-11-24 阶段容量再平衡移出**（来源：M66 累计 3 批插队命中 §3.1.1 阈值 1，用户 2026-11-24 确认移出；不占阶段编号）：
-
-- **无补丁版本告警的稳定结论（P3 🛠️）** —— 目标：`not-fixable` 桶当前不区分「无补丁版本（`first_patched_version=null`）」与其他不可自动修复形态；补子状态区分、dismiss 建议与平台展示，并保持 skipped 家族总计数守恒（`not-fixable` 与新子状态之和不变）。**范围**：`packages/engine/src/github/dependabot-fetcher.ts:95-96` 无补丁标记（不改变 fixable 语义；新增字段则含 `packages/core/src/alerts/index.ts`，按 `source === 'dependabot' && !fixable` 推导则无需改）；`packages/engine/src/app/repo-fix.ts:359-362` / `alert-outcomes.ts:213` 的 `not-fixable` 子状态（或新枚举）；`packages/core/src/report/types.ts` / `summary-counters.ts` 与平台运行详情、zh / en i18n（`belowTarget` 区间过滤只作回归断言，M62.3 已闭环）。**验收标准**：AC1 `first_patched_version=null` 的告警在 `not-fixable` 内落可区分子状态（或新枚举），同轮只计一次；AC2 报告与运行详情可判读「无补丁」并给出 dismiss 建议（仅建议，不自动 dismiss）；AC3 既有 `not-fixable` 归因语义与 `belowTarget` 区间过滤零回归，新增枚举须有迁移说明与用例锁定；AC4 平台映射与 zh / en i18n 同批更新，不回落 raw key。**不做**：不自动 dismiss；不改 advisory 数据源；不重复实现 M62.3 的区间过滤。**依赖**：`belowTarget` 区间过滤（回归基线）；`'not-fixable'` 现有跳过家族。**交付物**：3-5 commits / 6-12 files / 200-450 行（复用子状态取下界，新增枚举取上界）。**风险与缓解**：结论口径与 skipped 家族混淆 → 优先复用 `not-fixable` 子状态，新增枚举须写迁移说明；平台展示漏 i18n → AC4 锁定。**移出记录**：2026-11-23 曾作为 M66.2 上收，2026-11-24 因再平衡移出（原计划体量 3-5 commits / 6-12 files / 200-450 行，与回补的 pnpm store 治理批对等）；重新上收条件为 M66 收口后按类型平衡重排，或「无补丁」结论在跳过清单复现投诉时。**交付形态**：范围含平台运行详情与 zh / en i18n（用户可见面），重新上收时须按 [规划规范 §2.6](../standards/planning.md) 判定 UI / API-only 并给出主路径证据。
 
 ### 待上收候选（评估完成，等待用户决策）
 
@@ -143,11 +131,8 @@
 
 - **定时发布启用（2026-11-15 评估完成；用户选方案 A：先发 1.1.0，观察 2 周后启用）**（P2 🚀）—— 启用清单 8 项现状（2026-11-15 实测）：① 1.0 门槛（1.0 已发布，G3 pending / G4 豁免延续）；② 安全告警门禁（本地 PASS，CI 有 `GH_PAT`）；③ Trusted Publisher（1.0.0 OIDC 发布成功）；④ Workflow 权限就位；⑤ **直推 master 未实测**（`gh api` 实测 master 无分支保护，机制可行）；⑥ 版本与日志一致（`verify:changelog` 绿、`release:plan` 可推导）；⑦ 回滚预案未演练；⑧ `v1` 冻结在 `1.1.0`（2026-11-15 决策，不随发布漂移；启用定时发布时无需依赖滚动 tag）。
   - **已知口径**：发布提交 `chore(release): x.y.z [skip ci]` 由 `GITHUB_TOKEN` 推送，不触发 Test / CodeQL / Pages（GitHub 防递归 + `[skip ci]`），发布内容只由 `release.yml` 内部门禁覆盖。
-  - **启用前置**：先闭环「发布工作流无变更周的空跑短路」候选；1.1.0 发布后观察 2 周；`on.push` 继续保留注释，待 schedule 稳定后再评估。
+  - **启用前置**：先闭环 M67.3「发布工作流无变更周空跑短路」（2026-11-25 已上收）；1.1.0 发布后观察 2 周；`on.push` 继续保留注释，待 schedule 稳定后再评估。
   - **回填要求**：首个定时窗口 run id、auto-version 提交 hash、三项未证实项结论写入本条目后再关闭。
-
-- **破坏性提交机检落地（`commit-msg` + CI 共用脚本，P2 🛡️ 治理，2026-11-21 评估完成）** —— 规范与项目 skill 已落地（[git.md §3.9](../standards/git.md#_3-9-破坏性提交人工审查)），机检尚未实现，当前由人工核对。**范围**：单脚本双入口——`--message-file <path>`（`.husky/commit-msg` 在 commitlint 之后调用）与 `--range <a..b>`（`test.yml`：push 用 `github.event.before..HEAD`，PR 用 `pull_request.base.sha..HEAD`，`workflow_dispatch` 跳过）。**判定**（任一命中即 exit≠0）：破坏性但缺 `Breaking-Review:`；记录位于 `BREAKING CHANGE:` 之后；只写 `!` 无 footer；出现连字符 `BREAKING-CHANGE:`；标识非单 token / 日期非法 / 结论不在枚举内；`approved-with-migration` 正文无迁移路径。merge 提交与空消息跳过。**前置已完成**：`no-diff-stats` 已剥离 ISO 日期（否则 `2026-11-21` 的 `-21` 会拦下合规消息）。**已定口径（2026-11-21 用户选择）**：默认标识 `owner`，授权人写 GitHub 用户名；两处落点共用同一脚本；结论枚举保持 `approved` / `approved-with-migration` 两值，不加「延后」。**历史不回补**：CI 只校验本次范围，不追溯既有 4 笔 footer 提交。**触发**：下一笔破坏性提交前，或下次改动 `.husky` / 提交门禁时。
-  - **按 [规划规范 §3.1](../standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement) 不带 `M\d+` 阶段编号**：等待上收决策。
 
 ### 延期 / 暂缓项
 
@@ -433,9 +418,9 @@
 
 | 内容类型 | 位置 |
 |:--|:--|
-| 当前阶段活跃任务 | 无活跃阶段（M66 已于 2026-11-25 归档，见 [todo-archive.md](todo-archive.md)）；插队容量治理见 [planning.md §3.1.1](../standards/planning.md#_3-1-1-插队后的阶段容量再平衡-hard-requirement-2026-10-19) |
-| 下一阶段（未规划） | 按本文件候选池重新评估（23 条候选 + 3 条待上收）；M59 / M60 / M63 / M65 残余留在本文件；**1.1.0 已于 2026-11-15 发布**，定时发布启用仍在「待上收候选」段等待观察窗口 |
+| 当前阶段活跃任务 | M67 交付与发布链可信残余（2026-11-25 规划，5 原子，见 [todo.md](todo.md)）；插队容量治理见 [planning.md §3.1.1](../standards/planning.md#_3-1-1-插队后的阶段容量再平衡-hard-requirement-2026-10-19) |
+| 下一阶段（未规划） | M67 闭环后按本文件候选池重新评估（19 条候选 + 2 条待上收）；M59 / M60 / M63 / M65 残余留在本文件；**1.1.0 已于 2026-11-15 发布**，定时发布启用仍在「待上收候选」段等待观察窗口 |
 | 已完成阶段归档 | [todo-archive.md](todo-archive.md)（阶段索引 + [archive/](archive/) 分片） |
-| 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M0-M66 已归档） |
+| 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M0-M66 已归档，M67 规划中） |
 | 长期主线 / 候选 / 待人工验收 / 已知边界 | 本文档（按四象限结构） |
 | 历史归档索引 | [archive/index.md](archive/index.md) |

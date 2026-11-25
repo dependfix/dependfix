@@ -104,8 +104,8 @@
 ### 16.7 已知边界
 
 1. 平台执行链（`fix + commit`）只记录 summary，不创建 issue / 草稿 PR：平台交付面在
-   `platform-delivery`，与引擎 `fix-and-pr` 的载体创建不是同一路径（见 [backlog](../../plan/backlog.md)
-   的「平台侧交付载体」候选）。
+   `platform-delivery`，与引擎 `fix-and-pr` 的载体创建不是同一路径（候选已于 2026-11-25 上收
+   [M67.2](../../plan/todo.md)，落地后本边界失效）。
 2. issue 去重只扫最近 100 条 issue；更早的同指纹 issue 不会被命中（fail-open：最多多开一条）。
 3. 人工关闭 issue 即视为已确认；后续同指纹运行不再新建（报告仍记 `deliverySkipped`）。
 4. 指纹不含错误文本：同一命令的不同根因会落在同一个 issue（人工跟踪粒度取舍，见 §16.3）。

@@ -18,7 +18,7 @@
  * 未标注的破坏性变更（如纯 ESM 改造以 build 类型提交）需在 review 时手动修正计划文件的 bump 级别。
  */
 import { execSync } from 'node:child_process'
-import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { appendFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { PKG_PATH_MAP } from './packages.config.mjs'
@@ -257,7 +257,77 @@ export function isPreMajor(version) {
     return typeof resolved === 'string' && resolved.startsWith('0.')
 }
 
-export function main() {
+/** 写 GitHub Actions step output（本地运行时回落到 stdout，便于手工核验）。 */
+function writeOutput(name, value) {
+    const outputFile = process.env.GITHUB_OUTPUT
+    if (outputFile) {
+        appendFileSync(outputFile, `${name}=${value}\n`, 'utf8')
+        return
+    }
+    console.log(`${name}=${value}`)
+}
+
+/**
+ * 当前 core 版本若尚未打 tag，返回该版本号；已打 tag 返回 null。
+ *
+ * 覆盖「版本已提升并推送、且自基线以来没有新的 bump 提交」的自愈窗口：此时单看发布计划会误判无变更。
+ * 若自基线以来仍有 feat / fix，正常推导会给出新的 bump（既有行为，不补跳过版本）；tag 丢失的兜底见
+ * `pnpm tag:released`。版本同步以 core 为基准（`release:version` 保证六包同版）。
+ */
+function getUntaggedReleaseVersion() {
+    const version = JSON.parse(readFileSync(join(repoRoot, 'packages/core/package.json'), 'utf8')).version
+    if (typeof version !== 'string' || version === '') {
+        return null
+    }
+    const tags = git(`tag --list "v${version}" "*@${version}"`).split('\n').filter(Boolean)
+    return tags.length === 0 ? version : null
+}
+
+/**
+ * 只读探测（`--check`）：判断当前是否存在需要发布的版本变更。
+ *
+ * - 不写 `release-plan.md`，也不读它的存在性（重复执行幂等）；
+ * - 发现无变更时输出 `::notice::` 供 schedule 轮次在 install 之前短路；
+ * - 无新提交但当前版本未打 tag 时仍走全量（补发 / 补 tag 自愈）；
+ * - 探测异常（git 不可用等）fail-open：输出 `has_changes=true` 并走全量。
+ *
+ * @returns {number} 退出码（正常 / fail-open 均为 0，避免把探测失败升级为发布阻断）
+ */
+export function probe() {
+    try {
+        const base = getLatestTag()
+        const commits = collectCommits(base)
+        const preMajor = isPreMajor()
+        const plan = buildReleasePlan(commits, preMajor)
+        if (plan.size === 0) {
+            const untagged = getUntaggedReleaseVersion()
+            if (!untagged) {
+                console.log(`::notice::No version changes since ${base ?? 'repository start'}; scheduled release skipped before install`)
+                writeOutput('has_changes', 'false')
+                return 0
+            }
+            console.log(`::notice::Current version ${untagged} is not tagged yet; scheduled release proceeds to self-heal`)
+            writeOutput('has_changes', 'true')
+            return 0
+        }
+        console.log(`::notice::Version changes detected for ${plan.size} package(s) since ${base ?? 'repository start'}; scheduled release proceeds`)
+        for (const [pkg, bump] of plan) {
+            console.log(`- ${pkg}: ${bump}`)
+        }
+        writeOutput('has_changes', 'true')
+        return 0
+    } catch (error) {
+        const message = (error instanceof Error ? error.message : String(error)).split('\n')[0]
+        console.log(`::warning::Release probe failed; falling back to full release run: ${message}`)
+        writeOutput('has_changes', 'true')
+        return 0
+    }
+}
+
+export function main(argv = []) {
+    if (argv.includes('--check')) {
+        return probe()
+    }
     const base = getLatestTag()
     console.log(`基线 tag：${base ?? '无（使用全量历史）'}`)
     const commits = collectCommits(base)
@@ -265,7 +335,7 @@ export function main() {
     const plan = buildReleasePlan(commits, preMajor)
     if (plan.size === 0) {
         console.log('未发现需要提升版本的变更，不生成发布计划')
-        return
+        return 0
     }
     if (existsSync(PLAN_FILE)) {
         console.error(`已存在 ${PLAN_FILE}，请先删除或人工合并后重新生成`)
@@ -292,8 +362,9 @@ export function main() {
         console.log(`engines-only breaking 按 minor 处理：${commit.hash.slice(0, 7)} ${stripDevTags(commit.subject)}`)
     }
     console.log('请人工 review：检查是否存在未标注 `!` / BREAKING CHANGE 的破坏性变更，如有请手动修正 bump 级别')
+    return 0
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-    main()
+    process.exit(main(process.argv.slice(2)))
 }

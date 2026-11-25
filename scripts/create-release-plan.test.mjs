@@ -1,7 +1,9 @@
 import { execSync } from 'node:child_process'
-import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { buildReleasePlan, isEnginesOnlyBreaking, isPreMajor, main, parseCommit, pathToPkg, renderPlan, stripDevTags, toBump } from './create-release-plan.mjs'
+import { buildReleasePlan, isEnginesOnlyBreaking, isPreMajor, main, parseCommit, pathToPkg, probe, renderPlan, stripDevTags, toBump } from './create-release-plan.mjs'
 
 // main()/getLatestTag/collectCommits 依赖真实 git 与文件写入（写 repoRoot/release-plan.md），统一 mock；
 // readFileSync 保留真实实现（isPreMajor 读 core package.json）
@@ -418,5 +420,111 @@ describe('main', () => {
         main()
         expect(console.error).toHaveBeenCalledWith(expect.stringContaining('已存在'))
         expect(exitSpy).toHaveBeenCalledWith(1)
+    })
+})
+
+describe('probe (--check)', () => {
+    let outputFile
+    let workDir
+
+    const mockGit = (log, { tagged = true } = {}) => {
+        vi.mocked(execSync).mockImplementation((cmd) => {
+            const c = String(cmd)
+            if (c.includes('tag --merged')) {
+                return ''
+            }
+            if (c.includes('tag --list')) {
+                return tagged ? 'v1.2.0' : ''
+            }
+            if (c.includes('--grep=')) {
+                return ''
+            }
+            if (c.includes('git log')) {
+                return log
+            }
+            return ''
+        })
+    }
+
+    beforeEach(() => {
+        workDir = mkdtempSync(join(tmpdir(), 'release-probe-'))
+        outputFile = join(workDir, 'github-output.txt')
+        process.env.GITHUB_OUTPUT = outputFile
+        vi.mocked(execSync).mockReset()
+        vi.mocked(existsSync).mockReset()
+        vi.mocked(existsSync).mockReturnValue(false)
+        vi.mocked(writeFileSync).mockClear()
+        vi.spyOn(console, 'log').mockImplementation(() => {})
+        vi.spyOn(console, 'error').mockImplementation(() => {})
+    })
+
+    afterEach(() => {
+        delete process.env.GITHUB_OUTPUT
+        rmSync(workDir, { recursive: true, force: true })
+        vi.restoreAllMocks()
+    })
+
+    it('无变更时输出 has_changes=false 且不写计划文件', () => {
+        mockGit('')
+
+        expect(probe()).toBe(0)
+        expect(readFileSync(outputFile, 'utf8')).toBe('has_changes=false\n')
+        expect(console.log).toHaveBeenCalledWith(expect.stringContaining('::notice::No version changes'))
+        expect(writeFileSync).not.toHaveBeenCalled()
+    })
+
+    it('有变更时输出 has_changes=true 且仍不写计划文件', () => {
+        mockGit('abc1234\x1ffeat(core): 新功能\npackages/core/src/a.ts\n')
+
+        expect(probe()).toBe(0)
+        expect(readFileSync(outputFile, 'utf8')).toBe('has_changes=true\n')
+        expect(console.log).toHaveBeenCalledWith(expect.stringContaining('::notice::Version changes detected'))
+        expect(writeFileSync).not.toHaveBeenCalled()
+    })
+
+    it('已存在计划文件不影响探测（幂等只读）', () => {
+        vi.mocked(existsSync).mockReturnValue(true)
+        mockGit('abc1234\x1ffix(core): 修复\npackages/core/src/a.ts\n')
+
+        expect(probe()).toBe(0)
+        expect(probe()).toBe(0)
+        expect(readFileSync(outputFile, 'utf8')).toBe('has_changes=true\nhas_changes=true\n')
+        expect(writeFileSync).not.toHaveBeenCalled()
+    })
+
+    it('无变更但当前版本未打 tag → 仍全量自愈', () => {
+        mockGit('', { tagged: false })
+
+        expect(probe()).toBe(0)
+        expect(readFileSync(outputFile, 'utf8')).toBe('has_changes=true\n')
+        expect(console.log).toHaveBeenCalledWith(expect.stringContaining('is not tagged yet'))
+        // 判据必须同时查聚合 v tag 与包级 tag（只查其一会漏掉另一半证据）
+        const tagListCall = vi.mocked(execSync).mock.calls
+            .map(([cmd]) => String(cmd))
+            .find((cmd) => cmd.includes('tag --list'))
+        expect(tagListCall).toContain('"v')
+        expect(tagListCall).toContain('*@')
+    })
+
+    it('探测异常 fail-open（has_changes=true，退出码 0）', () => {
+        vi.mocked(execSync).mockImplementation(() => {
+            throw new Error('git unavailable\nfatal: not a git repository')
+        })
+
+        expect(probe()).toBe(0)
+        expect(readFileSync(outputFile, 'utf8')).toBe('has_changes=true\n')
+        const warning = vi.mocked(console.log).mock.calls
+            .map((call) => String(call[0]))
+            .find((line) => line.startsWith('::warning::'))
+        expect(warning).toContain('::warning::Release probe failed')
+        expect(warning).not.toContain('\n')
+    })
+
+    it('main --check 路由到只读探测', () => {
+        mockGit('')
+
+        expect(main(['--check'])).toBe(0)
+        expect(readFileSync(outputFile, 'utf8')).toBe('has_changes=false\n')
+        expect(writeFileSync).not.toHaveBeenCalled()
     })
 })

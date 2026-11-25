@@ -8,6 +8,7 @@ import {
     computeFixFingerprint,
     createGitHubClient,
     createPullRequest,
+    deliverSkipIssue,
     DEPENDFIX_BRANCH_PREFIX,
     fetchDefaultBranch,
     findDependfixOpenPR,
@@ -66,6 +67,56 @@ export async function planFixAndPrDelivery(
         sameContentPR: plan.sameContentPR,
         supersedePRs: plan.supersedePRs,
     }
+}
+
+/**
+ * 为基线红（`issue` 档）补齐 issue 载体。
+ *
+ * 引擎在 `fix + commit` 路径只记录 `skip` 档（不知道平台配置），平台在运行后按同一
+ * 「仓库集 + 失败命令集」指纹复用 `deliverSkipIssue`：同指纹不重复、关闭后不重开。
+ * 复用引擎判据而不是平台自算，避免两侧指纹算法漂移。
+ */
+export async function attachBaselineRedIssueCarriers(params: {
+    octokit: Octokit
+    result: RunResult
+    logger?: Pick<Logger, 'info' | 'warn'>
+}): Promise<number> {
+    const { octokit, result, logger } = params
+    const records = (result.deliverySkips ?? []).filter((record) => record.carrier.mode === 'skip')
+    let created = 0
+    for (const record of records) {
+        const issueRepo = record.repositories[0]
+        if (!issueRepo) {
+            continue
+        }
+        const [owner, repo] = issueRepo.split('/')
+        if (!owner || !repo) {
+            continue
+        }
+        const carrier = await deliverSkipIssue({
+            target: {
+                logger: logger ?? noopLogger(),
+                runId: result.runId,
+                deliverySkips: [],
+            },
+            octokit,
+            owner,
+            repo,
+            repositories: record.repositories,
+            failingCommands: record.failingCommands,
+        })
+        // 载体创建失败时保留原始 skip 记录（避免 mode=issue 却无链接，报告文案错位）
+        if (carrier.carrier.issue) {
+            record.carrier = carrier.carrier
+            if (carrier.carrier.issue.created) {
+                created += 1
+            }
+        }
+    }
+    if (created > 0) {
+        result.summary.deliverySkipIssues = (result.summary.deliverySkipIssues ?? 0) + created
+    }
+    return created
 }
 
 /**
@@ -273,7 +324,7 @@ export async function pushFixBranchWithCredential(
 export async function deliverFixAndPr(
     ctx: DeliverContext,
 ): Promise<PlatformDeliveryResult> {
-    const { owner, repo, branchName, token, workDir, result, plan, octokit: octokitFromCtx } = ctx
+    const { owner, repo, branchName, token, workDir, result, plan, octokit: octokitFromCtx, draft } = ctx
     const logger = ctx.logger
     const log = (level: 'info' | 'warn' | 'error', msg: string) => logger?.[level]?.(msg)
 
@@ -306,8 +357,9 @@ export async function deliverFixAndPr(
             baseBranch,
             title,
             body,
+            ...(draft ? { draft: true } : {}),
         })
-        log('info', `[platform-delivery] PR created: ${pr.htmlUrl}`)
+        log('info', `[platform-delivery] PR created: ${pr.htmlUrl}${draft ? ' (draft)' : ''}`)
     } catch (err) {
         const raw = err instanceof Error ? err.message : String(err)
         throw new PlatformDeliveryError('pr_creation_failed', `创建 PR 失败（分支已推 ${branchName}）：${raw}`, true)
@@ -341,6 +393,8 @@ export interface DeliverContext {
     result: RunResult
     plan: FixAndPrDeliveryPlan
     octokit: Octokit
+    /** 基线红（`draft` 档）创建草稿 PR；缺省为普通 PR */
+    draft?: boolean
     /** AppContext 兼容的 logger；undefined 时使用 noop（不阻断测试与 silent 模式） */
     logger?: Logger
 }

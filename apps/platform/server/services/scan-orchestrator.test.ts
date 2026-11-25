@@ -394,6 +394,20 @@ describe('scan-orchestrator.service', () => {
             expect(ctx.repository.verifyCommands).toEqual([])
         })
 
+        it('passes repository baselineRedCarrier into executor context (default skip / explicit issue)', async () => {
+            containerExecute.mockResolvedValue({ result: makeResult(), error: undefined })
+
+            await runScanForRepository(repositoryId, { mode: 'fix', severityThreshold: 'high' })
+            const defaultCtx = containerExecute.mock.calls[0]![0] as { repository: { baselineRedCarrier?: string } }
+            expect(defaultCtx.repository.baselineRedCarrier).toBe('skip')
+
+            containerExecute.mockClear()
+            const issueRepo = await createRepo({ baselineRedCarrier: 'issue' })
+            await runScanForRepository(issueRepo, { mode: 'fix', severityThreshold: 'high' })
+            const issueCtx = containerExecute.mock.calls[0]![0] as { repository: { baselineRedCarrier?: string } }
+            expect(issueCtx.repository.baselineRedCarrier).toBe('issue')
+        })
+
         it('marks run failed when executor returns error', async () => {
             containerExecute.mockResolvedValue({ result: undefined, error: { code: 'exec_failed', message: '容器执行失败' } })
 

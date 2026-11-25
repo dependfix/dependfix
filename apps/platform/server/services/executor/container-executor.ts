@@ -18,6 +18,7 @@ import {
 import type { AuthProvider } from '@dependfix/engine/auth'
 import type { ScanExecutor, ScanExecutorContext, ScanExecutorResult } from './types'
 import {
+    attachBaselineRedIssueCarriers,
     deliverFixAndPr,
     planFixAndPrDelivery,
     shouldPlatformDeliver,
@@ -406,6 +407,8 @@ export class ContainerExecutor implements ScanExecutor {
         // 非 report-only：需要本地仓库文件（clone）+ 成功后推送修复分支到远程
         const needsClone = !isReportOnly
         const needsPush = !isReportOnly
+        // 基线红载体：仓库级配置（默认 skip）；是否生效在运行后按实际 deliverySkips 判定
+        const baselineRedCarrier = ctx.repository.baselineRedCarrier ?? 'skip'
         // fix-and-pr 模式：push 成功后再创建 PR
         const needsPr = ctx.config.mode === 'fix-and-pr'
 
@@ -446,6 +449,9 @@ export class ContainerExecutor implements ScanExecutor {
                 alertsToken: ctx.credential?.token ?? ctx.config.alertsToken,
                 commit: !isReportOnly,
                 createPullRequest: false,
+                // 基线红载体：draft 档让引擎继续提交（平台随后创建草稿 PR）；issue/skip 仍跳过提交
+                onBaselineRed: baselineRedCarrier,
+                deliveryOwner: 'platform',
                 // 运行截止时间（上层计算、引擎只消费）：预算不足时引擎停止启动新工作
                 deadlineAt: Date.now() + this.timeoutMs,
             }
@@ -477,6 +483,22 @@ export class ContainerExecutor implements ScanExecutor {
                 onTimeout: (ms) => app.abort(`execution timeout (${ms / 60000} 分钟上限)`),
             })
 
+            // 基线红 issue 档：引擎只记录 skip，平台按同一指纹补 issue 载体（同指纹不重复、关闭后不重开）
+            if (result && baselineRedCarrier === 'issue' && ctx.credential?.token) {
+                try {
+                    const octokit = createPlatformOctokit(ctx.credential.token)
+                    await attachBaselineRedIssueCarriers({ octokit, result, logger: memLogger })
+                } catch (error) {
+                    const message = error instanceof Error ? error.message : String(error)
+                    memLogger.warn(`[platform-delivery] 基线红 issue 载体创建失败（交付仍按跳过处理）：${message}`)
+                }
+            }
+
+            // draft 档只在**实际发生基线红**（引擎写入 draft carriage 记录）时生效；
+            // 配置 draft 但本次运行正常时仍按原扫描模式交付（fix 推分支 / fix-and-pr 普通 PR）。
+            const draftActivated = baselineRedCarrier === 'draft'
+                && (result?.deliverySkips ?? []).some((record) => record.carrier.mode === 'draft')
+
             // 平台接管交付：仅当引擎 commit 产生新提交时触发（no-op 扫描不产生空 push）
             // 触发条件比原 `exitCode === 0` 更严格：exitCode 1 也算"有部分成功"，但只有真产生 commit 才推
             let runUrl: string | undefined
@@ -489,8 +511,8 @@ export class ContainerExecutor implements ScanExecutor {
                 }
 
                 try {
-                    if (needsPr) {
-                        // fix-and-pr：创建 fix 分支 + 走 platform-delivery 完整链路
+                    if (needsPr || draftActivated) {
+                        // fix-and-pr 或基线红 draft 档：创建 fix 分支 + 走 platform-delivery 完整链路
                         const octokit = createPlatformOctokit(ctx.credential.token)
                         const plan = await planFixAndPrDelivery(octokit, owner, name, result)
                         // 创建/切换到 fix 分支（在 HEAD 上，含 commit）
@@ -504,9 +526,17 @@ export class ContainerExecutor implements ScanExecutor {
                             result,
                             plan,
                             octokit,
+                            draft: draftActivated,
                         })
                         runUrl = delivery.runUrl
                         prNumber = delivery.prNumber
+                        if (!delivery.skipped && delivery.prNumber && draftActivated) {
+                            const record = (result.deliverySkips ?? []).find((item) => item.carrier.mode === 'draft')
+                            if (record) {
+                                record.carrier.draftPr = { number: delivery.prNumber, htmlUrl: delivery.runUrl }
+                                result.summary.deliverySkipDraftPrs = (result.summary.deliverySkipDraftPrs ?? 0) + 1
+                            }
+                        }
                     } else {
                         // fix 模式（无 PR）：推当前分支（默认分支）即可
                         const branchName = await extractBranchName(workDir)

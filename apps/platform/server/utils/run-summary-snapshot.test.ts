@@ -68,6 +68,41 @@ describe('buildRunSummarySnapshot', () => {
         expect(buildRunSummarySnapshot({ summary, networkViolations: [] })).toBe(summary)
     })
 
+    it('adds jump links for baseline-red carriers only', () => {
+        const snapshot = buildRunSummarySnapshot({
+            summary,
+            networkViolations: [],
+            deliverySkips: [
+                {
+                    repositories: ['o/r'],
+                    failingCommands: ['pnpm install --frozen-lockfile'],
+                    carrier: {
+                        mode: 'issue',
+                        issue: { number: 7, htmlUrl: 'https://github.com/o/r/issues/7', created: true, fingerprint: 'abc' },
+                    },
+                },
+                {
+                    repositories: ['o/r'],
+                    failingCommands: ['pnpm install --frozen-lockfile'],
+                    carrier: {
+                        mode: 'draft',
+                        draftPr: { number: 8, htmlUrl: 'https://github.com/o/r/pull/8' },
+                    },
+                },
+                {
+                    repositories: ['o/r'],
+                    failingCommands: ['pnpm install --frozen-lockfile'],
+                    carrier: { mode: 'skip' },
+                },
+            ],
+        })
+
+        expect(snapshot.deliverySkipCarriers).toEqual([
+            { kind: 'issue', number: 7, url: 'https://github.com/o/r/issues/7', repositories: ['o/r'] },
+            { kind: 'draft-pr', number: 8, url: 'https://github.com/o/r/pull/8', repositories: ['o/r'] },
+        ])
+    })
+
     it('keeps pr-created delivery minimal (no prUrl in the snapshot)', () => {
         const snapshot = buildRunSummarySnapshot({
             summary,

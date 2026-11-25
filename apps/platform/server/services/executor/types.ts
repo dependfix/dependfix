@@ -43,6 +43,8 @@ export interface ScanExecutorContext {
         packageManager?: 'pnpm' | 'npm' | 'yarn'
         /** ActionTriggerExecutor 使用：目标 workflow 文件名（仓库内路径，如 `.github/workflows/security-auto-fix.yml`） */
         actionWorkflowFile?: string
+        /** ContainerExecutor 使用：基线红交付载体（仓库级，默认 skip） */
+        baselineRedCarrier?: 'skip' | 'issue' | 'draft'
         /**
          * 仓库级自定义验证命令（来自 Repository.verifyCommands；见 docs/standards/platform.md §3.8）。
          * 缺省（undefined / 空数组）→ 引擎走默认验证链 `DEFAULT_VERIFY_COMMANDS`。

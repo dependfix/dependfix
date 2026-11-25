@@ -375,6 +375,8 @@ const runScanInternal = async (
             actionWorkflowFile: repository.actionWorkflowFile ?? undefined,
             // 仓库级自定义验证命令（JSON 数组列 → 命令数组；缺省空数组 → 引擎默认链；见 docs/standards/platform.md §3.8）
             verifyCommands: parseVerifyCommands(repository.verifyCommands),
+            // 仓库级基线红交付载体（容器执行器消费；缺省 skip）
+            baselineRedCarrier: repository.baselineRedCarrier ?? 'skip',
         },
         config: {
             mode: request.mode,

@@ -36,6 +36,7 @@ const engineMock = vi.hoisted(() => ({
     fetchDefaultBranch: vi.fn(),
     findDependfixOpenPR: vi.fn(),
     generatePRBody: vi.fn(),
+    deliverSkipIssue: vi.fn(),
 }))
 
 vi.mock('@dependfix/engine', async (importOriginal) => {
@@ -51,10 +52,12 @@ vi.mock('@dependfix/engine', async (importOriginal) => {
         fetchDefaultBranch: engineMock.fetchDefaultBranch,
         findDependfixOpenPR: engineMock.findDependfixOpenPR,
         generatePRBody: engineMock.generatePRBody,
+        deliverSkipIssue: engineMock.deliverSkipIssue,
     }
 })
 
 const {
+    attachBaselineRedIssueCarriers,
     deliverFixAndPr,
     planFixAndPrDelivery,
     pushFixBranchWithCredential,
@@ -78,6 +81,7 @@ beforeEach(() => {
     engineMock.fetchDefaultBranch.mockReset()
     engineMock.findDependfixOpenPR.mockReset()
     engineMock.generatePRBody.mockReset()
+    engineMock.deliverSkipIssue.mockReset()
 })
 
 // ---------------------------------------------------------------------------
@@ -351,6 +355,31 @@ describe('deliverFixAndPr', () => {
         expect(engineMock.closeSupersededPRs).not.toHaveBeenCalled()
     })
 
+    it('creates a draft PR when draft carrier is requested', async () => {
+        childProcessMock.execFile
+            .mockResolvedValueOnce({ stdout: '', stderr: '' })
+            .mockResolvedValueOnce({ stdout: '', stderr: 'To https://github.com/o/r.git\n' })
+        engineMock.fetchDefaultBranch.mockResolvedValue('main')
+        engineMock.buildPrTitle.mockReturnValue('t')
+        engineMock.generatePRBody.mockReturnValue('b')
+        engineMock.createPullRequest.mockResolvedValue({ number: 201, htmlUrl: 'https://github.com/o/r/pull/201' })
+
+        const result = await deliverFixAndPr({
+            owner: 'o',
+            repo: 'r',
+            branchName: 'dependfix/auto-fix-abc12345',
+            token: 't',
+            workDir: '/tmp',
+            result: minimalResult,
+            plan: { fingerprint: 'abc12345', branchName: 'dependfix/auto-fix-abc12345', action: 'create', supersedePRs: [] },
+            octokit: makeOctokit(),
+            draft: true,
+        })
+
+        expect(result).toEqual({ runUrl: 'https://github.com/o/r/pull/201', prNumber: 201, skipped: false })
+        expect(engineMock.createPullRequest).toHaveBeenCalledWith(expect.objectContaining({ draft: true }))
+    })
+
     it('throws pr_creation_failed when createPullRequest 失败（分支已推）', async () => {
         childProcessMock.execFile.mockResolvedValue({ stdout: '', stderr: 'To https://github.com/o/r.git\n' })
         engineMock.fetchDefaultBranch.mockResolvedValue('main')
@@ -491,5 +520,47 @@ describe('classifyPushFailure', () => {
 
     it('优先级：同时含 rejected 与 403 时判非快进（先于凭据）', () => {
         expect(classifyPushFailure('! [rejected] main -> main (fetch first)\nremote: HTTP 403')).toBe('non-fast-forward')
+    })
+})
+
+describe('attachBaselineRedIssueCarriers', () => {
+    it('按引擎指纹补 issue 载体并替换 skip 记录', async () => {
+        const result = {
+            ...minimalResult,
+            deliverySkips: [{
+                repositories: ['o/r'],
+                failingCommands: ['pnpm install --frozen-lockfile'],
+                carrier: { mode: 'skip' as const },
+            }],
+            summary: { ...minimalResult.summary, deliverySkipIssues: 0 },
+        } as RunResult
+        engineMock.deliverSkipIssue.mockResolvedValue({
+            repositories: ['o/r'],
+            failingCommands: ['pnpm install --frozen-lockfile'],
+            carrier: {
+                mode: 'issue',
+                issue: { number: 7, htmlUrl: 'https://github.com/o/r/issues/7', created: true, fingerprint: 'abc' },
+            },
+        })
+
+        const created = await attachBaselineRedIssueCarriers({ octokit: makeOctokit(), result })
+
+        expect(created).toBe(1)
+        expect(engineMock.deliverSkipIssue).toHaveBeenCalledWith(expect.objectContaining({
+            owner: 'o',
+            repo: 'r',
+            repositories: ['o/r'],
+            failingCommands: ['pnpm install --frozen-lockfile'],
+        }))
+        expect(result.deliverySkips?.[0]?.carrier.mode).toBe('issue')
+        expect(result.deliverySkips?.[0]?.carrier.issue?.number).toBe(7)
+        expect(result.summary.deliverySkipIssues).toBe(1)
+    })
+
+    it('无 skip 记录时不请求 issue API', async () => {
+        const created = await attachBaselineRedIssueCarriers({ octokit: makeOctokit(), result: minimalResult })
+
+        expect(created).toBe(0)
+        expect(engineMock.deliverSkipIssue).not.toHaveBeenCalled()
     })
 })

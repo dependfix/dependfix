@@ -96,7 +96,14 @@ afterEach(async () => {
 
 /** 取 DependfixApp 构造参数里的引擎 config */
 const engineConfig = () => (dependfixAppMock.mock.calls[0]![0] as {
-    config: { mode: string, commit: boolean, createPullRequest: boolean, deadlineAt?: number }
+    config: {
+        mode: string
+        commit: boolean
+        createPullRequest: boolean
+        onBaselineRed?: string
+        deliveryOwner?: string
+        deadlineAt?: number
+    }
 }).config
 
 describe('ContainerExecutor 引擎 config 覆写口径', () => {
@@ -120,6 +127,20 @@ describe('ContainerExecutor 引擎 config 覆写口径', () => {
         expect(engineConfig().mode).toBe('fix')
         expect(engineConfig().commit).toBe(true)
         expect(engineConfig().createPullRequest).toBe(false)
+        // 默认 skip + 平台接管交付（draft 档才允许继续提交）
+        expect(engineConfig().onBaselineRed).toBe('skip')
+        expect(engineConfig().deliveryOwner).toBe('platform')
+    })
+
+    it('passes repository baselineRedCarrier as engine onBaselineRed', async () => {
+        const executor = new ContainerExecutor({ workRoot: tempRoot, timeoutMs: 10_000 })
+        const ctx = makeCtx('fix')
+        ;(ctx.repository as { baselineRedCarrier?: string }).baselineRedCarrier = 'draft'
+
+        await executor.execute(ctx)
+
+        expect(engineConfig().onBaselineRed).toBe('draft')
+        expect(engineConfig().deliveryOwner).toBe('platform')
     })
 
     it('fix-and-pr：clone 且引擎降级为 fix + commit:true（PR 由平台 delivery 创建）', async () => {

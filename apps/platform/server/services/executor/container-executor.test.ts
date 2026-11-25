@@ -46,6 +46,7 @@ const platformDeliveryMock = vi.hoisted(() => ({
     planFixAndPrDelivery: vi.fn(),
     deliverFixAndPr: vi.fn(),
     createPlatformOctokit: vi.fn(),
+    attachBaselineRedIssueCarriers: vi.fn(),
     // 双路径守卫：容器路径按真实语义放行（结果带 platform/none 或无 delivery 记录）
     shouldPlatformDeliver: vi.fn(() => true),
 }))
@@ -145,6 +146,7 @@ beforeEach(async () => {
     platformDeliveryMock.planFixAndPrDelivery.mockReset()
     platformDeliveryMock.deliverFixAndPr.mockReset()
     platformDeliveryMock.createPlatformOctokit.mockReset()
+    platformDeliveryMock.attachBaselineRedIssueCarriers.mockReset()
     platformDeliveryMock.shouldPlatformDeliver.mockReset().mockReturnValue(true)
     dependfixAppMock.mockReset()
     engineMock.createFixBranch.mockReset()
@@ -238,6 +240,35 @@ describe('ContainerExecutor.execute - fix mode', () => {
         expect(result.finishedAt).toBeTruthy()
         // clone + readHeadSha x2 + extractBranchName + pushFixBranch
         expect(childProcessMock.execFile).toHaveBeenCalledTimes(5)
+    })
+
+    it('keeps fix-mode branch delivery when draft carrier is configured but the run is not baseline-red', async () => {
+        const runResult = makeRunResult()
+        dependfixAppMock.mockImplementation(function (this: { run: ReturnType<typeof vi.fn> }) {
+            this.run = vi.fn().mockResolvedValue(fakeDependfixRunResult(runResult, 0))
+        } as never)
+        childProcessMock.execFile
+            .mockResolvedValueOnce({ stdout: '', stderr: 'Cloning into \'.\'...' })
+            .mockResolvedValueOnce({ stdout: 'aaa\n', stderr: '' })
+            .mockResolvedValueOnce({ stdout: 'bbb\n', stderr: '' })
+            .mockResolvedValueOnce({ stdout: 'dependfix/auto-fix-test\n', stderr: '' })
+            .mockResolvedValueOnce({ stdout: '', stderr: 'To https://github.com/owner-a/repo-b.git\n' })
+
+        const executor = new ContainerExecutor({ workRoot: tempRoot, timeoutMs: 10_000 })
+        const ctx = makeCtx({
+            config: { ...baseConfig, mode: 'fix' },
+            repository: {
+                owner: 'owner-a',
+                name: 'repo-b',
+                defaultBranch: 'main',
+                baselineRedCarrier: 'draft',
+            } as never,
+        })
+        const result = await executor.execute(ctx)
+
+        expect(result.runUrl).toContain('/tree/dependfix/auto-fix-test')
+        expect(platformDeliveryMock.deliverFixAndPr).not.toHaveBeenCalled()
+        expect(engineMock.createFixBranch).not.toHaveBeenCalled()
     })
 
     it('skips push when engine produces no new commit (hasNewCommit=false)', async () => {
@@ -339,6 +370,131 @@ describe('ContainerExecutor.execute - fix-and-pr mode', () => {
         expect(platformDeliveryMock.planFixAndPrDelivery).toHaveBeenCalledWith(fakeOctokit, 'owner-a', 'repo-b', runResult)
         expect(engineMock.createFixBranch).toHaveBeenCalledWith('dependfix/auto-fix-test', expect.any(String))
         expect(platformDeliveryMock.deliverFixAndPr).toHaveBeenCalled()
+    })
+
+    it('creates a draft PR and records the carrier for repository baselineRedCarrier=draft', async () => {
+        const runResult = makeRunResult({
+            deliverySkips: [{
+                repositories: ['owner-a/repo-b'],
+                failingCommands: ['pnpm install --frozen-lockfile'],
+                carrier: { mode: 'draft' },
+            }],
+            summary: {
+                alertsFound: 1,
+                alertsFixed: 1,
+                alertsFailed: 0,
+                deliverySkipDraftPrs: 0,
+            } as RunResult['summary'],
+        })
+        const fakeOctokit = { rest: {} }
+        const fakePlan = { branchName: 'dependfix/auto-fix-test', title: 'fix', body: 'body', labels: [] }
+        const fakeDelivery = { runUrl: 'https://github.com/owner-a/repo-b/pull/42', prNumber: 42 }
+
+        dependfixAppMock.mockImplementation(function (this: { run: ReturnType<typeof vi.fn> }) {
+            this.run = vi.fn().mockResolvedValue(fakeDependfixRunResult(runResult, 0))
+        } as never)
+        platformDeliveryMock.createPlatformOctokit.mockReturnValue(fakeOctokit)
+        platformDeliveryMock.planFixAndPrDelivery.mockResolvedValue(fakePlan)
+        platformDeliveryMock.deliverFixAndPr.mockResolvedValue(fakeDelivery)
+
+        childProcessMock.execFile
+            .mockResolvedValueOnce({ stdout: '', stderr: 'Cloning into \'.\'...' })
+            .mockResolvedValueOnce({ stdout: 'aaa\n', stderr: '' })
+            .mockResolvedValueOnce({ stdout: 'bbb\n', stderr: '' })
+
+        const executor = new ContainerExecutor({ workRoot: tempRoot, timeoutMs: 10_000 })
+        const ctx = makeCtx({
+            repository: {
+                owner: 'owner-a',
+                name: 'repo-b',
+                defaultBranch: 'main',
+                baselineRedCarrier: 'draft',
+            } as never,
+        })
+        const result = await executor.execute(ctx)
+
+        expect(platformDeliveryMock.deliverFixAndPr).toHaveBeenCalledWith(expect.objectContaining({ draft: true }))
+        expect(result.runUrl).toBe(fakeDelivery.runUrl)
+        expect(runResult.deliverySkips?.[0]?.carrier.draftPr).toEqual({ number: 42, htmlUrl: fakeDelivery.runUrl })
+        expect(runResult.summary.deliverySkipDraftPrs).toBe(1)
+    })
+
+    it('does not count a reused draft PR as newly created', async () => {
+        const runResult = makeRunResult({
+            deliverySkips: [{
+                repositories: ['owner-a/repo-b'],
+                failingCommands: ['pnpm install --frozen-lockfile'],
+                carrier: { mode: 'draft' },
+            }],
+            summary: {
+                alertsFound: 1,
+                alertsFixed: 1,
+                alertsFailed: 0,
+                deliverySkipDraftPrs: 0,
+            } as RunResult['summary'],
+        })
+        const fakeOctokit = { rest: {} }
+        const fakePlan = { branchName: 'dependfix/auto-fix-test', title: 'fix', body: 'body', labels: [] }
+        dependfixAppMock.mockImplementation(function (this: { run: ReturnType<typeof vi.fn> }) {
+            this.run = vi.fn().mockResolvedValue(fakeDependfixRunResult(runResult, 0))
+        } as never)
+        platformDeliveryMock.createPlatformOctokit.mockReturnValue(fakeOctokit)
+        platformDeliveryMock.planFixAndPrDelivery.mockResolvedValue(fakePlan)
+        platformDeliveryMock.deliverFixAndPr.mockResolvedValue({
+            runUrl: 'https://github.com/owner-a/repo-b/pull/99',
+            prNumber: 99,
+            skipped: true,
+        })
+        childProcessMock.execFile
+            .mockResolvedValueOnce({ stdout: '', stderr: 'Cloning into \'.\'...' })
+            .mockResolvedValueOnce({ stdout: 'aaa\n', stderr: '' })
+            .mockResolvedValueOnce({ stdout: 'bbb\n', stderr: '' })
+
+        const executor = new ContainerExecutor({ workRoot: tempRoot, timeoutMs: 10_000 })
+        const ctx = makeCtx({
+            repository: {
+                owner: 'owner-a',
+                name: 'repo-b',
+                defaultBranch: 'main',
+                baselineRedCarrier: 'draft',
+            } as never,
+        })
+        await executor.execute(ctx)
+
+        expect(runResult.deliverySkips?.[0]?.carrier.draftPr).toBeUndefined()
+        expect(runResult.summary.deliverySkipDraftPrs).toBe(0)
+    })
+
+    it('attaches a baseline-red issue carrier for repository baselineRedCarrier=issue', async () => {
+        const runResult = makeRunResult({
+            deliverySkips: [{
+                repositories: ['owner-a/repo-b'],
+                failingCommands: ['pnpm install --frozen-lockfile'],
+                carrier: { mode: 'skip' },
+            }],
+        })
+        dependfixAppMock.mockImplementation(function (this: { run: ReturnType<typeof vi.fn> }) {
+            this.run = vi.fn().mockResolvedValue(fakeDependfixRunResult(runResult, 0))
+        } as never)
+        platformDeliveryMock.createPlatformOctokit.mockReturnValue({ rest: {} })
+        childProcessMock.execFile
+            .mockResolvedValueOnce({ stdout: '', stderr: 'Cloning into \'.\'...' })
+            .mockResolvedValueOnce({ stdout: 'aaa\n', stderr: '' })
+
+        const executor = new ContainerExecutor({ workRoot: tempRoot, timeoutMs: 10_000 })
+        const ctx = makeCtx({
+            repository: {
+                owner: 'owner-a',
+                name: 'repo-b',
+                defaultBranch: 'main',
+                baselineRedCarrier: 'issue',
+            } as never,
+        })
+        await executor.execute(ctx)
+
+        expect(platformDeliveryMock.attachBaselineRedIssueCarriers).toHaveBeenCalledWith(expect.objectContaining({
+            result: runResult,
+        }))
     })
 
     it('skips platform delivery when the engine already delivered in-process', async () => {

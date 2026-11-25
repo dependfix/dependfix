@@ -22,6 +22,14 @@ jobs:
           node-version: "lts/*"
           cache: "pnpm"
       - run: pnpm i --frozen-lockfile
+      # 破坏性提交机检（docs/standards/git.md §3.9）：只校验本次 push / PR 范围，不追溯历史；
+      # workflow_dispatch 跳过；新分支 push 的 before 为全零 sha 时跳过（无可用范围）。
+      # 阻断强度：workflow 级阻断信号（仓库未配置 required status checks，与 visual job 同口径）。
+      - name: Check breaking commit records
+        if: ${{ github.event_name == 'pull_request' || (github.event_name == 'push' && github.event.before != '0000000000000000000000000000000000000000') }}
+        env:
+          RANGE: ${{ github.event_name == 'pull_request' && format('{0}..HEAD', github.event.pull_request.base.sha) || format('{0}..HEAD', github.event.before) }}
+        run: node scripts/check-breaking-commit.mjs --range "$RANGE"
       # 依赖审计（决策依据：docs/design/governance/c22-pat-backward-compat.md §5.5 决策 C 缓解措施 4）：
       # - **全量信号（保留）**：`pnpm audit --audit-level=moderate --registry=https://registry.npmjs.org || true`
       #   覆盖 prod + devDeps（原 `--prod` 只看 prod，devDeps 链同样需要治理，见 M29.1）；

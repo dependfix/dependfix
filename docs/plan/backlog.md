@@ -131,7 +131,7 @@
 
 - **定时发布启用（2026-11-15 评估完成；用户选方案 A：先发 1.1.0，观察 2 周后启用）**（P2 🚀）—— 启用清单 8 项现状（2026-11-15 实测）：① 1.0 门槛（1.0 已发布，G3 pending / G4 豁免延续）；② 安全告警门禁（本地 PASS，CI 有 `GH_PAT`）；③ Trusted Publisher（1.0.0 OIDC 发布成功）；④ Workflow 权限就位；⑤ **直推 master 未实测**（`gh api` 实测 master 无分支保护，机制可行）；⑥ 版本与日志一致（`verify:changelog` 绿、`release:plan` 可推导）；⑦ 回滚预案未演练；⑧ `v1` 冻结在 `1.1.0`（2026-11-15 决策，不随发布漂移；启用定时发布时无需依赖滚动 tag）。
   - **已知口径**：发布提交 `chore(release): x.y.z [skip ci]` 由 `GITHUB_TOKEN` 推送，不触发 Test / CodeQL / Pages（GitHub 防递归 + `[skip ci]`），发布内容只由 `release.yml` 内部门禁覆盖。
-  - **启用前置**：先闭环 M67.3「发布工作流无变更周空跑短路」（2026-11-25 已上收）；1.1.0 发布后观察 2 周；`on.push` 继续保留注释，待 schedule 稳定后再评估。
+  - **启用前置**：M67.3「发布工作流无变更周空跑短路」已闭环（2026-11-26 归档，见 [todo 归档分片](archive/todo-archive-phases-m67.md)）；1.1.0 发布后观察 2 周；`on.push` 继续保留注释，待 schedule 稳定后再评估。
   - **回填要求**：首个定时窗口 run id、auto-version 提交 hash、三项未证实项结论写入本条目后再关闭。
 
 ### 延期 / 暂缓项
@@ -267,6 +267,12 @@
 - **已于 2026-11-19 定位并修复**（M62.6）：根因为外联审计代理 `stop()` 在 CONNECT 隧道 upgrade 后等不到 `server.close()` 回调；修复与复现读数见 [M62 归档分片](archive/todo-archive-phases-m62.md) 与 [执行进程隔离 §8.6](../design/governance/executor-process-isolation.md#_8-6-残余与观察项)。
 - **本条目只保留观察判据**：之后含外联（registry / GitHub）的 fix 运行若仍出现 `execution_timeout` 且宽限期未落定，先读执行日志的「诊断分类」行——`未 settle 句柄` 说明有新的未关闭句柄（按「运行期句柄」清单定位）；`在管子进程` 说明有未纳入进程树终止的孙进程；两类「无法归类」按 backlog 旧分流（`采集不可用` 先修探针、`无净增` 抓 `ps -ef --forest` 查未返回的异步等待）。
 - 历史样本（保留判读价值）：`6875bb2e09401dec`（momei，2026-11-13）空窗 5m20s、在管受管子进程 0 个、最后受管命令 `git rev-parse --abbrev-ref HEAD`。
+
+### M67.3 定时发布空跑实测（2026-11-26 归档登记）
+
+- **未证实项**：`release.yml` 的 `probe` job 尚无真实 `schedule` run——无变更轮次是否在 install 前短路（release job skipped、run 绿）、有变更轮次的步骤集合与时长对照均待实测。
+- **前置**：定时发布启用仍需用户按 [release.md](../guide/release.md) 启用清单授权并取消 `schedule` 注释。
+- **回填方式**：首个 `schedule` 无变更 run 与首个有变更 run 各记录 run id、job 状态、步骤数；写回 [release-pipeline §4.8](../design/governance/release-pipeline.md#_4-8-无变更周空跑短路-2026-11-25-d3-决策)。
 
 ### 发布管线收尾（P3）
 
@@ -414,13 +420,19 @@
 - **`docs/guide/deployment.md` 行数零余量**：实测恰好 500 行（健康窗口 ≤500），下一次新增部署内容会进入 warning 带；处置：新增前先把「提交卫生」旁支外移或等量压缩，不调阈值。
 - **Dependabot moderate #127（minimatch）**：默认分支现存 1 个 moderate 告警，不阻断发布门禁（`check:release-security` 只拦 critical / 未豁免 high）；随下一依赖批次升级处理。该告警的豁免口径沿本文件「依赖审计豁免复核（minimatch）」小节，不在此重复。
 
+### M67 阶段残余（2026-11-26 登记，持续观察）
+
+- **基线红载体真实 API 与执行器作用域**：M67.2 的 issue / 草稿 PR 载体只经 server 单测 + 页面 e2e 组合验证（无稳定「基线红」夹具，真实 GitHub 创建未端到端）；`sandbox` / `github-action` 执行器不消费仓库级 `baselineRedCarrier`（UI 已按 container 条件展示，文档已声明）。恢复条件：出现可用基线红目标仓或需要把载体扩展到其它执行器时，补真实 API 取证与执行器接入。
+- **视觉基线随表单字段变化**：M67.2 新增字段使 `dialog-select-open` light/dark 重建；后续若调整仓库表单布局，需按 [testing §6.7](../standards/testing.md#_6-7-视觉回归-截图识别层-apps-platform) 重新取证，不把本次基线当作布局冻结。
+- **定时发布启用仍未上收**：M67.3 已提供无变更周短路（probe job），但 `release.yml` 的 `schedule` 仍按启用清单保持注释；真实无变更 / 有变更轮次对照见本文件 §待人工验收「M67.3 定时发布空跑实测」。
+
 ## 文档位置速查
 
 | 内容类型 | 位置 |
 |:--|:--|
-| 当前阶段活跃任务 | M67 交付与发布链可信残余（2026-11-25 规划，5 原子，见 [todo.md](todo.md)）；插队容量治理见 [planning.md §3.1.1](../standards/planning.md#_3-1-1-插队后的阶段容量再平衡-hard-requirement-2026-10-19) |
-| 下一阶段（未规划） | M67 闭环后按本文件候选池重新评估（19 条候选 + 2 条待上收）；M59 / M60 / M63 / M65 残余留在本文件；**1.1.0 已于 2026-11-15 发布**，定时发布启用仍在「待上收候选」段等待观察窗口 |
+| 当前阶段活跃任务 | 无（M67 已于 2026-11-26 归档，下一阶段待规划）；插队容量治理见 [planning.md §3.1.1](../standards/planning.md#_3-1-1-插队后的阶段容量再平衡-hard-requirement-2026-10-19) |
+| 下一阶段（未规划） | 按本文件候选池重新评估（19 条候选 + 2 条待上收）；M59 / M60 / M63 / M65 / M67 残余留在本文件；**1.1.0 已于 2026-11-15 发布**，定时发布启用仍在「待上收候选」段等待观察窗口 |
 | 已完成阶段归档 | [todo-archive.md](todo-archive.md)（阶段索引 + [archive/](archive/) 分片） |
-| 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M0-M66 已归档，M67 规划中） |
+| 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M0-M67 已归档） |
 | 长期主线 / 候选 / 待人工验收 / 已知边界 | 本文档（按四象限结构） |
 | 历史归档索引 | [archive/index.md](archive/index.md) |

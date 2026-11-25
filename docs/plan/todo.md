@@ -45,7 +45,7 @@
 |:--|:--|:--|:--|:--|:--|
 | M67.1 无补丁版本告警的稳定结论 | — | ✅ 已完成 | 4（d22b8af7 / a5c2a4b8 / f92bd9db / 本条登记） | standard R1 Pass（3W）→ R2 Reject（W2）→ R3 Pass | 计划 3-4 commits / 8-10 files / 220-400 行；实际 4 commits / 26 files / +278 −35（测试、双语与设计稿同源扩散） |
 | M67.2 平台基线红交付载体与仓库级配置 | 3（M67.2.1-M67.2.3） | ⬜ 待开始 | — | — | 计划 7-10 commits / 13-20 files / 460-930 行 |
-| M67.3 发布工作流无变更周空跑短路 | — | ⬜ 待开始 | — | — | 计划 2-3 commits / 3-5 files / 100-220 行 |
+| M67.3 发布工作流无变更周空跑短路 | — | ✅ 已完成 | 4（2fb2f052 / 6d3b2060 / 7cc7dabe / 本条登记） | deep R1 Pass（3W）→ R2 Pass | 计划 2-3 commits / 3-5 files / 100-220 行；实际 4 commits / 8 files / +229 −12（含自愈补扫与测试） |
 | M67.4 破坏性提交机检 | — | ✅ 已完成 | 4（09448936 / c621d41e / 7715e323 / 本条登记） | deep R1 Pass（3W）→ R2 Reject（B1）→ R3 Reject（B2）→ R4 Pass | 计划 3-4 commits / 6-8 files / 180-360 行；实际 4 commits / 10 files / +496 −9（footer 容错与负例标定） |
 | M67.5 备份 `.tmp` 清扫年龄门槛 | — | ✅ 已完成 | 3（6a178ef2 / e2300fef / 本条登记） | standard R1 Pass（3W）→ R2 Pass | 计划 2-3 commits / 3-5 files / 80-160 行；实际 3 commits / 6 files / +107 −8（含规范与登记） |
 
@@ -132,6 +132,7 @@
 - **依赖**：定时发布启用（backlog 待上收，本项为其前置）；`release:plan` 现有推导逻辑（`scripts/create-release-plan.mjs`）；发布管线设计 §4。
 - **交付物**：2-3 commits / 3-5 files / 100-220 行；① 只读探测 + 单测 ② workflow 门控 ③ 文档。
 - **风险与缓解**：漏跑发布 → 仅「无计划」短路且探测异常 fail-open；probe 与 release 之间 tag / 分支漂移 → release job 重新 checkout 后照常推导；计划文件残留 → 只读模式断言文件不存在。
+- **执行记录（2026-11-25）**：D3 选 job 拆分——schedule 增加只读 `probe` job，`plan.size === 0` 时 release job 经 job 级 `!cancelled()` 条件整体跳过；dispatch 不运行 probe，全量执行。`--check` 不写计划文件、不读存在性、幂等；无新 bump 但 core 版本未打 `v<version>` / `*@<version>` tag 时仍全量（范围有限，tag 丢失由 `pnpm tag:released` 兜底）；探测异常 `::warning::` + `has_changes=true` fail-open。`verify:changelog` 与 `check:release-security` 相对顺序不变。已知未证实：schedule 仍注释，真实无变更 / 有变更轮次 run 时长对照与 dispatch 下 probe-skipped + `!cancelled()` 求值待启用定时发布后回填。commits `2fb2f052` / `6d3b2060` / `7cc7dabe` / 本条登记。审计 deep R1 Pass（3W）→ R2 Pass；验证：create-release-plan 43 passed、真实只读 probe（3 包 minor、无计划文件）、lint 0 error / 6 warning、typecheck 7 项目、gates:docs 22、YAML 可解析。
 
 ### M67.4 破坏性提交机检（P2 🛡️）
 

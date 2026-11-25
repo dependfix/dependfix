@@ -26,6 +26,7 @@ import { isQueueWorkerProcess } from '#server/utils/process-role'
  *   （2026-10-31 运维实测：优雅停止后主库仍是 4096 字节、数据全在 WAL，备份产物 schema_version=0）
  * - 写入原子性：在线备份先写 `.tmp`，`fsyncSync` 刷盘后再原子 rename 到最终路径；断电时不会留下半成品
  * - 保留策略：默认 5 份，可通过 BACKUP_RETENTION_COUNT env 覆盖；按 mtime 降序排序，超出部分删除
+ * - 残片回收：`.bak.tmp` 达到 10 分钟年龄门槛才删除，避免误删并发写入 / 多实例共卷的临时文件
  * - 触发条件：源文件存在 + size > 0 + 后缀不是 .bak（避免备份目录内 .bak 文件被递归备份）
  * - 跳过机制：BACKUP_SKIP=true 跳过（e2e 等无需备份的场景）；队列 worker 进程跳过（迁移与备份
  *   都由 HTTP 主进程承担，避免同一时刻两份快照争用保留位）
@@ -47,6 +48,14 @@ export const BACKUP_FILE_EXTENSION = '.bak'
 
 /** 临时文件后缀（rename 前写入目标文件） */
 const TEM_FILE_EXTENSION = '.tmp'
+
+/**
+ * 中断残留 `.bak.tmp` 的回收年龄门槛（10 分钟）。
+ *
+ * 并发恢复 / 多实例共卷时，对端正在写的临时文件 mtime 很新；无条件删除会让其 rename 失败
+ * （ENOENT）并丢掉该轮快照。门槛只影响回收，不影响新建与备份创建。
+ */
+export const TEMP_FILE_RETENTION_MS = 10 * 60 * 1000
 
 /** 备份结果（成功 / 跳过 / 失败 / 清理数） */
 export interface BackupResult {
@@ -227,15 +236,20 @@ export const formatTimestamp = (date: Date): string => {
  * 清理超出保留份数的老备份（按 mtime 降序排序，删除超出部分）。
  * 单独 export 便于测试；不依赖 backupDatabaseIfNeeded 调用。
  *
+ * 回收 `.bak.tmp` 时必须达到年龄门槛（默认 {@link TEMP_FILE_RETENTION_MS}），避免删除并发写入中的临时文件；
+ * 门槛只影响删除，陈旧残片仍会被清理。
+ *
  * @param backupDir 备份目录路径
  * @param baseFileName 源文件名（用于过滤匹配 `${baseFileName}.*.bak`）
  * @param retentionCount 保留份数
- * @returns 实际删除的份数
+ * @param now 当前时刻（毫秒；测试注入以做确定性边界断言）
+ * @returns 实际删除的 `.bak` 份数（不含 `.bak.tmp`，与既有语义一致）
  */
 export const cleanupOldBackups = (
     backupDir: string,
     baseFileName: string,
     retentionCount: number,
+    now: number = Date.now(),
 ): number => {
     if (!existsSync(backupDir)) {
         return 0
@@ -243,10 +257,19 @@ export const cleanupOldBackups = (
     const prefix = `${baseFileName}.`
     const suffix = BACKUP_FILE_EXTENSION
     const tmpSuffix = `${BACKUP_FILE_EXTENSION}${TEM_FILE_EXTENSION}`
-    // 先回收中断残留的 .bak.tmp（备份写入过程中被 SIGKILL 的残片，永不可能是有效备份）
+    // 先回收达到年龄门槛的中断残留 .bak.tmp（备份写入过程中被 SIGKILL 的残片）
     const entries = readdirSync(backupDir).filter((name) => name.startsWith(prefix) && name.endsWith(tmpSuffix))
     for (const entry of entries) {
-        removeFileQuietly(join(backupDir, entry))
+        const path = join(backupDir, entry)
+        try {
+            const age = now - statSync(path).mtime.getTime()
+            // 读不到 mtime 时保守保留；未达门槛保留，达到 / 超过门槛才回收
+            if (age >= TEMP_FILE_RETENTION_MS) {
+                removeFileQuietly(path)
+            }
+        } catch {
+            // 并发删除 / 权限问题：保持 fail-open
+        }
     }
     const backups = readdirSync(backupDir)
         .filter((name) => name.startsWith(prefix) && name.endsWith(suffix))

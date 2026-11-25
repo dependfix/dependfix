@@ -1,4 +1,4 @@
-import { chmodSync, existsSync, mkdirSync, readdirSync, rmSync, statSync, utimesSync, writeFileSync } from 'node:fs'
+import { chmodSync, existsSync, lstatSync, mkdirSync, readdirSync, rmSync, statSync, symlinkSync, utimesSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import Database from 'better-sqlite3'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -7,6 +7,7 @@ import {
     cleanupOldBackups,
     formatTimestamp,
     runStartupBackup,
+    TEMP_FILE_RETENTION_MS,
 } from './backup'
 
 /**
@@ -180,6 +181,8 @@ describe('backupDatabaseIfNeeded', () => {
             mkdirSync(backupDir, { recursive: true })
             const staleTmp = join(backupDir, 'test.sqlite.2026-01-01T00-00-00.bak.tmp')
             writeFileSync(staleTmp, 'partial snapshot')
+            const old = new Date(Date.now() - TEMP_FILE_RETENTION_MS - 60_000)
+            utimesSync(staleTmp, old, old)
 
             await backupDatabaseIfNeeded(dbPath, { retentionCount: 5 })
 
@@ -262,6 +265,78 @@ describe('cleanupOldBackups', () => {
     it('忽略不匹配前缀的文件', () => {
         createSqliteDb(join(backupDir, 'other.sqlite.2026-01-01T00-00-00.bak'), { rows: 1 })
         expect(cleanupOldBackups(backupDir, 'test.sqlite', 0)).toBe(0)
+    })
+
+    describe('.bak.tmp 年龄门槛', () => {
+        const now = Date.UTC(2026, 0, 10, 12, 0, 0)
+
+        const writeTmp = (name: string, mtime: number): string => {
+            const path = join(backupDir, name)
+            writeFileSync(path, 'partial snapshot')
+            utimesSync(path, new Date(mtime), new Date(mtime))
+            return path
+        }
+
+        it('门槛内的新鲜临时文件保留，超期残片回收', () => {
+            const fresh = writeTmp('test.sqlite.fresh.bak.tmp', now - 60_000)
+            const stale = writeTmp('test.sqlite.stale.bak.tmp', now - TEMP_FILE_RETENTION_MS - 1)
+
+            expect(cleanupOldBackups(backupDir, 'test.sqlite', 5, now)).toBe(0)
+
+            expect(existsSync(fresh)).toBe(true)
+            expect(existsSync(stale)).toBe(false)
+        })
+
+        it('年龄恰好等于门槛 → 回收（边界用注入 now 确定）', () => {
+            const boundary = writeTmp('test.sqlite.boundary.bak.tmp', now - TEMP_FILE_RETENTION_MS)
+
+            expect(cleanupOldBackups(backupDir, 'test.sqlite', 5, now)).toBe(0)
+
+            expect(existsSync(boundary)).toBe(false)
+        })
+
+        it('混合场景：新鲜 tmp 保留、残片回收且 .bak 保留份数零回归', () => {
+            const fresh = writeTmp('test.sqlite.fresh.bak.tmp', now - 60_000)
+            const stale = writeTmp('test.sqlite.stale.bak.tmp', now - TEMP_FILE_RETENTION_MS * 2)
+            for (const [index, stamp] of ['2026-01-01T00-00-00', '2026-01-02T00-00-00'].entries()) {
+                const file = join(backupDir, `test.sqlite.${stamp}.bak`)
+                createSqliteDb(file, { rows: 1 })
+                const time = new Date(now - (index + 1) * 60 * 60 * 1000)
+                utimesSync(file, time, time)
+            }
+
+            // 返回计数只含 .bak（1 份超期），tmp 回收不计入
+            expect(cleanupOldBackups(backupDir, 'test.sqlite', 1, now)).toBe(1)
+            expect(existsSync(fresh)).toBe(true)
+            expect(existsSync(stale)).toBe(false)
+            expect(readdirSync(backupDir).filter((name) => name.endsWith('.bak')).length).toBe(1)
+        })
+
+        it('mtime 不可读时保守保留（悬空软链）', () => {
+            const dangling = join(backupDir, 'test.sqlite.dangling.bak.tmp')
+            try {
+                symlinkSync(join(workDir, 'missing-target'), dangling)
+            } catch {
+                return // Windows 非管理员 / 无 Developer Mode 无法建软链，跳过该形态
+            }
+
+            expect(cleanupOldBackups(backupDir, 'test.sqlite', 5, now)).toBe(0)
+            // 软链本身仍存在（stat 抛 ENOENT 不得触发删除）
+            expect(() => lstatSync(dangling)).not.toThrow()
+        })
+
+        it('retention=0 删除全部 .bak 与超期 tmp，仍保留新鲜 tmp', () => {
+            const fresh = writeTmp('test.sqlite.fresh.bak.tmp', now - 60_000)
+            const stale = writeTmp('test.sqlite.stale.bak.tmp', now - TEMP_FILE_RETENTION_MS * 3)
+            for (const stamp of ['2026-01-01T00-00-00', '2026-01-02T00-00-00']) {
+                createSqliteDb(join(backupDir, `test.sqlite.${stamp}.bak`), { rows: 1 })
+            }
+
+            expect(cleanupOldBackups(backupDir, 'test.sqlite', 0, now)).toBe(2)
+            expect(existsSync(fresh)).toBe(true)
+            expect(existsSync(stale)).toBe(false)
+            expect(readdirSync(backupDir).filter((name) => name.endsWith('.bak'))).toHaveLength(0)
+        })
     })
 })
 

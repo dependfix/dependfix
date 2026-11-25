@@ -423,13 +423,19 @@
 - **Sentry 尾部事件**：worker `exit(1)` 崩溃路径可能丢尾部事件——进程在事件入队后立即退出时未等待 flush；当前无复现样本，恢复条件为出现崩溃 run 缺尾部事件。
 - **规范文档预算**：`docs/standards/platform.md` 字符数超 24,000 健康线（2026-11-23 实测仍超；M65.1 时点为 24,299），随下一次规范压缩批次等量压缩，不靠调高阈值绕过。
 
+### M66 阶段残余（2026-11-25 登记，持续观察）
+
+- **engine `auth-flow.test.ts` 偶发超时**：连续全量中出现 1 次 `expected 501 to be 401` 的 10s 超时（单跑 13 passed，与 M66 改动无 import 关系）；判为既有 flake。恢复条件：CI 复现或下次触及该文件时一并定性，不阻塞发布。
+- **`docs/guide/deployment.md` 行数零余量**：实测恰好 500 行（健康窗口 ≤500），下一次新增部署内容会进入 warning 带；处置：新增前先把「提交卫生」旁支外移或等量压缩，不调阈值。
+- **Dependabot moderate #127（minimatch）**：默认分支现存 1 个 moderate 告警，不阻断发布门禁（`check:release-security` 只拦 critical / 未豁免 high）；随下一依赖批次升级处理。该告警的豁免口径沿本文件「依赖审计豁免复核（minimatch）」小节，不在此重复。
+
 ## 文档位置速查
 
 | 内容类型 | 位置 |
 |:--|:--|
-| 当前阶段活跃任务 | M66 执行结果可信与失败归因（2026-11-23 规划，6 原子，见 [todo.md](todo.md)）；插队容量治理见 [planning.md §3.1.1](../standards/planning.md#_3-1-1-插队后的阶段容量再平衡-hard-requirement-2026-10-19) |
+| 当前阶段活跃任务 | 无活跃阶段（M66 已于 2026-11-25 归档，见 [todo-archive.md](todo-archive.md)）；插队容量治理见 [planning.md §3.1.1](../standards/planning.md#_3-1-1-插队后的阶段容量再平衡-hard-requirement-2026-10-19) |
 | 下一阶段（未规划） | 按本文件候选池重新评估（23 条候选 + 3 条待上收）；M59 / M60 / M63 / M65 残余留在本文件；**1.1.0 已于 2026-11-15 发布**，定时发布启用仍在「待上收候选」段等待观察窗口 |
 | 已完成阶段归档 | [todo-archive.md](todo-archive.md)（阶段索引 + [archive/](archive/) 分片） |
-| 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M0-M65 已归档） |
+| 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M0-M66 已归档） |
 | 长期主线 / 候选 / 待人工验收 / 已知边界 | 本文档（按四象限结构） |
 | 历史归档索引 | [archive/index.md](archive/index.md) |

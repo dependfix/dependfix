@@ -277,6 +277,14 @@ export function generateMarkdownReport(result: RunResult): string {
             sections.push(`| Failed / other not fixed | ${failedResidual} |`)
         }
         sections.push('')
+        const noPatch = skippedRows.find((row) => row.key === 'no-patch')
+        if (noPatch) {
+            sections.push(
+                `> **No patched version**: ${noPatch.count} Dependabot alert(s) have no fixed version yet. `
+                + 'Consider dismissing them in Dependabot if they are not applicable; this run never dismisses alerts automatically.',
+                '',
+            )
+        }
     }
 
     // ---- 2.5.1 Skipped by Package（同一包多条告警收敛为一行；有汇总时渲染）----

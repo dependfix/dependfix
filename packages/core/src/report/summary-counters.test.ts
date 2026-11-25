@@ -99,4 +99,9 @@ describe('formatSkipReason — 新增跳过原因', () => {
         expect(formatSkipReason('transitive-only')).toContain('Transitive only')
         expect(formatSkipReason('install-baseline-failed')).toContain('Pre-fix install failed')
     })
+
+    it('无补丁版本与不可自动修复有独立文案', () => {
+        expect(formatSkipReason('no-patch')).toContain('No patched version yet')
+        expect(formatSkipReason('no-patch')).not.toBe(formatSkipReason('not-fixable'))
+    })
 })

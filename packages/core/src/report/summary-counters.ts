@@ -123,6 +123,7 @@ const SKIP_REASON_LABELS: Record<SkipReason | 'other', string> = {
     'subdirectory-manifest': 'Sub-directory / root direct manifest',
     'cross-major': 'Cross-major / manual review',
     'not-fixable': 'Not auto-fixable',
+    'no-patch': 'No patched version yet (dismiss suggested)',
     'override-protected': 'Protected by policy',
     'repeated-failure': 'Repeated failure (attempt limit)',
     'peer-only': 'Peer-only dependency (manual review)',

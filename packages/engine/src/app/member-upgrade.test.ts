@@ -350,7 +350,7 @@ describe('DependfixApp member upgrade (2.0.3)', () => {
                 },
                 dependency: { package: { ecosystem: 'npm', name: 'lodash' }, manifest_path: 'package.json' },
             },
-            // 无修复版本的根告警：跳过分组链后仍须计入 not-fixable（报告 failedResidual 不虚高）
+            // 缺推荐版本的根告警（fixable=true 但 recommendedVersion 为空）：跳过分组链后仍须计入 not-fixable（报告 failedResidual 不虚高）
             {
                 number: 3,
                 state: 'open',
@@ -384,7 +384,7 @@ describe('DependfixApp member upgrade (2.0.3)', () => {
         expect(mockUpgradeDependency).toHaveBeenCalledTimes(1)
         expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('stopped (environmental) — skipping group upgrades'))
         expect(result.actions.filter((action) => action.strategy !== 'member-upgrade' && action.type === 'dependency-upgrade')).toHaveLength(0)
-        // 整段跳过分组链时 not-fixable 仍记账（记账点在告警分区处，不依赖分组链执行）
+        // 整段跳过分组链时「fixable 但无推荐版本」仍记 not-fixable（记账点在告警分区处，不依赖分组链执行）
         expect(result.summary.alertsSkippedByReason['not-fixable']).toBe(1)
         expect(result.summary.alertsSkipped).toBe(1)
     })

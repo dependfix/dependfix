@@ -144,6 +144,24 @@ describe('generateMarkdownReport', () => {
         expect(md).toContain('| Failed / other not fixed | 16 |')
     })
 
+    it('renders no-patch skip reason with a dismiss suggestion', () => {
+        const result = {
+            ...EMPTY_RUN_RESULT,
+            summary: {
+                ...EMPTY_RUN_RESULT.summary,
+                alertsFound: 2,
+                alertsUnfixed: 2,
+                alertsSkipped: 2,
+                alertsSkippedByReason: { 'no-patch': 2 },
+            },
+        }
+        const md = generateMarkdownReport(result)
+
+        expect(md).toContain('| Skipped: No patched version yet (dismiss suggested) | 2 |')
+        expect(md).toContain('2 Dependabot alert(s) have no fixed version yet')
+        expect(md).toContain('never dismisses alerts automatically')
+    })
+
     it('renders repeated failure attempts with status labels', () => {
         const result = {
             ...EMPTY_RUN_RESULT,

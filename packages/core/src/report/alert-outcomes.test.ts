@@ -162,8 +162,17 @@ describe('buildAlertOutcomes', () => {
         ])
         expect(repeated[0]).toMatchObject({ status: 'skipped', reason: 'repeated-failure' })
 
+        // 仍持有推荐版本（如 pnpm-audit / 手工构造）保持 not-fixable
         const notFixable = makeAlert({ fixable: false })
         expect(buildAlertOutcomes([notFixable], [])[0]).toMatchObject({ status: 'skipped', reason: 'not-fixable' })
+
+        // Dependabot 无补丁版本：单独归因，建议 dismiss 而不是混入「不可自动修复」
+        const noPatch = makeAlert({ fixable: false, fixStrategy: null, recommendedVersion: '' })
+        expect(buildAlertOutcomes([noPatch], [])[0]).toMatchObject({ status: 'skipped', reason: 'no-patch' })
+
+        // 非 Dependabot 源（pnpm-audit / Code Scanning）仍为 not-fixable
+        const auditNoPatch = makeAlert({ source: 'pnpm-audit', fixable: false, fixStrategy: null, recommendedVersion: '' })
+        expect(buildAlertOutcomes([auditNoPatch], [])[0]).toMatchObject({ status: 'skipped', reason: 'not-fixable' })
     })
 
     it('omits alerts without a conclusion (not-tried) and alerts without upstreamId', () => {

@@ -125,6 +125,23 @@ function findSkipReason(alert: NormalizedSecurityAlert, actions: readonly FixAct
 }
 
 /**
+ * `fixable === false` 告警的跳过归因。
+ *
+ * GitHub Dependabot 的 `first_patched_version=null` 表示**上游暂无补丁版本**（只能等发布或人工 dismiss），
+ * 与 pnpm-audit / Code Scanning 的「不可自动修复」形态不同：前者不是配置或能力缺口，长期停留会让
+ * 跳过清单无法区分「等上游」与「做不到」。仅在 `source === 'dependabot'` 且无推荐版本时归为 `no-patch`，
+ * 其余保持 `not-fixable`（含 Code Scanning 模板不可用与 pnpm-audit 源）。
+ */
+export function notFixableReason(
+    alert: Pick<NormalizedSecurityAlert, 'source' | 'fixable' | 'recommendedVersion'>,
+): 'no-patch' | 'not-fixable' {
+    if (alert.source === 'dependabot' && !alert.fixable && !alert.recommendedVersion) {
+        return 'no-patch'
+    }
+    return 'not-fixable'
+}
+
+/**
  * 判断 Code Scanning 修复是否「模板已应用且文件无改动」（本就合规）。
  *
  * `success + noOp` 在引擎里有 6 类来源：**只有 compliant 分支不带 `error`**（并带 `diff`），
@@ -156,7 +173,7 @@ function isAlreadyCompliant(alert: NormalizedSecurityAlert, actions: readonly Fi
  * 3. Code Scanning `noOp` 且无 `error`（模板已应用、文件无改动）→ `converged`
  * 4. 同告警失败动作 → `failed`
  * 5. noOp 跳过动作（override 保护 / 尝试上限）→ `skipped`
- * 6. `fixable === false` → `skipped`（`not-fixable`）
+ * 6. `fixable === false` → `skipped`（Dependabot 无补丁版本为 `no-patch`，其余为 `not-fixable`）
  * 7. 其余不落条目（视为 `not-tried`）
  *
  * 显式记录优先于派生 `success` 的理由：依赖升级的成功谓词是**包级**（同包任一清单升级到达标即命中），
@@ -210,7 +227,7 @@ export function buildAlertOutcomes(
             continue
         }
         if (!alert.fixable) {
-            outcomes.push({ ...base, status: 'skipped', reason: 'not-fixable' })
+            outcomes.push({ ...base, status: 'skipped', reason: notFixableReason(alert) })
         }
     }
     return outcomes

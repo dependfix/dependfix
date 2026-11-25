@@ -6,10 +6,13 @@
 // docs/design/modules/data-model.md（告警级修复结果回写）。
 
 import {
+    addSkipped,
     alertOutcomeKey,
+    notFixableReason,
     type AlertFixOutcome,
     type Logger,
     type NormalizedSecurityAlert,
+    type RunSummary,
     type SkipReason,
 } from '@dependfix/core'
 
@@ -79,4 +82,29 @@ export function recordSkippedAlerts(
     for (const alert of alerts) {
         record(sink, alert, 'skipped', reason)
     }
+}
+
+/** 计数 + 明细双重写入所需的最小上下文面。 */
+export type NotFixableAlertSink = AlertOutcomeSink & {
+    summary: Pick<RunSummary, 'alertsSkipped' | 'alertsSkippedByReason'>
+}
+
+/**
+ * 计数并记录不可自动修复残差。
+ *
+ * GitHub Dependabot 的 `first_patched_version=null` 单独归 `no-patch`（建议人工 dismiss），
+ * 其余保持 `not-fixable`；两组互斥，总数与按原因分组同源更新。
+ * `fixable=true` 但缺推荐版本（等上游）只计数不落明细，保持 `not-tried`。
+ */
+export function recordNotFixableAlerts(
+    sink: NotFixableAlertSink,
+    alerts: readonly NormalizedSecurityAlert[],
+): void {
+    const isNoPatch = (alert: NormalizedSecurityAlert) => notFixableReason(alert) === 'no-patch'
+    const noPatchAlerts = alerts.filter(isNoPatch)
+    const otherAlerts = alerts.filter((alert) => !isNoPatch(alert))
+    addSkipped(sink.summary, 'no-patch', noPatchAlerts.length)
+    addSkipped(sink.summary, 'not-fixable', otherAlerts.length)
+    recordSkippedAlerts(sink, noPatchAlerts, 'no-patch')
+    recordSkippedAlerts(sink, otherAlerts.filter((alert) => !alert.fixable), 'not-fixable')
 }

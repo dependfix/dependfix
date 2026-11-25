@@ -17,6 +17,8 @@ export const SKIP_REASONS = [
     'subdirectory-manifest',
     'cross-major',
     'not-fixable',
+    // GitHub Dependabot 告警无可用补丁版本（`first_patched_version=null`）：与其它「不可自动修复」区分，建议人工 dismiss
+    'no-patch',
     'override-protected',
     'repeated-failure',
     'peer-only',

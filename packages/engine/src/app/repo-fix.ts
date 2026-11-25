@@ -44,7 +44,7 @@ import { fetchDefaultBranch, fetchRepoAlerts, truncatedWarning } from './repo-al
 import { alertsFetchTokenHint } from './token-hints'
 import { markEnvironmentalInstallFailure } from './environmental-failure'
 import { recordPeerOnlyManualReview } from './peer-only-outcome'
-import { recordConvergedAlerts, recordSkippedAlerts } from './alert-outcomes'
+import { recordConvergedAlerts, recordNotFixableAlerts, recordSkippedAlerts } from './alert-outcomes'
 import { recordUpgradeFailure } from './upgrade-failure'
 import {
     collectInstallSkippedAlerts, ensureVerificationBaseline, finalizeRepoFix, installBaselineFinalizeOptions,
@@ -356,11 +356,9 @@ async function prepareRepoFixSets(
     }
 
     // 不可自动修复残差按告警逐条统计（忽略 dedupeFixableAlerts 合并差额：被合并告警仍可能由代表
-    // action 修复）；放在分区处一次算净，使「整段跳过升级链」的路径也覆盖
+    // action 修复）；放在分区处一次算净，使「整段跳过升级链」的路径也覆盖。
     const notFixableAlerts = rootManifestAlerts.filter((alert) => !alert.fixable || !alert.recommendedVersion)
-    addSkipped(ctx.summary, 'not-fixable', notFixableAlerts.length)
-    // 明细只记真正不可修复的实例：fixable=true 但暂无推荐版本属「等上游」，保持 not-tried
-    recordSkippedAlerts(ctx, notFixableAlerts.filter((alert) => !alert.fixable), 'not-fixable')
+    recordNotFixableAlerts(ctx, notFixableAlerts)
 
     return {
         rootManifestAlerts,

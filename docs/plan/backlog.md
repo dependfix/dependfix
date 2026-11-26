@@ -55,39 +55,20 @@
 
 ### 候选评估中（待评估 / 本阶段延后项）
 
-> **候选池概览（2026-11-26 issue #284 登记后复算）**：本区 **20 项**（`### 候选评估中` 段内 `^- \*\*` 逐行计数；15 带 P、5 未标注）；每次上收 / 新增 / 移出后按段内实测更新本句与首行，不保留历史链路。P 标签覆盖不全（未标注者评估时补，不默认升级）；1.0 分档见 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)。
+> **候选池概览（2026-11-26 issue #284 登记后复算）**：本区 **15 项**（`### 候选评估中` 段内 `^- \*\*` 逐行计数；M68 上收 5 条后由 20 复算）；每次上收 / 新增 / 移出后按段内实测更新本句与首行，不保留历史链路。P 标签覆盖不全（未标注者评估时补，不默认升级）；1.0 分档见 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)。
 > **1.0 门槛与分档**：分档、门槛判定与批次计划单点声明于 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)（2026-10-30 冻结口径，不随候选上收收缩；本文件不重复维护数字）。
 
-- **`check:release-security` 输出缺少采集时点（P3 🛠️，2026-11-03 预发布检查发现；2026-11-08 复核）** —— 告警汇总行与 PASS / FAIL 行都不带采集时间，落盘为发布证据时无法自证时点（只能靠文件 mtime 推断）；脚本当前无 `--json` 模式。**范围**：输出首行加 ISO 时间戳。**验收**：输出含采集时点，单测锁定。**不做**：不改告警判定与 fail-closed 语义、不新增 `--json`。**触发条件**：下次改动该脚本，或再次需要以该输出作为发布证据。
-- **镜像构建冗余（P2 🚀，2026-11-07）** —— ① 每架构对三 registry 各构建一次（digest 相同，冷缓存最慢 41m32s）；② 发布提交被 push 与派发各构建一次。待评估：单次多 name 推送 / 复用 digest / push 腿跳过 release 提交。
 - **PR 回环有界重试（P2 🚀，2026-10-30 M51.3 用户裁定延后）** —— 设计稿 `pr-feedback-loop.md` §8 保留 `FeedbackRetryDispatcher` 契约（同 PR 失败后重新触发既有修复链，需配额与触发面）；平台当前无「同 PR 重试」入口，`retryFailed` 开启时每仓库每进程只 warn 一次。待评估：补触发面（API / UI）+ 配额后再实施。触发：出现「PR 红后无人处理、需自动重试」的实际需求时。
 - **批次续跑并发原子性（P3 🛠️，2026-11-21 M64.4 登记）** —— `POST /api/batch-runs/[id]/resume` 的「无进行中子项 / 无 running 派生批次」为读后写检查，两个并发请求可同时通过（async 由队列 jobId 去重兜底为 `SCAN_PENDING_MERGED`，sync 会重复执行一轮）。触发：出现并发续跑导致的重复执行，或引入多实例调度；处置方向：事务内条件插入 / 部分唯一索引 / advisory lock。
 - **镜像脚本只覆盖根 scripts 单一形态**（M48.2 边界）—— `pnpm --filter` / 递归 / env 前缀 / corepack 钉定只披露不执行；触发：目标仓库 CI 大量使用这些形态导致「本地假绿」再现。
 - **白名单内运行前未提交改动的归属**（M48.4 边界）—— 白名单内文件（典型 `package.json`）若在运行前已有用户改动，会与本次修复一并提交；触发：出现「PR 混入无关改动」的用户反馈时评估。
 - **`pnpm_audit` 的 token-free 回退意图与实现不一致（P2 🛡️）**—— `pnpm-audit.tool.ts` 注释与产品意图是「无 GitHub token 或 403 场景」的本地回退，但实现保留 `requireToken()`，缺失 `GITHUB_TOKEN` 时直接返回 `ok:false`；当前 README / tool description 已按实际行为修正。待评估：移除 `requireToken()`（或改为可选 token），补无 token 用例，恢复真正回退。触发：无 token 环境需要 pnpm-audit 回退时。
 
-- **运行面漏洞检测：镜像基底 / 运行时二进制 / OS 包（待研究）** —— 背景（2026-10-22）：Node 24.18.1 基础镜像在 2026 年 10 月 21 日安全公告（CVE-2026-111497 Brotli 越界写、105483 / 106069 TLS 主机名校验绕过等）后仍只能靠**外部人工巡检**发现——Dependabot 未配置 docker 生态、基底此前为 digest 裸写（本轮已改为 tag + digest，但仍为手工钉定、无漂移与漏洞追踪）、`pnpm audit` 只覆盖 npm 依赖、GitHub 侧告警源为 Dependabot / Code Scanning / Code Quality findings（最后一类为代码静态分析），本地回退仅 `pnpm-audit`（同属 npm 依赖）；运行面与 OS 包无任何告警源。本批新增的 `check-node-version.mjs` 是**静态下限闸门**：只有人工抬升基线后才会拦截，**不能发现基线之后新披露的 CVE**（2026-11-11 安全公告同样由外部巡检发现，本仓仍无自动告警源）。
-  - **待研究问题**：① dependfix 自身的运行面（Docker 基底 / Node 二进制 / apk 包 / CI 运行时）能否自动检测并按严重级别分级？② 同一能力能否产品化，成为 dependfix 对**被管理仓库**的新告警源——扫描目标仓 Dockerfile / `.nvmrc` / `engines.node` 与已知运行时漏洞比对，复用现有验证链与 PR 创建提修复 PR？
-  - **候选机制**（需比较权威数据源与误报成本）：
-    1. **CI 周期任务**：解析 `FROM` 的 tag + digest → 采集镜像内 `process.versions` / `apk info -v` → 与 Node CHANGELOG、Alpine secdb 比对；漂移时开 issue 或失败
-    2. **SBOM + 容器扫描**：`syft` 生成镜像 SBOM，`trivy` / `grype` 按 CVE 分级；产物可归档、可审计（对 OS 包与语言依赖有覆盖；对 tarball Node 与内嵌依赖不可见，不能替代机制 1）
-    3. **Dependabot docker 生态**：`FROM image:tag@digest` 形态下自动提 digest PR（只覆盖基底发布，不覆盖运行时 CVE）
-    4. **产品化 runtime alerts**：目标仓 Dockerfile / engines / `.nvmrc` 解析 + 漏洞库比对，作为 Dependabot / Code Scanning 之外的第三类告警源
-  - **数据源实测结论（2026-10-22 快照）**：Node 以官方 CHANGELOG + `dist` 的 security 字段判定（OSV 发行版映射不等于官方 tarball）；apk 走 Alpine secdb / OSV；NVD / MITRE 当日滞后；GitHub Advisory 对该 CVE 已收录但 `vulnerabilities` 为空、无包映射，故不产生 Dependabot 告警；内嵌依赖须按 Node 发布版本判定；分层覆盖 = 运行时 → apk → SBOM，SBOM 不能替代运行时层。
-  - **其余前置评估点**：扫描工具的引入成本（镜像体积 / CI 时长 / 许可证）与结果噪声；误报与豁免口径（与 `pnpm-workspace.yaml` 的 `audit.ignore` 如何统一）；与 `check-node-version.mjs` 静态基线的关系（动态发现 → 提 PR 抬升基线，而非替代基线）。
-  - **触发条件**：下一次 Node / Alpine 安全公告；或需要为被管理仓库新增运行时告警源时。
-  - **按 [规划规范 §3.1](../standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
-
 - **扫描偏好服务端跨设备默认（延后，保留待评估）** —— **来源**：[issue #136](https://github.com/dependfix/dependfix/issues/136)（该 issue 的设备级需求已随 M37.2 交付，2026-10-15 关闭；本条保留其范围外的服务端默认部分）。设备级方案 C 混合（localStorage：上次选择 + 可选配置化默认 + 重置）已落地；服务端用户 / 组织级默认偏好（跨设备、可管理，需实体 / API / 设置页，预计触发 governance 文档）按用户 2026-10-06 决策延后。**现状锚点**：`apps/platform/app/composables/use-scan-preferences.ts`。触发条件：① 用户实测多设备切换痛点；② 组织级统一默认诉求。
 
 - **镜像白名单：企业私服自带独立 CDN 域的补录（待评估）** —— 现象：镜像源动态发现只覆盖「配置面 registry 键的 host」；企业私服 tarball 若 302 到**独立 CDN 域**（与 registry 不同域），该域不在预置清单内 → 仍被 deny-by-default 拦截（交付时已登记为已知限制，需显式 `DEPENDFIX_ALLOWED_DOMAINS`）。
   - **待评估点**：① 是否按 302 `Location` 自动补录 CDN 域（可从审计记录观测补录）；② 或维持显式配置；③ 自动补录的安全边界（是否需用户确认）。
   - **触发条件**：出现企业私服 CDN 域被拦的实例；或用户要求自动化。
-  - **按 [规划规范 §3.1](../standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
-
-- **独立 installer 容器 / runtime 工具链移出（待评估，P2 🛡️ 安全 / 🚀 体积）** —— 背景（2026-10-18）：runtime 阶段补 `python3 make g++` 以支持目标仓库原生模块的 `node-gyp` 回退；审计实测同 digest 基础镜像下 content size +约 110MB、`docker images` disk +约 421MB（`/usr` +约 303MB），同时扩大了不可信仓库可用的编译面。工具链本身也不是充分条件：node headers / prebuild 源需可达，部分模块另需 `linux-headers`（当前未装）。
-  - **待评估点**：① 是否把安装依赖拆到独立 installer 容器 / 阶段（只在该阶段保留工具链，主 runtime 仍只含 `.output`）；② 若保留在 runtime，是否补 `linux-headers` / 预置 node-gyp headers 缓存，并加镜像体积门禁；③ 与 pnpm store 持久化的卷 / 缓存策略联动。
-  - **触发条件**：镜像体积 / 安全评审要求收敛编译面；或再次出现「预编译包下载失败 + 缺 headers / 工具链」的原生构建失败。
   - **按 [规划规范 §3.1](../standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
 
 - **升级探针合批与门禁回滚粒度联动（待评估，P2 🛠️）** —— 现象：M46.3 已做基线完整链与按变更单元回滚，但未做探针合批；合批会改变回滚单元、验证次数与失败回退语义。
@@ -106,10 +87,6 @@
 - **契约抽取器覆盖 `@Column(() => X)` 嵌入列与 env 解构（P3 🛠️，2026-10-31 M53.1 收口登记）** —— `check-contract-freeze` 的实体抽取覆盖 `@Column` 系列 / `@ManyToOne`+`@JoinColumn` / `@Entity`，遇到 `@Embedded`、`@ManyToMany` join table、env 解构与非字面量 `readEnv` 实参已 fail-closed（`extractor-coverage`），但**无 `@Embedded` 的 `@Column(() => X)` 嵌入列**未进哨兵：抽取会产出错误列名并与清单产生差异（响亮失败，不会静默漏键）。待评估：扩展抽取器（递归嵌入类型 / `getMetadataArgsStorage` 元数据）或把该形态纳入 fail-closed 哨兵。触发：仓库首次引入嵌入实体或该形态列。
 - **en-US 设计文档全量镜像（P2 📚，2026-10-30 M52 规划登记）** —— 现状：en 设计镜像仅 4 篇，zh 设计文档 67 篇（含 M44.4 拆分分片）；M52.3 只做「结构映射 + 索引补全」，不重译全文。待评估：1.0 后是否按「分片 → 镜像」逐篇补齐（成本随拆分增加、双维护风险高），或长期维持映射清单 + 关键路径翻译。触发：1.0 后文档国际化需求，或用户反馈英文站信息不足时。
 
-**2026-11-13 阶段容量再平衡移出**（来源：M59 同日三批插队命中 §3.1.1 阈值 1，用户确认移出；不占阶段编号）：
-
-- **沙箱镜像双架构自包含冒烟与安全姿态（P2 🚀📚）** —— 目标：镜像内 sandbox 自包含入口在 amd64 / arm64 可运行并发版后自动取证；安全姿态单一口径成文。范围：`smoke-test.sh` 增 sandbox 入口断言（`node /app/sandbox/bin.mjs --version` + `skills doctor`），构建期冒烟与 `post-release-smoke` 共用并写 Job Summary；三篇 sandbox 设计稿翻转 fix 放行后状态；`deployment.md` 补运行面提示。验收：① 双架构冒烟通过（无窗口记未证实），注入回归证明灵敏；② Job Summary 含断言结果且失败仅告警；③ 设计稿无 stale；④ `gates:docs` 通过。不做：不改镜像架构 / QEMU；不重建历史镜像；不引入 rootless 之外的新隔离机制。依赖：M59.1/M59.2、M58.4 冒烟与巡检。触发：M59.1/M59.2 闭环后或需 arm64 取证时。
-
 - **发布链自动更新 major tag（P3 🚀，2026-11-15 登记；用户倾向不实施）** —— **状态**：已决策倾向不实施，仅保留恢复触发条件。背景：GitHub 官方与主流 action 按「每次发布把 `vN` 移到当前发布提交」维护（2026-11-15 实测）；本项目 2026-11-15 决策采用「具体版本 + Dependabot bump」，`v1` 冻结在 1.1.0（标签漂移影响可复现性与供应链审计）。
   - **待评估点**：`release.yml` 增「semver 比较 → 仅当前 major 最大版本时 `git tag -fa vN` + force push」，需定义幂等 / immutable releases 兼容 / 回滚口径。
   - **触发条件**：用户希望恢复 `@v1` 滚动便利；或逐仓 bump 成本不可接受。
@@ -119,7 +96,7 @@
 
 - **backlog 容量治理：分片或健康预算复核（P3 📚 治理，2026-11-21 issue #269 研判登记）** —— 现状：健康字符余量已近零（实测见 `archive/index.md §4`），新增候选与字段规范化都会贴顶。**待评估**：① 按「长期主线 / 短期候选 / 已知边界」拆到独立文件或 archive 分片；② 或复核 §4.2 健康预算（须同源改 `doc-governance.md §4.2` 与 `archive/index.md §4`）；③ 再评估候选条目字段规范化（issue #269 本批延后项）。**验收**：拆分后 `check-doc-governance` 0 新增 warning、跨文件链接 0 死链。**不做**：不靠调高阈值绕过压缩。**触发**：下一次新增候选触发 warning。
 
-- **backlog 候选池双轴评分（重要度 × 紧急度）与前向迁移（P2 📚 治理，2026-11-26 issue #284 研判登记）** —— **目标**：候选池排序从一维 P 标签迁到 1-5 重要 / 紧急 + 四象限建议，`P0-P3` 保留为阶段内交付优先级，消除两套未分工口径。**范围**：`planning.md §2.5` 优先级条 + 新增评分小节（两轴锚点 / 象限动作 / 复评触发）；backlog 20 条候选行加行内「重要 N / 紧急 N / 建议」标签（保留 8 要素 prose，不重排为表）；快速评估象限的结论写入候选行内「结论：不采纳 / 延后 + 日期 + 证据」；阶段登记记录写分数，`todo.md` 不复制。**验收**：① 规范含评分小节与 P / 双轴分工；② 新登记候选必填两轴与建议，存量 5 条未标注按单批 ≤5 分批复补（不要求一次性全量），复评后 20 条全覆盖；③ 每行至少一项可复算依据；④ 快速评估结论有落点、不悬置；⑤ `check-doc-governance` 0 新增 warning、`gates:docs` 22；⑥ 无「象限 = 启动授权」。**不做**：不做 P↔双轴自动换算；象限不自动排期 / 启动；不改插队清单与「不自动升级」；不新增独立 standards 文件；不回改已归档阶段；不把候选列表重排成表。**依赖**：issue #284 / 上游提案 `c350725`；现有 20 条候选（15 带 P、5 未标注）与 backlog 约 3.7 万字符预算（`node scripts/check-doc-governance.mjs --json`，UTF-16 口径）。**交付物**：3-4 commits / 5-7 files / 250-450 行（planning + backlog + 候选机检 + 基线）。**风险**：字符余量约 7.6k（45,000 健康上限，见 doc-governance §4.2）→ 贴顶前先压缩历史记录；行内标签保 prose → 不丢 8 要素；分数主观 → 锚点 + 季度复评。
+- **backlog 候选池双轴评分（重要度 × 紧急度）与前向迁移（P2 📚 治理，2026-11-26 issue #284 研判登记）** —— **目标**：候选池排序从一维 P 标签迁到 1-5 重要 / 紧急 + 四象限建议，`P0-P3` 保留为阶段内交付优先级，消除两套未分工口径。**范围**：`planning.md §2.5` 优先级条 + 新增评分小节（两轴锚点 / 象限动作 / 复评触发）；backlog 15 条候选行加行内「重要 N / 紧急 N / 建议」标签（保留 8 要素 prose，不重排为表）；快速评估象限的结论写入候选行内「结论：不采纳 / 延后 + 日期 + 证据」；阶段登记记录写分数，`todo.md` 不复制。**验收**：① 规范含评分小节与 P / 双轴分工；② 新登记候选必填两轴与建议，存量 4 条未标注按单批 ≤4 分批复补（不要求一次性全量），复评后 15 条全覆盖；③ 每行至少一项可复算依据；④ 快速评估结论有落点、不悬置；⑤ `check-doc-governance` 0 新增 warning、`gates:docs` 22；⑥ 无「象限 = 启动授权」。**不做**：不做 P↔双轴自动换算；象限不自动排期 / 启动；不改插队清单与「不自动升级」；不新增独立 standards 文件；不回改已归档阶段；不把候选列表重排成表。**依赖**：issue #284 / 上游提案 `c350725`；现有 15 条候选（11 带 P、4 未标注）与 backlog 约 3.4 万字符预算（`node scripts/check-doc-governance.mjs --json`，UTF-16 口径）。**交付物**：3-4 commits / 5-7 files / 250-450 行（planning + backlog + 候选机检 + 基线）。**风险**：字符余量约 11.1k（45,000 健康上限，见 doc-governance §4.2）→ 贴顶前先压缩历史记录；行内标签保 prose → 不丢 8 要素；分数主观 → 锚点 + 季度复评。
 
 ### 待上收候选（评估完成，等待用户决策）
 
@@ -432,8 +409,8 @@
 
 | 内容类型 | 位置 |
 |:--|:--|
-| 当前阶段活跃任务 | 无（M67 已于 2026-11-26 归档，下一阶段待规划）；插队容量治理见 [planning.md §3.1.1](../standards/planning.md#_3-1-1-插队后的阶段容量再平衡-hard-requirement-2026-10-19) |
-| 下一阶段（未规划） | 按本文件候选池重新评估（20 条候选 + 2 条待上收）；M59 / M60 / M63 / M65 / M67 残余留在本文件；**1.1.0 已于 2026-11-15 发布**，定时发布启用仍在「待上收候选」段等待观察窗口 |
+| 当前阶段活跃任务 | M68 运行面安全与镜像供应链（2026-11-26 规划，5 原子，见 [todo.md](todo.md)）；插队容量治理见 [planning.md §3.1.1](../standards/planning.md#_3-1-1-插队后的阶段容量再平衡-hard-requirement-2026-10-19) |
+| 下一阶段（未规划） | 按本文件候选池重新评估（15 条候选 + 2 条待上收）；M59 / M60 / M63 / M65 / M67 残余留在本文件；**1.1.0 已于 2026-11-15 发布**，定时发布启用仍在「待上收候选」段等待观察窗口 |
 | 已完成阶段归档 | [todo-archive.md](todo-archive.md)（阶段索引 + [archive/](archive/) 分片） |
 | 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M0-M67 已归档） |
 | 长期主线 / 候选 / 待人工验收 / 已知边界 | 本文档（按四象限结构） |

@@ -18,8 +18,8 @@
 # 100 次/6h 按出口 IP，认证 Personal 200 次/6h）；2026-10-24 对当时 tag（24.22.1）实测两仓 digest 一致；
 # 本轮仅改 docker.io 侧 tag 与 digest，ECR Public 侧未复核。发布镜像只在 CI 构建，故不留可切换服务端的构建参数；本地构建路径
 # （`docker-compose.build.yml` / `SMOKE_BUILD=1`）需可达 docker.io 或先配 registry mirror。
-# FROM 保持字面 image:tag@digest，便于工具解析（Dependabot docker 生态当前未接入，见 backlog 的
-# 运行面漏洞检测候选）；抬升基线时同时改 tag 与 digest。
+# FROM 保持字面 image:tag@digest，便于工具解析（Dependabot docker 生态当前未接入，运行面漏洞检测已上收
+# `docs/plan/todo.md` M68.2）；抬升基线时同时改 tag 与 digest。
 # 安全基线（2026-11-11 Node.js 安全公告）：运行时必须 >= 26.13.1（26.x 线）。
 # 使用官方 node:26.13.1-alpine：自建 caomeiyouren/alpine-nodejs 走 `apk add nodejs`，安全补丁
 # 滞后于官方 tarball；等 docker-builder 改为官方 tarball 并发布对应线后再评估收敛

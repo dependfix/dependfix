@@ -44,7 +44,7 @@
 | 大条目 | 小条目 | 状态 | 提交 | 审计 | 容量 |
 |:--|:--|:--|:--|:--|:--|
 | M68.1 独立 installer 容器与 runtime 工具链移出 | — | ✅ 已闭环 | 4 commits（`C1`-`C4`，见执行记录） | 分区 A deep R1 Pass（0B/5W）→ R2 Pass；分区 B standard R1 Reject（1B/8W）→ R2 Pass | 实际 4 commits / 18 files / 约 520 行（含新增 497 行文档与脚本） |
-| M68.2 运行面漏洞检测最小周检 | 2（M68.2.1-M68.2.2） | ⬜ 待开始 | — | — | 计划 4-6 commits / 6-10 files / 300-550 行 |
+| M68.2 运行面漏洞检测最小周检 | 2（M68.2.1-M68.2.2） | ✅ 已闭环 | 5 commits（`C5`-`C9`，见执行记录） | deep R1 Reject（2B/8W）→ R2 复审 | 实际 5 commits / 9 files / 约 1,000 行（超计划，原因见执行记录） |
 | M68.3 沙箱镜像双架构自包含冒烟与安全姿态 | — | ⬜ 待开始 | — | — | 计划 4-6 commits / 6-10 files / 300-550 行 |
 | M68.4 镜像构建去重与发布构建复用 | — | ⬜ 待开始 | — | — | 计划 3-4 commits / 3-5 files / 150-300 行 |
 | M68.5 发布安全输出采集时点 | — | ⬜ 待开始 | — | — | 计划 2-3 commits / 3-5 files / 100-220 行 |
@@ -113,6 +113,16 @@
 - **验收标准**：AC2 / AC3 / AC4 / AC5 全部满足；单测不依赖外网；数据源失败不 PASS。
 - **交付物**：2-3 commits / 3-5 files / 150-250 行。
 - **依赖**：M68.2.1 设计结论。
+
+#### M68.2 执行记录（2026-11-26 闭环）
+
+- **数据源与判定**：Node 用 `dist/index.json` 的 `security` 标记（同线最新 security 发布 > 运行版本 → `high`）；Alpine 用 `secdb.alpinelinux.org/<branch>/{main,community}.json` 的 `secfixes`（main + community 合并 3,524 条修复版本记录；数据源不提供 severity，故 finding 级别为 `unknown`）；GitHub Advisory 因跨生态 CVE join 不可靠（CVE-2026-4738 返回 OSGeo 条目）不参与首版。
+- **fail-closed**：采集失败 / 空 apk 清单 / 包行或版本无法解析 / Node 版本形态异常 / 数据源不可达或结构变化 / 豁免清单缺 `reason`·`expires` → `UNKNOWN`（exit 2）；版本比较异常产出 unknown finding（exit 1），不静默放过（审计实证 secdb 存在 `opensmtpd 6.6.2p1-r0` / `cacti 1.2.31-0` / `quickjs 2021-03-27-r5` 形态）。
+- **交付**：`scripts/check-runtime-surface.mjs`（`pnpm run check:runtime-surface`）+ 豁免基线 JSON + weekly / dispatch workflow（Job Summary：镜像 digest / Node / Alpine / apk 清单 / findings 含数据源 / 结论；dispatch 仅允许 dependfix 发布形态镜像名）。
+- **首次实测**：`node v26.13.1` / Alpine 3.24.4 / 33 apk → `apk:zlib 1.3.2-r1 < 1.4-r0`（CVE-2026-4738）exit 1；干净基线 exit 0；不可达数据源 exit 2。首个周检 run 预期为红，待人工抬升基座。
+- **证据**：定向 vitest 14 passed；`pnpm run test:coverage` → 全局 branches 84.06%（新脚本 statements 92.25% / branches 83.66%）、6,730 passed；`gates:docs` 22 项；workflow YAML 可解析。
+- **容量**：超计划（9 files / 约 1,000 行 vs 计划 6-10 files / 300-550 行）——审计新增要求（AC3 apk 清单、三条 fail-closed 通道、豁免 schema、负例测试）推高交付面；按 5 个 commit 拆分（设计 / 脚本 / workflow / 测试 / 记录），单 commit ≤800 行。
+- **残余**：secdb 无 severity；仅检查发布的 `latest` ref（full / sandbox 当前共用基底，变体分叉时需加矩阵）；周检节奏下 0-7 天暴露窗口。
 
 ### M68.3 沙箱镜像双架构自包含冒烟与安全姿态（P2 🚀📚）
 

@@ -45,7 +45,7 @@ jobs:
           # dispatch 可传任意 ref，但采集面会在 runner 上以 sh -c 执行容器内命令：
           # 只允许 dependfix 的发布形态镜像名，避免误传第三方镜像被当作被测对象。
           case "$IMAGE" in
-            caomeiyouren/dependfix*|ghcr.io/caomeiyouren/dependfix*) ;;
+            caomeiyouren/dependfix*|ghcr.io/dependfix/dependfix*) ;;
             *) echo "::error::镜像 ref 只允许 dependfix 发布形态：$IMAGE"; exit 1 ;;
           esac
       - name: Pull image

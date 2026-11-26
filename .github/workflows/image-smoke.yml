@@ -8,7 +8,7 @@ name: Sandbox Image Smoke
 #   拿不到 arm 证据；本 workflow 只做「拉取 + 断言」，不构建、不发布、不需要发布窗口。
 # - 可在任意时刻 dispatch 复跑，也可按周巡检已发布镜像是否仍可用。
 #
-# 口径见 docs/design/governance/executor-sandbox.md 与 docs/design/governance/platform-image-variants.md。
+# 口径见 docs/design/governance/executor-sandbox-implementation.md §7.2 与 docs/design/governance/platform-image-variants.md。
 
 on:
   schedule:
@@ -59,10 +59,7 @@ jobs:
             variant: sandbox-full
             toolchain: full
     env:
-      TAG: ${{ inputs.tag || 'latest' }}
-      REPO_PREFIX: ${{ inputs.repo_prefix || 'caomeiyouren' }}
-      IMAGE: ${{ (inputs.repo_prefix || 'caomeiyouren') }}/dependfix-${{ matrix.variant }}:${{ inputs.tag || 'latest' }}
-      # 冒烟脚本读取 SMOKE_IMAGE / SMOKE_TOOLCHAIN / SMOKE_ARCH（SMOKE_IMAGE 与拉取用的 IMAGE 同值）
+      # 单一变量：拉取与断言都用 SMOKE_IMAGE（曾因 IMAGE / SMOKE_IMAGE 两份拷贝名字不一致踩坑）
       SMOKE_IMAGE: ${{ (inputs.repo_prefix || 'caomeiyouren') }}/dependfix-${{ matrix.variant }}:${{ inputs.tag || 'latest' }}
       SMOKE_TOOLCHAIN: ${{ matrix.toolchain }}
       SMOKE_ARCH: ${{ matrix.arch }}
@@ -73,20 +70,29 @@ jobs:
       - name: Validate image ref
         run: |
           set -euo pipefail
-          case "$IMAGE" in
-            caomeiyouren/dependfix-*|ghcr.io/caomeiyouren/dependfix-*|registry.cn-hangzhou.aliyuncs.com/caomeiyouren/dependfix-*) ;;
-            *) echo "::error::镜像 ref 只允许 dependfix 发布形态：$IMAGE"; exit 1 ;;
+          # 白名单按**实际发布形态**：Docker Hub / ACR 为 caomeiyouren/dependfix-*，GHCR 为 ghcr.io/dependfix/dependfix-*
+          case "$SMOKE_IMAGE" in
+            caomeiyouren/dependfix-*|ghcr.io/dependfix/dependfix-*|registry.cn-hangzhou.aliyuncs.com/caomeiyouren/dependfix-*) ;;
+            *) echo "::error::镜像 ref 只允许 dependfix 发布形态：$SMOKE_IMAGE"; exit 1 ;;
           esac
+      - name: Login to GHCR (only for ghcr.io refs)
+        if: ${{ contains(inputs.repo_prefix || 'caomeiyouren', 'ghcr.io') }}
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       - name: Pull image
         run: |
           set -euo pipefail
-          docker pull "$IMAGE"
+          docker pull "$SMOKE_IMAGE"
           {
             echo "### 被测镜像（${{ matrix.arch }} / ${{ matrix.variant }}）"
             echo ""
-            echo "- ref: \`$IMAGE\`"
-            docker image inspect "$IMAGE" \
+            echo "- ref: \`$SMOKE_IMAGE\`"
+            docker image inspect "$SMOKE_IMAGE" \
               --format '- digest: `{{if .RepoDigests}}{{index .RepoDigests 0}}{{else}}（本地镜像，无 RepoDigest）{{end}}`'
+            docker image inspect "$SMOKE_IMAGE" --format '- architecture: `{{.Architecture}}`'
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Run sandbox self-contained smoke
         id: smoke
@@ -113,3 +119,7 @@ jobs:
               echo "- **失败**：见本 job 日志；失败即视为该架构该变体未证实，不得当作通过"
             fi
           } >> "$GITHUB_STEP_SUMMARY"
+          # workflow command 必须走 stdout：写进 Step Summary 文件既不会生成注解，还会把字面量渲染进摘要
+          if [ "${SMOKE_OUTCOME:-}" != "success" ]; then
+            echo "::warning::[${ARCH}/${VARIANT}] 沙箱镜像冒烟失败，不得视为运行通过"
+          fi

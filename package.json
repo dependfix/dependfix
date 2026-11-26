@@ -20,6 +20,7 @@
     "release:preflight": "node scripts/release/preflight.mjs",
     "verify:changelog": "node scripts/verify-changelog.mjs",
     "check:release-security": "node scripts/check-release-security-alerts.mjs",
+    "check:runtime-surface": "node scripts/check-runtime-surface.mjs",
     "changelog": "node scripts/changelog.mjs",
     "tag:released": "node scripts/tag-released-versions.mjs",
     "distill:wisdom": "node scripts/distill-wisdom.mjs",

@@ -345,7 +345,7 @@ C53 引入 A 模式 `dispatched` 三分支（`scan-run-state.ts`），M25 新增
 | `createFixBranch(branchName, workDir)` | `@dependfix/engine` | `git checkout -b` 创建/切换修复分支（fix-and-pr 模式从 HEAD 拉新分支，引擎导出复用） |
 | `readHeadSha(workDir)` | `container-executor.ts` | 读 `git rev-parse HEAD`，返回 SHA 或 null（用于 hasNewCommit 判定） |
 | `checkHasNewCommit(workDir, preRunHead)` | `container-executor.ts` | 比较修复前后 HEAD SHA，引擎 commit 后才返回 true |
-| `isReportOnly` + 引擎 config 覆写 | `container-executor.ts` | 模式 / commit 覆写的**单一事实源**：report-only 只读（不 clone、不降级、`commit: false`）；fix / fix-and-pr 降级为 `mode:'fix' + commit:true`（平台接管 push / PR）。clone 判定与 config 覆写必须同源（错配 → 空 workDir 上 commit → `COMMIT_FAILED`） |
+| `isReportOnly` + 引擎 config 覆写 | `container-executor.ts` | 模式 / commit 覆写的**单一事实源**：report-only 只读（不 clone、不降级、`commit: false`）；fix / fix-and-pr 映射为 `mode:'fix' + commit:true`（平台接管 push / PR）。clone 判定与 config 覆写必须同源（错配 → 空 workDir 上 commit → `COMMIT_FAILED`） |
 | **platform-delivery 模块** | `executor/platform-delivery.ts` | **M25 新增**：平台侧 fix-and-pr 完整交付单元（plan / push / create / close supersede） |
 | `planFixAndPrDelivery(octokit, owner, repo, result)` | `platform-delivery.ts` | 复用引擎 `computeFixFingerprint` + `findDependfixOpenPR` + `computeFixAndPrPlan`，返回 skip / create 决策 |
 | `pushFixBranchWithCredential(branch, workDir, token)` | `platform-delivery.ts` | 与 `pushFixBranch` 等价，独立导出便于单测；失败按 git 文本细分为 `push_failed_non_fast_forward` / `push_failed_auth` / `push_failed_network`，未命中保持 `push_failed`（口径见 [run-failure-taxonomy §4.3](./run-failure-taxonomy.md)） |

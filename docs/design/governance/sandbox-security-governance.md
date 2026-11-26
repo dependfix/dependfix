@@ -123,15 +123,15 @@ dependfix 批量处理仓库与依赖，若防护不足会成为恶意依赖的"
 |:--|:--|:--|
 | 非 root 执行 | `DockerAdapter.buildRunArgs` 固定 `--user 100:100`（`SANDBOX_DEFAULTS.user`）；单测断言参数落位 | ✅ |
 | 不挂宿主 docker.sock | `SandboxExecutor.buildSpec` **不挂任何宿主目录**（无 `mounts`）；容器只用自己的 `/tmp` | ✅ |
-| 网络 | report-only 固定 `--network bridge` 访问 GitHub API；该模式不 clone / 不安装 / 不执行目标仓库代码（`alertSource` 非 `github-dependabot` 直接 fail-closed `sandbox_alert_source_unsupported`）；fix / fix-and-pr 在代理接入前被 `execute()` 拒绝 | ✅（范围受控，见下方偏离登记） |
+| 网络 | report-only 固定 `--network bridge` 访问 GitHub API；该模式不 clone / 不安装 / 不执行目标仓库代码（`alertSource` 非 `github-dependabot` 直接 fail-closed `sandbox_alert_source_unsupported`）；fix / fix-and-pr 自 M59.1 起在出站策略就位时放行（走白名单 + 运行级审计代理），策略缺失由第二道闸拒绝 | ✅（范围受控，见下方偏离登记） |
 | 资源上限 | `Repository.sandboxLimits` → `--memory` / `--cpus`；缺省 `SANDBOX_DEFAULTS`（2 GB / 1 CPU） | ✅ |
 | 超时兜底 | 外层 `withTimeout` 30 分钟 + `execFile` timeout；`exitCode 124` 归一 `execution_timeout` | ✅ |
 | 凭据最小化 | token 仅经 `-e GITHUB_TOKEN` 注入，不进 argv / 不进结果文件；report-only **不注入组织级 AI Key**；`DEPENDFIX_SKILLS_DIR` 只指向静态目录 | ✅ |
 | 结果契约 | 容器内 CLI 写 `/tmp/result.json`（`{exitCode, result}`），shell 用哨兵回传 stdout；哨兵缺失 / 非 JSON / 结构非法 / transport 矛盾一律 `execution_failed`；不复用报告副产物；不依赖宿主 / 平台容器路径映射 | ✅ |
 | 自包含入口 | `packages/cli/tsdown.sandbox.config.ts`（`deps.alwaysBundle` + `copy`）；镜像构建期断言 `--version` 非 `0.0.0-unknown` 且 skills 目录可用 | ✅（镜像构建期 fail-closed） |
-| 威胁建模 | report-only 不执行目标仓库代码（无 clone / install / 生命周期脚本），沿用 §4 对恶意依赖脚本的结论；fix 模式在代理接入前不放行 | ✅ 无新增不可接受风险 |
+| 威胁建模 | report-only 不执行目标仓库代码（无 clone / install / 生命周期脚本），沿用 §4 对恶意依赖脚本的结论；fix 模式自 M59.1 起只在出站白名单 + 审计代理就位时放行 | ✅ 无新增不可接受风险 |
 
-**偏离登记（report-only 网络）**：§5.3 要求「执行期网络受限 + 外联日志」。report-only 容器固定 bridge 直出、未接入出站白名单代理，也未采集容器内 egress 日志；该偏离**仅限不执行目标仓库代码的 report-only**，理由是隔离面只剩 GitHub API 调用与 token 暴露（token 本就用于该 API），且 `alertSource` 已 fail-closed 到 `github-dependabot`。fix / fix-and-pr 在代理接入前一律降级 `container`（M59.1 起已接入运行级审计代理，改为放行）。
+**偏离登记（report-only 网络）**：§5.3 要求「执行期网络受限 + 外联日志」。report-only 容器固定 bridge 直出、未接入出站白名单代理，也未采集容器内 egress 日志；该偏离**仅限不执行目标仓库代码的 report-only**，理由是隔离面只剩 GitHub API 调用与 token 暴露（token 本就用于该 API），且 `alertSource` 已 fail-closed 到 `github-dependabot`。**fix / fix-and-pr（2026-11-13 M59.1 起）**已接入出站白名单 + 运行级审计代理，在策略就位时于沙箱内执行；策略缺失或白名单为空时由第二道闸返回 `sandbox_fix_requires_egress_policy`，不静默降级 `container`。
 
 **其他残余**：
 

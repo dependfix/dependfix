@@ -19,7 +19,7 @@
 | GitHub Action（`ActionTriggerExecutor`） | GitHub 托管环境 | 目标仓库自带（action.yml 引用） | ✅ 触发实现（T607）+ 结果回填（C25） | 保留 |
 | 本地临时目录（`LocalExecutor`） | 无隔离（开发调试用） | 宿主工具链 | —（仅开发） | — |
 
-> 上表 M6 / M7 列为规划期快照；`SandboxExecutor` 的隔离基础设施已于 M10 T1001 落地，真实执行已于 M57.1 闭环（自包含 CLI + report-only；fix / fix-and-pr 待出站白名单代理接入后放行）。
+> 上表 M6 / M7 列为规划期快照；`SandboxExecutor` 的隔离基础设施已于 M10 T1001 落地，真实执行已于 M57.1 闭环（自包含 CLI + report-only），**M59.1（2026-11-13）起 `fix` / `fix-and-pr` 在出站策略就位时同样在容器内执行**（不再降级 `container`）。
 
 ---
 
@@ -50,7 +50,7 @@ dependfix 的核心动作是**升级第三方依赖**，本质是"拉取并执�
 | 资源耗尽 | 中 | 子进程超时（默认 30 分钟可配）+ 磁盘配额随数据卷 | cgroup 内存/CPU 限制 |
 | 提权逃逸 | 低（单租户自托管） | 非 root + 不挂载 docker.sock + 容器只读部分 | 独立容器 + seccomp/apparmor 加固 |
 
-> **sandbox report-only 网络例外（2026-11-09）**：sandbox 的 report-only 固定 `--network bridge` 访问 GitHub API（不 clone / 不执行目标仓库代码），未接入下方出站白名单；fix / fix-and-pr 在代理接入前降级 `container`。偏离登记见 [sandbox-security-governance.md §7.1](./sandbox-security-governance.md#_7-1-m57-1-沙箱真实执行安全基线核验-2026-11-09)。
+> **sandbox report-only 网络例外（2026-11-09；2026-11-13 起补齐 fix 面）**：sandbox 的 report-only 固定 `--network bridge` 访问 GitHub API（不 clone / 不执行目标仓库代码），未接入下方出站白名单；**fix / fix-and-pr 自 M59.1 起改走出站白名单 + 运行级审计代理**（策略缺失或白名单为空时由第二道闸拒绝，不再降级 `container`）。偏离登记见 [sandbox-security-governance.md §7.1](./sandbox-security-governance.md#_7-1-m57-1-沙箱真实执行安全基线核验-2026-11-09) 与 [executor-sandbox-implementation.md §7.8](./executor-sandbox-implementation.md#_7-8-降级状态机契约-degraded-vs-failed)。
 >
 > **M6 结论**：平台容器即沙箱（进程级隔离）可接受——单租户自托管场景下威胁模型以"恶意依赖脚本"为主，通过非 root + 临时目录 + 凭据最小化 + 超时四项缓解即可达安全基线；更高隔离（网络出站限制、每任务容器）登记 backlog C26，M7 随 BullMQ worker 模型实现。
 >

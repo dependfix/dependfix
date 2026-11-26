@@ -505,6 +505,7 @@ Enable it:
 2. Build the platform image locally with `WITH_DOCKER_CLI=true` (released images do **not** include the Docker CLI): `WITH_DOCKER_CLI=true docker compose -f docker-compose.yml -f docker-compose.build.yml build`.
 3. Start with the sandbox override (uid/gid must match the rootless socket owner; use the local tag built in step 2): `DEPENDFIX_IMAGE=caomeiyouren/dependfix:local SANDBOX_DOCKER_UID=$(id -u) SANDBOX_DOCKER_GID=$(id -g) docker compose -f docker-compose.yml -f docker-compose.sandbox.yml --profile sandbox up -d`.
 4. As an admin, call `GET /api/sandbox/self-check` and check `available` / `reason` / image candidates / egress hosts.
+5. To check a published sandbox image on its own (self-contained entry / skills / non-root / toolchain posture), use `apps/platform/docker/sandbox-smoke.sh` (e.g. `SMOKE_IMAGE=caomeiyouren/dependfix-sandbox:latest sh apps/platform/docker/sandbox-smoke.sh`); the same script runs weekly on amd64 + arm64 via the `image-smoke` workflow.
 
 The deployment-shape matrix and error-code reference live in [Quick Start § sandbox execution](./quick-start.md) (single source); this page keeps only the container opt-in commands.
 
@@ -515,4 +516,4 @@ The deployment-shape matrix and error-code reference live in [Quick Start § san
 - **Never mount the host `/var/run/docker.sock`** and do not grant the container privileges; the process executing untrusted code is non-root by default.
 - Use strong random values for `AUTH_SECRET` / `NUXT_ENCRYPTION_KEY`; never commit them.
 - For public deployments, put the service behind an HTTPS reverse proxy and disable registration after setup.
-- Multi-tenant / owner-mode scanning can use the rootless sandbox executor (only `report-only` runs for real; `fix` / `fix-and-pr` fall back to the platform container until the egress allowlist proxy is wired in). Start the rootless Docker daemon on the host and mount only its unix socket (not the host `/var/run/docker.sock`) into the platform container; see [Quick Start](./quick-start.md).
+- Multi-tenant / owner-mode scanning can use the rootless sandbox executor (`report-only` runs for real since M57.1, and `fix` / `fix-and-pr` run in the sandbox too once the egress policy is in place — since M59.1; without it the second gate rejects the run instead of silently falling back). Start the rootless Docker daemon on the host and mount only its unix socket (not the host `/var/run/docker.sock`) into the platform container; see [Quick Start](./quick-start.md).

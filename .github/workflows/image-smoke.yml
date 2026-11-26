@@ -62,6 +62,8 @@ jobs:
       TAG: ${{ inputs.tag || 'latest' }}
       REPO_PREFIX: ${{ inputs.repo_prefix || 'caomeiyouren' }}
       IMAGE: ${{ (inputs.repo_prefix || 'caomeiyouren') }}/dependfix-${{ matrix.variant }}:${{ inputs.tag || 'latest' }}
+      # 冒烟脚本读取 SMOKE_IMAGE / SMOKE_TOOLCHAIN / SMOKE_ARCH（SMOKE_IMAGE 与拉取用的 IMAGE 同值）
+      SMOKE_IMAGE: ${{ (inputs.repo_prefix || 'caomeiyouren') }}/dependfix-${{ matrix.variant }}:${{ inputs.tag || 'latest' }}
       SMOKE_TOOLCHAIN: ${{ matrix.toolchain }}
       SMOKE_ARCH: ${{ matrix.arch }}
     steps:
@@ -88,7 +90,11 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Run sandbox self-contained smoke
         id: smoke
-        run: sh apps/platform/docker/sandbox-smoke.sh 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
+        # 必须显式 pipefail：GitHub 默认 shell 是 bash -e（无 -o pipefail），
+        # `script | tee` 会返回 tee 的 0，断言失败被静默吞掉（派发首跑实测踩中）。
+        run: |
+          set -euo pipefail
+          sh apps/platform/docker/sandbox-smoke.sh 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Write summary
         if: ${{ always() }}
         env:

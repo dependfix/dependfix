@@ -135,6 +135,8 @@ describe('describeInstallError', () => {
 
         expect(classifyInstallFailure(described)).toContain('native module build failed')
         expect(formatInstallFailure(described)).toContain('python3/make/g++')
+        // 默认平台镜像已无编译链，提示必须指向可落地的 full 变体，而不是只让用户「装工具链」
+        expect(formatInstallFailure(described)).toContain('PLATFORM_VARIANT=full')
     })
 
     it('classifies ignored dependency build scripts', () => {

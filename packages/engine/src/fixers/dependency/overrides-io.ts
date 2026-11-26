@@ -326,7 +326,7 @@ export function isInstallEnvironmentalFailure(err: unknown): boolean {
 const INSTALL_FAILURE_HINTS: [RegExp, string][] = [
     [
         /gyp ERR! find Python|node-gyp rebuild|prebuild-install.*(?:Request timed out|timed out)/i,
-        'native module build failed: prebuild download may have timed out and the environment lacks Python/build tools; install python3/make/g++ in the execution image or ensure prebuilt binaries are reachable',
+        'native module build failed: prebuild download may have timed out and the environment lacks Python/build tools; install python3/make/g++ in the execution image (full-toolchain variant: platform --build-arg PLATFORM_VARIANT=full / sandbox sandbox-full) or ensure prebuilt binaries are reachable',
     ],
     [
         /ERR_PNPM_IGNORED_BUILDS/,

@@ -45,8 +45,8 @@
 |:--|:--|:--|:--|:--|:--|
 | M68.1 独立 installer 容器与 runtime 工具链移出 | — | ✅ 已闭环 | 4 commits（`C1`-`C4`，见执行记录） | 分区 A deep R1 Pass（0B/5W）→ R2 Pass；分区 B standard R1 Reject（1B/8W）→ R2 Pass | 实际 4 commits / 18 files / 约 520 行（含新增 497 行文档与脚本） |
 | M68.2 运行面漏洞检测最小周检 | 2（M68.2.1-M68.2.2） | ✅ 已闭环 | 5 commits（`C5`-`C9`，见执行记录） | deep R1 Reject（2B/8W）→ R2 Pass（2W 已修） | 实际 5 commits / 10 files / 1,158 行新增（超计划，原因见执行记录） |
-| M68.3 沙箱镜像双架构自包含冒烟与安全姿态 | — | ⬜ 待开始 | — | — | 计划 4-6 commits / 6-10 files / 300-550 行 |
-| M68.4 镜像构建去重与发布构建复用 | — | ⬜ 待开始 | — | — | 计划 3-4 commits / 3-5 files / 150-300 行 |
+| M68.3 沙箱镜像双架构自包含冒烟与安全姿态 | — | ⬜ 待开始（阻塞：需发布派发取证） | — | — | 计划 4-6 commits / 6-10 files / 300-550 行 |
+| M68.4 镜像构建去重与发布构建复用 | — | ⬜ 待开始（阻塞：需发布派发取证） | — | — | 计划 3-4 commits / 3-5 files / 150-300 行 |
 | M68.5 发布安全输出采集时点 | — | ✅ 已闭环 | 2 commits（见执行记录） | deep R1 Pass（1W 已修） | 实际 2 commits / 5 files / 123 行新增 |
 
 > 状态 / 提交 / 审计由执行与归档批次回填；`提交` 列填该条目自身 commit 区间与数量，`审计` 列填 Review Gate 轮次结论。
@@ -123,6 +123,14 @@
 - **证据**：定向 vitest 14 passed；`pnpm run test:coverage` → 全局 branches 84.06%（新脚本 statements 92.25% / branches 83.66%）、6,730 passed；`gates:docs` 22 项；workflow YAML 可解析。
 - **容量**：超计划（10 files / 1,158 行新增 vs 计划 6-10 files / 300-550 行）——审计新增要求（AC3 apk 清单、三条 fail-closed 通道、豁免 schema、负例测试）推高交付面；按 5 个 commit 拆分（设计 / 脚本 / workflow / 测试 / 记录），单 commit ≤800 行。
 - **残余**：secdb 无 severity；仅检查发布的 `latest` ref（full / sandbox 当前共用基底，变体分叉时需加矩阵）；周检节奏下 0-7 天暴露窗口。
+
+#### M68.3 / M68.4 阻塞说明（2026-11-26 记录）
+
+- **阻塞点**：两者的验收证据都来自「带 `platform_version` 的发布派发」——M68.3 的 AC1 需要 `post-release-smoke` 的
+  amd64 + arm64 × `sandbox` / `sandbox-full` 矩阵结果；M68.4 的 AC3 需要 cold / warm 构建读数与 4 tag × 3 registry 回读矩阵。
+  当前 `post-release-smoke` 仅在 `inputs.platform_version != ''` 时运行，自行 dispatch 会产出 `platform-x.y.z` 发布 tag，
+  等同发布，必须由项目所有者授权发布窗口后执行。
+- **解除条件**：用户授权发布窗口（或明确只做冒烟、不产出发布 tag 的替代派发方案）后按 M68.3 → M68.4 顺序实现并取证。
 
 ### M68.3 沙箱镜像双架构自包含冒烟与安全姿态（P2 🚀📚）
 

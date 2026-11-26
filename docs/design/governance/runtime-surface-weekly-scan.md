@@ -104,8 +104,9 @@ node scripts/check-runtime-surface.mjs --image=dependfix-smoke:m68-slim \
 - 摘要同时输出 33 个 apk 的清单（`<details>` 表格）与 finding 的数据源列（`secdb.alpinelinux.org`）。
 - **首个 finding 的处理（2026-11-26）**：上游 `node:26.13.1-alpine` tag 未重建（仍是 2026-11-11 的 digest），
   故按「构建期 `apk upgrade`」修复——重建后 `zlib 1.4-r0`（同批 `libssl3 3.5.9-r1` / `busybox r31` / `musl 1.2.6-r3`），
-  本地镜像周检 **PASS**（exit 0），`smoke-test.sh` 亦 PASS。**已发布镜像**要等下一次发布重建后才转绿；在此之前
-  周检红是真实的「生产镜像仍落后」信号，不得登记豁免掩盖。
+  本地镜像周检 **PASS**（exit 0），`smoke-test.sh` 亦 PASS。镜像随 `b54f9be8` 的 Docker 工作流重新发布后，
+  对 `caomeiyouren/dependfix:latest` 手动 dispatch 周检（run `45869838313`）**PASS**——修复已进入已发布镜像。
+  在此之前周检红是真实的「生产镜像仍落后」信号，不得登记豁免掩盖。
 
 ## 8. 边界与残余
 

@@ -43,6 +43,22 @@ prebuild 已由 Nitro trace 打进 `.output`）。代价是：运行镜像的攻
   [executor-sandbox-implementation.md §7.2](./executor-sandbox-implementation.md#_7-2-镜像策略)）。
 - **compose 不变**：变体通过 `PLATFORM_VARIANT` 构建参数与镜像 tag 表达，服务契约（端口 / 卷 / env）不变。
 
+### 3.1 基底 apk 包的构建期刷新（2026-11-26）
+
+`FROM` 仍固定 `node:26.13.1-alpine@sha256:6bd9ab43…`，但 `runtime` 基底在构建时执行 `apk upgrade --no-cache`，
+把基底内 apk 包刷到**同一 Alpine 分支**（3.24）的最新版本。原因：官方该 tag 在 2026-11-11 Node 安全发布后
+没有重建（2026-11-26 复查仍解析为同一 digest），而 Alpine 仓库已有更晚的安全修复——周检实测
+`zlib 1.3.2-r1` 落后 secdb 修复版 `1.4-r0`（CVE-2026-4738）；同批还带上了 `libssl3 3.5.9-r1`、
+`busybox r31`、`musl 1.2.6-r3`。刷新后 `zlib 1.4-r0`，运行面周检从「红」转「绿」（见 §5 验证）。
+
+- **取舍**：包版本随「构建时仓库状态」前进，构建不再仅由 FROM digest 决定；这是「基座 digest 固定 + 上游不重建」
+  与「运行面必须带最新修复」之间的显式选择。FROM tag / digest 不变，回滚 = 删掉该 `apk upgrade` 层。
+- **实测（2026-11-26 重建）**：slim `zlib 1.4-r0` / `libssl3 3.5.9-r1` / `busybox 1.37.0-r31` / `musl 1.2.6-r3`，
+  `node v26.13.1`；镜像 417 MB（+9 MB）；`smoke-test.sh` PASS（17 表，better-sqlite3 在新 musl 下可用）；
+  运行面周检 `PASS`（此前 `apk:zlib` finding 消除）。
+- **可持续复核**：由 `scripts/check-runtime-surface.mjs` 每周比对 secdb，新漂移会重新变红（不依赖人工记忆）。
+- **不做什么**：不在此钉死具体包版本（会立刻过期）；不改 Alpine 分支；不在 deps 阶段刷新（该阶段工具链不进运行镜像）。
+
 ## 4. 断言与诊断
 
 | 层 | 机制 | 失败语义 |
@@ -64,11 +80,13 @@ prebuild 已由 Nitro trace 打进 `.output`）。代价是：运行镜像的攻
 | `python3` / `make` / `g++` | 三项存在 | 三项不存在 | `[toolchain] variant=slim python3:absent make:absent g++:absent` |
 | full 变体（`PLATFORM_VARIANT=full`） | — | 832 MB / 207,343,202 B | 与变更前等价（+51 KB 含断言脚本、label 与层元数据差异） |
 | 构建耗时（warm cache，含 Nuxt / CLI 缓存） | 未单独测（历史构建按同日量级） | 4m42s（slim）/ 3m00s（full） | — |
+| **基底包刷新后**（§3.1，同日二次构建） | — | slim 417 MB / 98,358,199 B；full 842 MB / 210,079,060 B | 刷新 apk 包（zlib 1.4-r0 等）+约 9 MB |
 
 变更前读数取自 2026-11-23 由同一 Dockerfile 构建的本地镜像 `dependfix-smoke:real`（当时的默认 target 即 full）。
 
-**体积基线（显式，代替构建期体积门禁）**：slim 交付基线 = `docker images` 408 MB / `docker image inspect .Size` 95,811,958 B；
-full 变体 = 832 MB / 207,343,202 B。基线漂移 > 10%（slim 约 ±40.8 MB / ±9.6 MB；full 约 ±83 MB / ±20.7 MB）时须在本节追加新读数并说明来源（新增 apk 包、
+**体积基线（显式，代替构建期体积门禁；2026-11-26 基底包刷新后更新）**：slim 交付基线 = `docker images` 417 MB /
+`docker image inspect .Size` 98,358,199 B；full 变体 = 842 MB / 210,079,060 B。基线漂移 > 10%（slim 约 ±41.7 MB /
+±9.8 MB；full 约 ±84 MB / ±21 MB）时须在本节追加新读数并说明来源（新增 apk 包、
 基础镜像抬升、`.output` 体积变化），否则视为未登记的体积回归。读数命令：
 <span v-pre>`docker images <镜像> --format '{{.Size}}'`</span> 与 <span v-pre>`docker image inspect <镜像> --format '{{.Size}}'`</span>。
 

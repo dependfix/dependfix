@@ -123,6 +123,7 @@
 - **证据**：定向 vitest 14 passed；`pnpm run test:coverage` → 全局 branches 84.06%（新脚本 statements 92.25% / branches 83.66%）、6,730 passed；`gates:docs` 22 项；workflow YAML 可解析。
 - **容量**：超计划（10 files / 1,158 行新增 vs 计划 6-10 files / 300-550 行）——审计新增要求（AC3 apk 清单、三条 fail-closed 通道、豁免 schema、负例测试）推高交付面；按 5 个 commit 拆分（设计 / 脚本 / workflow / 测试 / 记录），单 commit ≤800 行。
 - **残余**：secdb 无 severity；仅检查发布的 `latest` ref（full / sandbox 当前共用基底，变体分叉时需加矩阵）；周检节奏下 0-7 天暴露窗口。
+- **首跑 finding 处理（2026-11-26，用户授权）**：基座 digest 无可抬升值（上游该 tag 未重建）→ 改用构建期 `apk upgrade`，本地重建后 `zlib 1.4-r0`、周检 PASS；已发布镜像随下一次发布转绿（口径见 [platform-image-variants.md §3.1](../design/governance/platform-image-variants.md)）。
 
 #### M68.3 / M68.4 阻塞说明（2026-11-26 记录）
 

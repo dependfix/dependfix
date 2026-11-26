@@ -386,6 +386,11 @@ export function validateBaseline(baseline) {
         if (typeof item.expires !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(item.expires)) {
             throw new Error(`${label}（${item.id}）expires 必须是 YYYY-MM-DD（不允许永久豁免）`)
         }
+        // 形态合法不等于日期存在：`2026-99-99` 会通过正则并在字符串比较下长期有效，必须按日历校验。
+        const parsed = new Date(`${item.expires}T00:00:00Z`)
+        if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== item.expires) {
+            throw new Error(`${label}（${item.id}）expires 不是有效日期：${item.expires}`)
+        }
         if (item.fixed !== undefined && typeof item.fixed !== 'string') {
             throw new Error(`${label}（${item.id}）fixed 必须是字符串`)
         }
@@ -581,6 +586,10 @@ export async function main(argv, deps = {}) {
                 ? join(resolve(args.secdbDir), branch, `${repo}.json`)
                 : `${args.secdbBase}/${branch}/${repo}.json`
             if (args.secdbDir && !existsSync(source)) {
+                // fixture 模式不许静默降级：main 是必需项，community 缺失按空集处理（文档已声明布局）。
+                if (repo === 'main') {
+                    throw new Error(`fixture 缺 ${source}（--secdb-dir 应指向含 <branch>/{main,community}.json 的根目录）`)
+                }
                 continue
             }
             const data = await loadJson(source)

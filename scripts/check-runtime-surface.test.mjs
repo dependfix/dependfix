@@ -164,6 +164,10 @@ describe('check-runtime-surface', () => {
         expect(() => validateBaseline({ exempt: [{ id: 'apk:zlib', reason: 'x', expires: '2026/01/01' }] })).toThrow(
             'YYYY-MM-DD',
         )
+        // 形态合法但日历无效：不得长期有效
+        expect(() => validateBaseline({ exempt: [{ id: 'apk:zlib', reason: 'x', expires: '2026-99-99' }] })).toThrow(
+            '不是有效日期',
+        )
         expect(() => validateBaseline({ exempt: 'nope' })).toThrow('必须是数组')
 
         const findings = [

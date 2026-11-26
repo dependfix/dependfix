@@ -9,6 +9,7 @@ import {
     exemptionKey,
     exemptionMatches,
     fetchAllPages,
+    formatCollectionTime,
     formatLines,
     loadExemptions,
     main,
@@ -600,6 +601,66 @@ describe('runCheck', () => {
         const result = await runCheck({ repo: 'o/r', token: 't', readFile: () => '{"exemptions":[{"severity":"critical"}]}', fetchImpl: fetchSpy })
         expect(result.exitCode).toBe(1)
         expect(fetchSpy).not.toHaveBeenCalled()
+    })
+})
+
+describe('采集时点', () => {
+    const readFile = () => validExemptionText
+    const FIXED = () => new Date('2026-11-26T10:00:00Z')
+    const TIME_LINE_RE = /^\[release-security\] 采集时点 \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/
+    const okFetch = async () => jsonResponse([])
+
+    it('格式固定为单行 UTC ISO，且可注入时钟', () => {
+        expect(formatCollectionTime(FIXED())).toBe('[release-security] 采集时点 2026-11-26T10:00:00.000Z')
+        expect(formatCollectionTime()).toMatch(TIME_LINE_RE)
+    })
+
+    it('PASS / FAIL / token 缺失 / 仓库未定 / 台账不可读 / 台账非法 / 拉取异常的首行均为采集时点', async () => {
+        const pass = await runCheck({ repo: 'o/r', token: 't', readFile, fetchImpl: okFetch, apiBase: 'https://api.test', now: FIXED })
+        expect(pass.exitCode).toBe(0)
+        expect(pass.lines[0]).toBe('[release-security] 采集时点 2026-11-26T10:00:00.000Z')
+
+        const failed = await runCheck({
+            repo: 'o/r',
+            token: 't',
+            readFile,
+            apiBase: 'https://api.test',
+            now: FIXED,
+            fetchImpl: async (url) => {
+                if (url.includes('state=dismissed')) {
+                    return jsonResponse([])
+                }
+                return url.includes('/dependabot/') ? jsonResponse([dependabotAlert('critical')]) : jsonResponse([])
+            },
+        })
+        expect(failed.exitCode).toBe(1)
+        expect(failed.lines[0]).toBe('[release-security] 采集时点 2026-11-26T10:00:00.000Z')
+
+        const cases = [
+            await runCheck({ repo: 'o/r', token: '', readFile, fetchImpl: okFetch, now: FIXED }),
+            await runCheck({ repo: null, token: 't', readFile, fetchImpl: okFetch, now: FIXED }),
+            await runCheck({ repo: 'o/r', token: 't', readFile: () => failWith('ENOENT'), fetchImpl: okFetch, now: FIXED }),
+            await runCheck({ repo: 'o/r', token: 't', readFile: () => '{"exemptions":[{"severity":"critical"}]}', fetchImpl: okFetch, now: FIXED }),
+            await runCheck({
+                repo: 'o/r',
+                token: 't',
+                readFile,
+                apiBase: 'https://api.test',
+                now: FIXED,
+                fetchImpl: async () => jsonResponse({ message: 'boom' }, { status: 403 }),
+            }),
+        ]
+        for (const result of cases) {
+            expect(result.lines[0]).toBe('[release-security] 采集时点 2026-11-26T10:00:00.000Z')
+        }
+    })
+
+    it('参数错误路径也在首行输出采集时点（stderr）', async () => {
+        const error = vi.fn()
+        const log = vi.fn()
+        expect(await main({ argv: ['--repo'], error, log })).toBe(2)
+        expect(error.mock.calls[0][0]).toMatch(TIME_LINE_RE)
+        expect(error.mock.calls[1][0]).toContain('参数错误')
     })
 })
 

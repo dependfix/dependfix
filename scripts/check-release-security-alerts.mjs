@@ -246,6 +246,27 @@ export function evaluateAlerts({ dependabot = [], codeScanning = [], exemptions 
     return { failures, warnings, summary }
 }
 
+/**
+ * 采集时点行（UTC ISO 8601，固定单行格式）。
+ *
+ * 发布证据（终端输出 / Job Summary / 归档日志）此前只能靠文件 mtime 推断"什么时候查的"，
+ * 时区与时钟漂移都无法自证。所有路径（PASS / FAIL / token 缺失 / 台账非法 / 拉取异常 / 参数错误）
+ * 的第一行统一输出本行，落盘即可自证采集时点。
+ */
+export function formatCollectionTime(now = new Date()) {
+    return `[release-security] 采集时点 ${now.toISOString()}`
+}
+
+/**
+ * 给结果行加采集时点首行（保持退出码不变）。
+ * @param {{exitCode: number, lines: string[]}} result
+ * @param {() => Date} now
+ * @returns {{exitCode: number, lines: string[]}}
+ */
+function withCollectionTime(result, now) {
+    return { ...result, lines: [formatCollectionTime(now()), ...result.lines] }
+}
+
 /** 组装输出行；在 GitHub Actions 环境中附加 ::error:: / ::warning:: 注解。 */
 export function formatLines({ repo, result, annotate = false }) {
     const { failures, warnings, summary } = result
@@ -460,9 +481,13 @@ export async function runCheck({
     fetchImpl = globalThis.fetch,
     readFile = readFileSync,
     apiBase = process.env.GITHUB_API_URL || DEFAULT_API_BASE,
+    now = () => new Date(),
 } = {}) {
     if (!repo) {
-        return { exitCode: 2, lines: ['[release-security] 无法确定仓库：请设置 GITHUB_REPOSITORY 或传 --repo=owner/repo'] }
+        return withCollectionTime(
+            { exitCode: 2, lines: ['[release-security] 无法确定仓库：请设置 GITHUB_REPOSITORY 或传 --repo=owner/repo'] },
+            now,
+        )
     }
     const missing = []
     if (!dependabotToken) {
@@ -472,21 +497,27 @@ export async function runCheck({
         missing.push('Code Scanning（GITHUB_TOKEN / CODE_SCANNING_TOKEN）')
     }
     if (missing.length > 0) {
-        return { exitCode: 1, lines: [`[release-security] FAIL：缺少读取告警的 token：${missing.join('、')}`] }
+        return withCollectionTime(
+            { exitCode: 1, lines: [`[release-security] FAIL：缺少读取告警的 token：${missing.join('、')}`] },
+            now,
+        )
     }
 
     let text
     try {
         text = readFile(path.resolve(cwd, exemptionsPath), 'utf8')
     } catch (error) {
-        return { exitCode: 1, lines: [`[release-security] FAIL：无法读取豁免台账 ${exemptionsPath}：${error.message}`] }
+        return withCollectionTime(
+            { exitCode: 1, lines: [`[release-security] FAIL：无法读取豁免台账 ${exemptionsPath}：${error.message}`] },
+            now,
+        )
     }
     const { exemptions, errors } = loadExemptions(text)
     if (errors.length > 0) {
-        return {
+        return withCollectionTime({
             exitCode: 1,
             lines: [...errors.map((error) => `[release-security] 台账错误：${error}`), '[release-security] FAIL：豁免台账不合法'],
-        }
+        }, now)
     }
 
     let dependabot
@@ -502,14 +533,20 @@ export async function runCheck({
         codeScanning = [...openCodeScanning, ...dismissedCodeScanning]
     } catch (error) {
         const message = error instanceof Error ? error.message : String(error)
-        return { exitCode: 1, lines: [`[release-security] FAIL：拉取告警失败 ${message}${permissionHint(message)}`] }
+        return withCollectionTime(
+            { exitCode: 1, lines: [`[release-security] FAIL：拉取告警失败 ${message}${permissionHint(message)}`] },
+            now,
+        )
     }
 
     const result = evaluateAlerts({ dependabot, codeScanning, exemptions })
-    return {
-        exitCode: result.failures.length > 0 ? 1 : 0,
-        lines: formatLines({ repo, result, annotate: process.env.GITHUB_ACTIONS === 'true' }),
-    }
+    return withCollectionTime(
+        {
+            exitCode: result.failures.length > 0 ? 1 : 0,
+            lines: formatLines({ repo, result, annotate: process.env.GITHUB_ACTIONS === 'true' }),
+        },
+        now,
+    )
 }
 
 export class UsageError extends Error {
@@ -580,6 +617,7 @@ export async function main({
         options = parseCli(argv)
     } catch (failure) {
         if (failure instanceof UsageError) {
+            error(formatCollectionTime())
             error(`[release-security] 参数错误：${failure.message}`)
             printUsage(log)
             return 2
@@ -610,6 +648,7 @@ if (isDirectExecution(import.meta.url)) {
             process.exitCode = code
         })
         .catch((failure) => {
+            console.error(formatCollectionTime())
             console.error(`[release-security] FAIL：${failure instanceof Error ? failure.message : String(failure)}`)
             process.exitCode = 1
         })

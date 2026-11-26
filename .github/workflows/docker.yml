@@ -243,6 +243,31 @@ jobs:
             docker run --rm --user 100:100 --entrypoint sh dependfix-sandbox-full-smoke:ci -c "command -v ${tool} >/dev/null"
           done
 
+      # ── 平台 full 工具链变体（默认 slim 的免重建回退路径，必须可持续验证）──
+      # ① 别名 stage `executor-base-full` 仍存在且工具链齐全（删别名 / 改基底即红）；
+      # ② 叠加层 `docker/Dockerfile.toolchain` 叠在默认 slim 冒烟镜像上仍得到 full 变体
+      #    （含 check-toolchain --variant=full 与 label）。
+      # 两者都不触发 Nuxt / CLI 构建：仅基底阶段 + 一个 apk 层，成本远低于再跑一次完整平台构建。
+      - name: Verify platform full toolchain variant paths (amd64)
+        if: ${{ matrix.arch == 'amd64' }}
+        run: |
+          set -euo pipefail
+          # 静态守卫：平台 stage 必须仍按 PLATFORM_VARIANT 选基底。若被硬编码成 slim，
+          # 下面两条断言仍会绿（label 也还是 slim），`--build-arg PLATFORM_VARIANT=full` 会静默失效。
+          grep -qF 'FROM executor-base-${PLATFORM_VARIANT} AS platform' apps/platform/Dockerfile
+          docker build --target executor-base-full -f apps/platform/Dockerfile -t dependfix-toolchain-base:ci \
+            --cache-from type=gha,scope=${{ matrix.arch }} .
+          for tool in python3 make g++; do
+            docker run --rm --entrypoint sh dependfix-toolchain-base:ci -c "command -v ${tool} >/dev/null"
+          done
+          docker build -f apps/platform/docker/Dockerfile.toolchain \
+            --build-arg BASE_IMAGE=dependfix-smoke:ci -t dependfix-smoke-full:ci .
+          docker run --rm --entrypoint node dependfix-smoke-full:ci \
+            /usr/local/bin/dependfix-check-toolchain.mjs --variant=full
+          label=$(docker image inspect dependfix-smoke-full:ci \
+            --format '{{index .Config.Labels "org.opencontainers.image.dependfix.toolchain"}}')
+          [ "$label" = "full" ] || { echo "::error::叠加层 label 为 '${label}'（期望 full）"; exit 1; }
+
       # ── 按 digest 推送（每个 registry 一次，共用层缓存）─────────────────
       # 三个 registry 的镜像名不同（Docker Hub / ACR 为 caomeiyouren/dependfix，GHCR 为
       # dependfix/dependfix），digest 各自独立，故每个 registry 各推一次并在 merge job

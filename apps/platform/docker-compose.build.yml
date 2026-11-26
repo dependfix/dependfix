@@ -21,3 +21,7 @@ services:
       args:
         # 沙箱 opt-in：默认 false（不安装 docker CLI）；本地构建 `WITH_DOCKER_CLI=true` 启用
         WITH_DOCKER_CLI: ${WITH_DOCKER_CLI:-false}
+        # 工具链变体：默认 slim（不含 python3 / make / g++）；需要目标仓库原生模块源码编译时
+        # 设 PLATFORM_VARIANT=full，或对已发布镜像叠加 apps/platform/docker/Dockerfile.toolchain。
+        # 口径见 docs/design/governance/platform-image-variants.md。
+        PLATFORM_VARIANT: ${PLATFORM_VARIANT:-slim}

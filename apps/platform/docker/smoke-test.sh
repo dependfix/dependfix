@@ -15,14 +15,18 @@
 #   SMOKE_BUILD   非空且为 1 时先 docker build（默认 0）
 #   SMOKE_APK_MIRROR  仅构建时生效，向 Dockerfile 透传 --build-arg APK_MIRROR（受限网络下用镜像源，如 https://mirrors.aliyun.com）
 #   SMOKE_NPM_REGISTRY  仅构建时生效，向 Dockerfile 透传 --build-arg NPM_REGISTRY（受限网络下用镜像源，如 https://registry.npmmirror.com）
+#   SMOKE_PLATFORM_VARIANT  仅构建时生效，向 Dockerfile 透传 --build-arg PLATFORM_VARIANT（slim 默认 / full）
 #   SMOKE_PORT    宿主探测端口（默认 3999）
 #   SMOKE_EXPECT_VERSION / SMOKE_EXPECT_COMMIT  期望的版本戳（非空时校验 /api/health 端到端注入值；默认空，仅校验字段存在）
+#   SMOKE_EXPECT_TOOLCHAIN  原生编译工具链变体（slim 默认 / full）；与镜像 build-arg PLATFORM_VARIANT 一致，
+#                   默认 slim：断言 python3 / make / g++ 均不存在。对 full 变体镜像必须显式设 full。
 #
 # 注意：宿主侧断言（场景 0c 的 `[ -d ]`）以**调用者身份**执行——本地常以 root 运行（恒真），
 # 权限类缺陷只在非 root 宿主暴露；复现请用非 root 用户执行本脚本。
 #
 # 断言：
 #   0. Node 运行时 ≥ 安全基线（check-node-version.mjs）
+#   0b. 工具链变体（check-toolchain.mjs）与镜像标签一致
 #   0c. pnpm store 落在数据卷（入口派生默认值；供跨 run 复用）
 #   1. 正常启动（不注入 DATABASE_MIGRATIONS_RUN）→ 日志 migrationsRun=true、无 no such table
 #   2. GET / = 200 且 GET /api/auth/get-session = 200 且 GET /api/health = 200（JSON 含 version/commit/startedAt）
@@ -91,6 +95,13 @@ if [ "$BUILD" = "1" ]; then
     if [ -n "${SMOKE_NPM_REGISTRY:-}" ]; then
         set -- "$@" --build-arg "NPM_REGISTRY=$SMOKE_NPM_REGISTRY"
     fi
+    if [ -n "${SMOKE_PLATFORM_VARIANT:-}" ]; then
+        set -- "$@" --build-arg "PLATFORM_VARIANT=$SMOKE_PLATFORM_VARIANT"
+        # 构建变体与期望变体需分别声明：漏设期望时会按默认 slim 断言 full 镜像并失败，先给出提示。
+        if [ "${SMOKE_EXPECT_TOOLCHAIN:-slim}" != "$SMOKE_PLATFORM_VARIANT" ]; then
+            log "提示：构建 PLATFORM_VARIANT=$SMOKE_PLATFORM_VARIANT，断言期望 SMOKE_EXPECT_TOOLCHAIN=${SMOKE_EXPECT_TOOLCHAIN:-slim}（两者应一致）"
+        fi
+    fi
     docker build "$@" -f "$REPO_ROOT/apps/platform/Dockerfile" -t "$IMAGE" "$REPO_ROOT"
 fi
 
@@ -101,12 +112,28 @@ docker image inspect "$IMAGE" >/dev/null 2>&1 || fail "镜像不存在：$IMAGE�
 docker run --rm --entrypoint node "$IMAGE" /usr/local/bin/dependfix-check-node-version.mjs --min-line=26 \
     || fail "镜像 Node 运行时低于安全基线（修复版本见 Node.js 2026-11-11 安全公告）"
 
-# ── 场景 0b：目标仓库原生模块回退编译所需的最小工具链 ─────────────────────────────
-# 单个 `command -v a b c` 在 busybox ash 下部分缺失仍可能 exit 0，必须逐个断言。
-for tool in python3 make g++; do
-    docker run --rm --entrypoint sh "$IMAGE" -c "command -v $tool >/dev/null" || fail "镜像缺少工具链：$tool"
-done
-log "工具链 python3/make/g++ 可用"
+# ── 场景 0b：原生编译工具链变体断言（默认 slim 无编译链；full 变体必须齐全）──────
+# 变体口径见 docs/design/governance/platform-image-variants.md：默认镜像不再内置 python3 / make / g++，
+# 需要源码编译的仓库改用 full 变体。断言脚本逐项探测（busybox `command -v a b c` 只在全缺时非零，
+# 不能作为门禁），slim / full 两侧都 fail-closed。
+TOOLCHAIN_VARIANT="${SMOKE_EXPECT_TOOLCHAIN:-slim}"
+case "$TOOLCHAIN_VARIANT" in
+    slim|full) ;;
+    *) fail "SMOKE_EXPECT_TOOLCHAIN 只接受 slim / full：$TOOLCHAIN_VARIANT" ;;
+esac
+# 老镜像（早于工具链变体改造）没有断言脚本：先判存在，避免把「脚本缺失」误报成「变体不符」。
+if ! docker run --rm --entrypoint sh "$IMAGE" -c 'test -f /usr/local/bin/dependfix-check-toolchain.mjs'; then
+    fail "镜像缺少 /usr/local/bin/dependfix-check-toolchain.mjs：应为早于工具链变体改造的旧镜像，没有降级通道；请先升级镜像后再冒烟"
+fi
+toolchain_out=$(docker run --rm --entrypoint node "$IMAGE" \
+    /usr/local/bin/dependfix-check-toolchain.mjs --variant="$TOOLCHAIN_VARIANT") \
+    || { printf '%s\n' "$toolchain_out"; fail "工具链变体断言失败（期望 ${TOOLCHAIN_VARIANT}）"; }
+log "工具链变体：${toolchain_out}"
+# 变体标签必须存在且与断言一致（`full` 期望下尤其不能靠空标签放行）
+label_variant=$(docker image inspect "$IMAGE" --format '{{index .Config.Labels "org.opencontainers.image.dependfix.toolchain"}}')
+[ -n "$label_variant" ] || fail "镜像缺少 org.opencontainers.image.dependfix.toolchain 标签（无法判读变体）"
+[ "$label_variant" = "$TOOLCHAIN_VARIANT" ] \
+    || fail "镜像工具链标签为 ${label_variant}，与期望 ${TOOLCHAIN_VARIANT} 不一致"
 
 # ── 场景 0c：pnpm store 落数据卷（入口派生的默认值）────────────────────────────
 # 走完整入口（root → chown → 探针判定 → 降权）而非 --entrypoint：验证默认值不依赖 compose 注入。

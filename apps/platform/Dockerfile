@@ -24,6 +24,12 @@
 # 使用官方 node:26.13.1-alpine：自建 caomeiyouren/alpine-nodejs 走 `apk add nodejs`，安全补丁
 # 滞后于官方 tarball；等 docker-builder 改为官方 tarball 并发布对应线后再评估收敛
 # （用户 2026-10-22 决定暂不迁移）；记录见 docs/plan/archive/todo-archive-phases-m47.md。
+# 平台镜像工具链变体（2026-11-26 决策：slim 默认 + full 回退，不引入独立 installer 容器）。
+# 必须在**首个 FROM 之前**声明才是全局作用域（Docker 只把第一个 FROM 之前的 ARG 视为可插值进 FROM）；
+# 平台 stage 内会再次声明以用于 RUN / LABEL 插值。取值：slim（默认，无 python3 / make / g++）/ full。
+# 口径见 docs/design/governance/platform-image-variants.md。
+ARG PLATFORM_VARIANT=slim
+
 # 2026-11-19 起镜像基座随声明支持面切到 26 线；24.x 修复版仍保留在门禁表。
 FROM docker.io/library/node:26.13.1-alpine@sha256:6bd9ab43c0ec0190ca7b2d193906cb8b7edf6e7f4afa43ddeccd6452710bffb5 AS nodejs
 
@@ -63,8 +69,10 @@ RUN rm -rf /usr/local/lib/node_modules/npm \
         /usr/local/bin/yarn /usr/local/bin/yarnpkg \
     && node /usr/local/bin/dependfix-check-node-version.mjs --min-line=26
 
-# 执行工具链基底：容器执行器与沙箱镜像共用（git clone + 原生模块回退编译）。
-# 单源定义避免两镜像工具链漂移；unzip / su-exec 仅平台镜像需要，留在平台阶段。
+# 全量工具链基底（full 变体）：git clone + 原生模块回退编译。
+# 2026-11-26 起只用于 `sandbox-full` 与平台 full 变体（`--build-arg PLATFORM_VARIANT=full`）；
+# 平台默认镜像改走 `executor-base-slim`，编译链不再无条件随运行镜像分发
+# （攻击面 / 体积取舍与回退路径见 docs/design/governance/platform-image-variants.md）。
 FROM runtime AS executor-base
 ARG APK_MIRROR=
 RUN if [ -n "$APK_MIRROR" ]; then \
@@ -91,8 +99,12 @@ RUN if [ -n "$APK_MIRROR" ]; then \
     fi \
     && apk add --no-cache git && rm -rf /var/cache/apk/*
 
-# 阶段一：依赖安装（better-sqlite3 在 alpine 需源码编译；工具链仅 deps 阶段临时安装，
-# runtime 阶段另行保留目标仓库原生模块回退所需的最小工具链）
+# full 变体别名：让平台阶段能用 `FROM executor-base-${PLATFORM_VARIANT}` 单源切换基底，
+# 而不必把整段平台 stage 复制两份（两份会漂移）。别名不产生新层。
+FROM executor-base AS executor-base-full
+
+# 阶段一：依赖安装（better-sqlite3 在 alpine 需源码编译；工具链仅 deps 阶段临时安装。
+# 运行镜像是否携带编译链由变体决定：slim 默认不带，full 变体经 executor-base 才带）
 FROM nodejs AS deps
 WORKDIR /app
 # 官方镜像默认走 dl-cdn.alpinelinux.org；受限网络（如国内）可用 `--build-arg APK_MIRROR=https://mirrors.aliyun.com` 覆盖。
@@ -200,7 +212,20 @@ WORKDIR /tmp
 USER 100:100
 
 # 阶段六：生产（平台镜像，文件最后一个 stage = 默认 target）
-FROM executor-base
+#
+# 平台镜像变体（2026-11-26 决策：slim 默认 + full 回退，不引入独立 installer 容器）：
+# - `slim`（默认）：基底只有 git，运行镜像不含 python3 / make / g++；需要源码编译的原生模块
+#   仓库改用 full 变体（`--build-arg PLATFORM_VARIANT=full`，或对已发布镜像叠加
+#   `apps/platform/docker/Dockerfile.toolchain`）。
+# - `full`：保留此前的编译链行为。
+# 两变体共用同一段 stage 定义，基底经 ARG 切换，避免两份定义漂移；变体断言由
+# `docker/check-toolchain.mjs` 在构建期 fail-closed 校验。
+# 不选「独立 installer 容器」的原因：平台默认镜像不内置 docker CLI，installer 容器会迫使
+# 默认部署挂载 rootless socket（扩大攻击面），且编译只是安装期一次性需求。
+FROM executor-base-${PLATFORM_VARIANT} AS platform
+# 全局 ARG 不会自动进入 stage 作用域，需在 stage 内重声明才能用于 RUN / LABEL 插值。
+ARG PLATFORM_VARIANT=slim
+LABEL org.opencontainers.image.dependfix.toolchain="${PLATFORM_VARIANT}"
 # 沙箱执行器：默认**不内置** docker CLI（缩小默认攻击面；见 M60.4 决策 D3）。
 # 需要平台容器内直连 rootless daemon 时显式 `--build-arg WITH_DOCKER_CLI=true`；
 # 仅允许挂载 rootless socket（`/run/user/<uid>/docker.sock`），禁止宿主 `/var/run/docker.sock`。
@@ -236,6 +261,10 @@ RUN set -eux; \
     fi; \
     # unzip：B mode result fetch（ActionResultFetcher 解压 artifact）；与 su-exec 同层
     apk add --no-cache unzip su-exec && rm -rf /var/cache/apk/*
+# 工具链变体断言（fail-closed）：slim 变体不得含编译链（基底漂移 / 误用 full 基底即失败），
+# full 变体必须三项齐全（逐项探测，busybox `command -v` 多参数语义不可靠）。
+COPY apps/platform/docker/check-toolchain.mjs /usr/local/bin/dependfix-check-toolchain.mjs
+RUN node /usr/local/bin/dependfix-check-toolchain.mjs --variant="${PLATFORM_VARIANT}"
 # 数据目录预建 + 授权：命名卷首次挂载继承目录所有权（entrypoint 再幂等 chown，兼容既有 root 卷）
 RUN mkdir -p /app/data && chown -R dependfix:dependfix /app/data
 # entrypoint：root 启动 → chown 数据目录 → su-exec 降权执行（恶意脚本仅能在非 root 权限下运行）

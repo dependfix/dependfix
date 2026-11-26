@@ -1,0 +1,39 @@
+# 平台镜像 full 工具链叠加（已发布镜像的免重建回退路径）
+#
+# 用途：自 2026-11-26 起默认平台镜像为 slim（不含 python3 / make / g++）。被修复仓库的原生模块
+# 没有 prebuilt、必须 node-gyp 源码编译时，用本文件在**已发布镜像**之上补回编译链：
+# 完整重建（Nuxt + CLI）约 10 分钟起，本叠加只多一个 apk 层。
+#
+# 与仓库内构建的等价关系：`--build-arg PLATFORM_VARIANT=full` 用同一套 Dockerfile 产出 full 变体；
+# 本文件只是「已拉取镜像 + 一个层」的等价捷径，二者工具链集合一致（check-toolchain --variant=full）。
+#
+# 用法（tag 必须与部署用的 DEPENDFIX_IMAGE 一致：沙箱镜像推导依赖该镜像是发布形态名，
+# 换成自定义名会让同 registry 推导失效）：
+#   docker build -f apps/platform/docker/Dockerfile.toolchain \
+#     --build-arg BASE_IMAGE=caomeiyouren/dependfix:latest \
+#     -t caomeiyouren/dependfix:latest .
+#   DEPENDFIX_IMAGE=caomeiyouren/dependfix:latest docker compose up -d
+#
+# 版本对齐：`BASE_IMAGE` 缺省指向 `:latest`。生产部署建议显式钉同一发布 tag 或 digest
+# （如 `--build-arg BASE_IMAGE=caomeiyouren/dependfix@sha256:…`），避免叠加层与运行版本错配。
+# 架构：叠加层产物是**当前机器架构的单架构镜像**；多架构集群请改用
+# `--build-arg PLATFORM_VARIANT=full` 构建（与发布镜像同一条多架构构建链）。
+#
+# 回滚：重新 `docker compose pull` 拉回官方 slim 镜像即可（本叠加不改动镜像名 / tag 语义）。
+ARG BASE_IMAGE=caomeiyouren/dependfix:latest
+FROM ${BASE_IMAGE}
+
+# 与主 Dockerfile 的 executor-base 阶段同口径：受限网络可用镜像源覆盖。
+ARG APK_MIRROR=
+RUN if [ -n "$APK_MIRROR" ]; then \
+        case "$APK_MIRROR" in \
+        https://*[!A-Za-z0-9.:/_-]*) echo "APK_MIRROR 含非法字符" >&2; exit 1 ;; \
+        https://*) ;; \
+        *) echo "APK_MIRROR 必须以 https:// 开头" >&2; exit 1 ;; \
+        esac; \
+        sed -i "s#https://dl-cdn.alpinelinux.org#$APK_MIRROR#" /etc/apk/repositories; \
+    fi \
+    && apk add --no-cache python3 make g++ && rm -rf /var/cache/apk/*
+COPY apps/platform/docker/check-toolchain.mjs /usr/local/bin/dependfix-check-toolchain.mjs
+RUN node /usr/local/bin/dependfix-check-toolchain.mjs --variant=full
+LABEL org.opencontainers.image.dependfix.toolchain="full"

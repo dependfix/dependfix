@@ -82,6 +82,11 @@ release.yml
 
 ## 5. fail-closed 决策表
 
+> **采集时点（2026-11-26）**：`formatCollectionTime()` 让所有返回路径（PASS / FAIL / token 缺失 / 仓库未定 /
+> 台账不可读或非法 / 拉取异常）的首行为 `[release-security] 采集时点 <UTC ISO 8601>`；参数错误路径在
+> **stderr 流内首行**输出同一格式（usage 仍走 stdout）。时点取「门禁输出 / 汇总时刻」，长拉取下即采集完成时刻，
+> 不表示发起时刻。判定逻辑与退出码不变，仅新增一行可自证时点的证据。
+
 | 场景 | 行为 |
 |:--|:--|
 | 无任何 token | exit 1，提示可用 secret 名单 |

@@ -43,7 +43,7 @@
 
 | 大条目 | 小条目 | 状态 | 提交 | 审计 | 容量 |
 |:--|:--|:--|:--|:--|:--|
-| M68.1 独立 installer 容器与 runtime 工具链移出 | — | ⬜ 待开始 | — | — | 计划 5-7 commits / 8-12 files / 350-600 行 |
+| M68.1 独立 installer 容器与 runtime 工具链移出 | — | ✅ 已闭环 | 4 commits（`C1`-`C4`，见执行记录） | 分区 A deep R1 Pass（0B/5W）→ R2 Pass；分区 B standard R1 Reject（1B/8W）→ R2 Pass | 实际 4 commits / 18 files / 约 520 行（含新增 497 行文档与脚本） |
 | M68.2 运行面漏洞检测最小周检 | 2（M68.2.1-M68.2.2） | ⬜ 待开始 | — | — | 计划 4-6 commits / 6-10 files / 300-550 行 |
 | M68.3 沙箱镜像双架构自包含冒烟与安全姿态 | — | ⬜ 待开始 | — | — | 计划 4-6 commits / 6-10 files / 300-550 行 |
 | M68.4 镜像构建去重与发布构建复用 | — | ⬜ 待开始 | — | — | 计划 3-4 commits / 3-5 files / 150-300 行 |
@@ -70,6 +70,15 @@
 - **依赖**：`apps/platform/Dockerfile:68-92`、`:203`；`apps/platform/docker/entrypoint.sh`；M58.4 冒烟脚本；M66 pnpm store 治理口径。
 - **交付物**：5-7 commits / 8-12 files / 350-600 行；建议分组——① Dockerfile 分层与构建参数 ② 执行器 / 安装阶段接线 ③ 冒烟 / 体积门禁 ④ compose / 文档同步。
 - **风险与缓解**：原生模块无预编译包 → 保留 full / 仓库级镜像，失败错误码可判读；构建缓存失效 → 记录 cold / warm 读数；compose 路径漂移 → 三形态 `config --quiet` 门禁。
+
+#### M68.1 执行记录（2026-11-26 闭环）
+
+- **D1 决策**：slim 默认 + full 变体回退，**不采用**「独立 installer 容器」分支（平台默认镜像不内置 docker CLI，installer 容器会迫使默认部署常驻挂载 rootless socket；编译只是安装期一次性需求）。原「范围」中的 `container-executor.ts` 安装阶段接线随之不适用。
+- **交付**：`ARG PLATFORM_VARIANT` 单段 stage 切换（`executor-base-${PLATFORM_VARIANT}` + `executor-base-full` 别名）+ 构建期 `docker/check-toolchain.mjs` 双向断言 + `org.opencontainers.image.dependfix.toolchain` label；`docker/Dockerfile.toolchain` 免重建叠加层；`smoke-test.sh` 场景 0b 变体断言（默认 slim）；`docker.yml` amd64 腿新增别名 stage / 叠加层 / FROM 插值静态守卫；引擎安装失败提示指向 `--build-arg PLATFORM_VARIANT=full` / `sandbox-full`。
+- **读数**：slim 408MB（`inspect .Size` 95,811,958 B）/ full 832MB（207,343,202 B）/ 变更前 207,292,005 B；warm 构建 4m42s、3m00s。显式体积基线 + 漂移 >10% 处置见 [platform-image-variants.md](../design/governance/platform-image-variants.md) §5。
+- **证据**：slim 内源码编译 `better-sqlite3@13.2.0` 失败于 `gyp ERR! find Python` 且真实日志经 `classifyInstallFailure` 得到含 `PLATFORM_VARIANT=full` 的提示；full 内同命令编译成功并可加载（`SQLITE_OK 3.54.1`）；slim / full 冒烟 PASS、负例（full 按 slim 期望）在 0b 失败；`PATH` 收窄负例在满工具链镜像上 exit 1；compose 三形态 `config --quiet` OK。
+- **未证实**：原生模块仓库端到端 `fix` / `verify` 运行未取证（变体只改安装期可执行文件面，`packages/engine` 的 fix / verify 链无代码改动，以等价论证判定）；`retry_condition` = 后续 gated docker 批次以 full 变体跑一次 report-only 运行后回填。
+- **残余**：体积为显式基线非门禁；叠加层为单架构（多架构集群用 `PLATFORM_VARIANT=full`）；诊断依赖 pnpm 错误文本正则，裸 `make: not found` 形态不命中。
 
 ### M68.2 运行面漏洞检测最小周检（P2 🛡️）
 

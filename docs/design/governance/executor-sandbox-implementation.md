@@ -71,6 +71,12 @@ export interface SandboxHandle {
 - **发布名**：slim 为 `…/dependfix-sandbox`、full 为 `…/dependfix-sandbox-full`（docker.io / ghcr.io / ACR 三处同名）；tag 与平台镜像一致（`latest`、`YYYY-MM-DD`、`sha-*`、发布时 `platform-x.y.z`），沙箱镜像**额外发裸版本 tag**（如 `1.0.0`）供默认解析使用。构建期自检 `--version` 非 unknown + skills doctor。
 - **体积取舍（2026-11-14 实测；平台镜像当前 slim 读数为 408MB，见 [platform-image-variants.md](./platform-image-variants.md#_5-实测读数-2026-11-26-linux-amd64-本机-docker-29-7-2)）**：平台镜像 815MB（历史值）；slim 沙箱约 320MB（Node + git + pnpm + bundle），full 约 744MB（多出编译工具链）。默认 slim；需要源码编译回退的仓库改用 full（仓库级 `sandboxImage` 或 `SANDBOX_IMAGE_REPO` 指向 `-full`）。
 - **默认解析（三源）**：`Repository.sandboxImage` → `SANDBOX_IMAGE` → `SANDBOX_IMAGE_REPO` + `SANDBOX_IMAGE_TAG`；未显式指定时按「**平台镜像同 registry**（由 `DEPENDFIX_IMAGE` 推导 `dependfix-sandbox`）→ Docker Hub → ghcr → ACR（ACR 置末以减少其负荷）」生成候选，执行前逐个 inspect / pull（`SANDBOX_IMAGE_PULL_TIMEOUT_MS`，默认 300s/个），首个可用即用。平台走 ACR 时沙箱自动走 ACR，避免跨网慢速；全部失败才报 `sandbox_image_unavailable`（消息列出已尝试镜像）。不再把 `DEPENDFIX_IMAGE` 本身当沙箱镜像。
+- **双架构自包含冒烟（2026-11-26）**：`.github/workflows/image-smoke.yml`（`workflow_dispatch` + 每周）在**原生**
+  amd64 / arm64 runner 上拉取已发布镜像，按 `sandbox` / `sandbox-full` × 架构矩阵执行
+  `apps/platform/docker/sandbox-smoke.sh`：`bin.mjs --version` 非 unknown、skills 完整且 `skills doctor` 通过、
+  容器非 root（uid 100）、工具链姿态与变体一致（slim 三项全缺 / full 三项齐全）、镜像内无 `/app/node_modules`。
+  该路径**不构建、不发布**，与发布派发解耦（`post-release-smoke` 只在带 `platform_version` 的发布轮运行，
+  无发布计划时拿不到 arm 证据）；Job Summary 记录镜像 digest / 架构 / 变体 / 结论，失败即「未证实」。
 - **约束**：镜像必须包含与平台版本匹配的 `/app/sandbox/bin.mjs` 与 skills；发布 tag 同源，仓库级自定义镜像由配置者承担版本同源责任（建议 digest 或固定发布 tag）。镜像缺失 / 不可拉取以 `sandbox_image_unavailable` 判 `failed`（runtime / deterministic）。
 
 ### 7.3 部署形态

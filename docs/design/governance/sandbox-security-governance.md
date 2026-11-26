@@ -106,6 +106,11 @@ dependfix 批量处理仓库与依赖，若防护不足会成为恶意依赖的"
 - **C40 验收（✅ 已达成 2026-08-14，T805）**：执行日志含外联记录（实证：curl CONNECT `registry.npmjs.org:443` 经审计代理捕获 + 命令输出 tarball URL 提取双路径真实生效）；仅记录方法+目标无请求体（无敏感信息）；代理转发 10s 超时 + 失败 502 不挂死执行；环境已有代理时不注入覆盖。
 - **C26/C40/C41 验收（✅ 已达成 2026-08-20 M10 收口）**：T1001 SandboxExecutor + DockerAdapter / T1002 出站白名单 deny-by-default 拦截代理 / T1003 cgroup v2 资源限制 / T1004 文档收口全部 commit + Review Gate Pass；详见 [todo-archive-phases-m10-c53-c59c61.md §M10](../../plan/archive/todo-archive-phases-m10-c53-c59c61.md#m10-独立沙箱容器-c26-实施规划-已归档)。T1002 与 T1003 单元 + 集成测试覆盖（含 docker rootless daemon 真实起容器实证，本机 WSL2 cgroup v1 环境 `describe.skipIf(!isCgroupV2)` 集成 stub）。C41 单命令超时已随 T802 落地（2026-08-14，进程树终止实证）。**剩余项**：T1005 sandbox 路由接线 4 子任务全部闭环（2026-08-20）——A 前端 UI 暴露 sandbox 选项（`0ea8149`）/ B Repository.sandboxLimits JSON 字段端到端透传（`5542e33` 脚手架 + `b6bce6c` 接线）/ C 状态机扩 degraded（`64135ed`，见 [§7.8 契约](./executor-sandbox-implementation.md)）/ D 文档同步（`809aa3b`）。详见 [backlog.md T1005](../../plan/backlog.md)。
 
+- **沙箱镜像安全姿态与双架构冒烟（✅ 2026-11-26，M68.3）**：安全姿态单一口径收敛为「slim 默认无编译链 / full 显式带编译链 + 非 root + 自包含 skills」，
+  由 `apps/platform/docker/sandbox-smoke.sh` 在原生 amd64 / arm64 runner 上对**已发布镜像**断言
+  （`.github/workflows/image-smoke.yml`，dispatch + 每周，不构建不发布）：非 root（uid 100）、slim / full 工具链姿态、
+  `--version` 非 unknown、`skills doctor` 通过、镜像内无 `/app/node_modules`。
+  **灵敏度**：把 slim 镜像按 full 期望运行（或反之）会在工具链断言处失败（本地双向负例实测）。
 - **G8 验收（✅ 已达成 2026-10-10，M42.1）**：**真实环境（镜像站路径）**——新白名单 + `workDir` 动态发现下，真实 `pnpm view is-odd version` 经审计代理 `exit = 0`（stdout `3.0.1`），代理捕获 `CONNECT registry.npmmirror.com:443`，**`violations = 0`**；**同环境反例对照**——改用修复前旧默认清单（无镜像站条目）其余条件相同，`violations = 2`（`registry.npmmirror.com:443` ×2）且命令被拦死（20s 内未完成）。**动态发现（非预置私服路径）**——临时目录 `.npmrc` 指向非预置域 `registry.example.org` → 发现结果 `{"hosts":["npm.jsr.io","registry.example.org"],"source":"pnpm-config"}`，证明「预置清单之外的配置面 registry 可被自动纳入」。**单测覆盖**——`registry-discovery.test.ts`（键匹配 / 非法值拒收 / 回退链 / 缓存上限 / userinfo 剥离 / 失败说明脱敏）+ `network-audit.test.ts`（镜像域与其 CDN 判定 / `extraAllowedDomains` 合并语义 / 未知域仍拦）+ `verification-runner.test.ts`（接线锁定：`startNetworkAudit` 实参 `extraAllowedDomains` = 发现结果、`networkAuditDisabled` 时跳过发现）。**mutation 标定**——M1 去 `extraAllowedDomains` 合并 / M2 去 registry 键过滤 / M3 host 校验恒真 / M4 去接线传递，四者均被击杀。
 
 ### 7.1 M57.1 沙箱真实执行安全基线核验（2026-11-09）

@@ -507,7 +507,10 @@ docker compose up -d
 1. 宿主启动 **rootless** Docker daemon（`dockerd-rootless-setuptool.sh install`），socket 位于 `/run/user/<uid>/docker.sock`；
 2. 以 `WITH_DOCKER_CLI=true` 本地构建平台镜像（已发布镜像**不含** docker CLI）：`WITH_DOCKER_CLI=true docker compose -f docker-compose.yml -f docker-compose.build.yml build`；
 3. 叠加沙箱覆盖文件启动（uid/gid 取宿主用户，与 rootless socket 属主一致；镜像用第 2 步的本地 tag）：`DEPENDFIX_IMAGE=caomeiyouren/dependfix:local SANDBOX_DOCKER_UID=$(id -u) SANDBOX_DOCKER_GID=$(id -g) docker compose -f docker-compose.yml -f docker-compose.sandbox.yml --profile sandbox up -d`；
-4. 管理员调用 `GET /api/sandbox/self-check` 核对 `available` / `reason` / 镜像候选 / 出站白名单。
+4. 管理员调用 `GET /api/sandbox/self-check` 核对 `available` / `reason` / 镜像候选 / 出站白名单；
+5. 需要独立核对已发布沙箱镜像本身（自包含入口 / skills / 非 root / 工具链姿态）时，用仓库内的
+   `apps/platform/docker/sandbox-smoke.sh`（如 `SMOKE_IMAGE=caomeiyouren/dependfix-sandbox:latest sh apps/platform/docker/sandbox-smoke.sh`），
+   CI 侧同脚本在 amd64 + arm64 上由 `image-smoke` workflow 每周巡检。
 
 部署形态矩阵与错误码判读以 [快速开始 §sandbox 执行](./quick-start.md) 为单一事实源（本页只保留容器 opt-in 命令）。
 

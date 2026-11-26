@@ -61,7 +61,24 @@ COPY apps/platform/docker/check-node-version.mjs /usr/local/bin/dependfix-check-
 RUN node /usr/local/bin/dependfix-check-node-version.mjs --min-line=26
 
 # 运行时基底：同一 Node 版本，去掉 npm / corepack / yarn 缩小体积与攻击面（pnpm 由上一阶段继承）。
+#
+# 构建期刷新基底 apk 包：官方 `node:<tag>@<digest>` 在安全公告后**不会立即重建**（2026-11-26 实测该 tag
+# 仍解析为 2026-11-11 的同一 digest），基底内 zlib / openssl / busybox / musl 会停在旧版本——周检实测
+# `zlib 1.3.2-r1` 落后 secdb 修复版 `1.4-r0`（CVE-2026-4738）。故在 runtime 基底执行 `apk upgrade`，
+# 把包刷到**同一 Alpine 分支**的最新版本；代价是包版本随构建时仓库前进（FROM tag / digest 仍固定），
+# 结果由 `scripts/check-runtime-surface.mjs`（weekly）复核，不在此处引入版本号钉死。
 FROM nodejs AS runtime
+ARG APK_MIRROR=
+RUN if [ -n "$APK_MIRROR" ]; then \
+        case "$APK_MIRROR" in \
+        https://*[!A-Za-z0-9.:/_-]*) echo "APK_MIRROR 含非法字符" >&2; exit 1 ;; \
+        https://*) ;; \
+        *) echo "APK_MIRROR 必须以 https:// 开头" >&2; exit 1 ;; \
+        esac; \
+        sed -i "s#https://dl-cdn.alpinelinux.org#$APK_MIRROR#" /etc/apk/repositories; \
+    fi \
+    && apk upgrade --no-cache \
+    && rm -rf /var/cache/apk/*
 RUN rm -rf /usr/local/lib/node_modules/npm \
         /usr/local/lib/node_modules/corepack \
         /opt/yarn-v* \

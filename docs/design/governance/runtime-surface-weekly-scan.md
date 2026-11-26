@@ -32,8 +32,9 @@ node scripts/check-runtime-surface.mjs --image=dependfix-smoke:m68-slim --secdb-
 # 采集输出异常（Alpine 版本无法映射）→ UNKNOWN / exit 2；由单测的 collect 注入锁定
 # 空 apk 清单 / 无法解析的包行 → UNKNOWN / exit 2（单测锁定）
 # 干净基线（已安装即修复版本）→ PASS / exit 0
+# --secdb-dir 指向**根目录**，脚本会自行拼 `<branch>/`；布局：<fixture>/v3.24/{main,community}.json
 node scripts/check-runtime-surface.mjs --image=dependfix-smoke:m68-slim \
-  --secdb-dir=<fixture>/v3.24 --node-index=<fixture>/node-index.json
+  --secdb-dir=<fixture> --node-index=<fixture>/node-index.json
 ```
 
 **合并口径**：脚本按「main + community」合并 secdb（2026-11-26 实测两侧共 3,524 个修复版本记录），

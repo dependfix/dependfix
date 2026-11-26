@@ -45,7 +45,7 @@
 |:--|:--|:--|:--|:--|:--|
 | M68.1 独立 installer 容器与 runtime 工具链移出 | — | ✅ 已闭环 | 4 commits（`C1`-`C4`，见执行记录） | 分区 A deep R1 Pass（0B/5W）→ R2 Pass；分区 B standard R1 Reject（1B/8W）→ R2 Pass | 实际 4 commits / 18 files / 约 520 行（含新增 497 行文档与脚本） |
 | M68.2 运行面漏洞检测最小周检 | 2（M68.2.1-M68.2.2） | ✅ 已闭环 | 5 commits（`C5`-`C9`，见执行记录） | deep R1 Reject（2B/8W）→ R2 Pass（2W 已修） | 实际 5 commits / 10 files / 1,158 行新增（超计划，原因见执行记录） |
-| M68.3 沙箱镜像双架构自包含冒烟与安全姿态 | — | ✅ 已闭环（替代方案：拉取式双架构冒烟） | 3 commits（见执行记录） | 待审计 | 实际 3 commits / 5 files / 约 215 行 |
+| M68.3 沙箱镜像双架构自包含冒烟与安全姿态 | — | ✅ 已闭环（替代方案：拉取式双架构冒烟） | 7 commits（`9c90eda7` / `cf8836cf` / `dceeda02` / `c65caf85` / `73bc112b` / `167da76b` / `fa931353`） | deep R1 Reject（1B/4W）→ R2 Reject（1B/3S）→ R2′ | 实际 7 commits / 12 files / +286 −20（`git diff --shortstat 9c90eda7^..fa931353`） |
 | M68.4 镜像构建去重与发布构建复用 | — | ⬜ 待开始（阻塞：需发布派发取证） | — | — | 计划 3-4 commits / 3-5 files / 150-300 行 |
 | M68.5 发布安全输出采集时点 | — | ✅ 已闭环 | 2 commits（见执行记录） | deep R1 Pass（1W 已修） | 实际 2 commits / 5 files / 123 行新增 |
 
@@ -133,10 +133,10 @@
 
 #### M68.3 执行记录（2026-11-26 闭环，2026-11-27 取证）
 
-- **替代方案（用户裁定「没有 release 计划，改用别的方案验证」）**：新增 `apps/platform/docker/sandbox-smoke.sh`（自包含入口 / skills / 非 root / 工具链姿态 / 无 `/app/node_modules`）+ `image-smoke.yml`（dispatch + 每周，原生双架构 × 双镜像，只拉取与断言）。
-- **证据**：dispatch run `45874403657` 四组合全绿（arm64 原生 runner 真实执行），日志含 `PASS：…sandbox(-full):latest`、`版本：1.2.0`、`skills doctor 0 warning/0 error`、工具链 slim 全缺 / full 齐全；本地双向负例（slim 按 full 期望、full 按 slim 期望）均在工具链断言处失败（灵敏度）。
-- **派生修复**：派发首跑发现 workflow 两处缺陷——`SMOKE_IMAGE` 未注入（脚本读不到镜像）、`script | tee` 在无 `pipefail` 时吞掉退出码（四个 job 报 success 但日志 FAIL），已修（commit `dceeda02`）并复跑。
-- **残余**：断言覆盖「已发布镜像可用」，不覆盖构建产物内容差异（由 `docker.yml` 构建期自检 + 平台镜像冒烟承担）；未引入 QEMU / 未改镜像架构。
+- **替代方案（用户裁定「没有 release 计划，改用别的方案验证」）**：新增 `apps/platform/docker/sandbox-smoke.sh`（自包含入口 / skills / 非 root / 工具链姿态 / 架构 / 无 workspace 依赖树）+ `image-smoke.yml`（dispatch + 每周，原生双架构 × 双镜像，只拉取与断言）。**AC1 口径据此改为「周检 + dispatch」**：发布轮不再自动验证沙箱镜像；默认只验 `latest`，`platform-x.y.z` 需 `workflow_dispatch -f tag=platform-x.y.z` 人工指定；GHCR 需显式 `repo_prefix=ghcr.io/dependfix`（登录已支持，CI 未实证）。
+- **证据**：dispatch run `45874403657` 四组合全绿（arm64 原生 runner 真实执行），日志含 `PASS：…sandbox(-full):latest`、`版本：1.2.0`、`skills doctor` 无异常、工具链 slim 全缺 / full 齐全；本地双向负例（slim 按 full 期望、full 按 slim 期望）均在工具链断言失败，架构负例（amd64 镜像按 arm64 期望）在架构断言失败。
+- **派生修复**：派发首跑发现 `SMOKE_IMAGE` 未注入与 `script | tee` 无 pipefail 吞退出码（四 job 报 success 但日志 FAIL），已修（`dceeda02`）；R2 复审又收口 6 处沙箱入口 / fix 放行 stale 表述（`73bc112b`）、GHCR 发布名与失败注解位置（`167da76b`）、脚本架构与失败区分断言（`fa931353`）。
+- **残余**：① 发布轮不自动验证沙箱镜像（替代方案的等价性损失）；② 默认只验 `latest`，周检窗口 ≤ 7 天；③ GHCR 私有包用 `GITHUB_TOKEN` 登录未在 CI 实证；④ 断言覆盖「已发布镜像可用」，不覆盖内容同源（由 M68.4 的 digest 回读承担）。文件数 12 超 10 文件阈值的原因：stale 清扫跨 6 篇文档（zh / en 镜像）+ 脚本 / workflow / 记录，属同一安全姿态口径收口，不再拆分。
 
 ### M68.3 沙箱镜像双架构自包含冒烟与安全姿态（P2 🚀📚）
 

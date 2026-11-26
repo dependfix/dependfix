@@ -1,0 +1,77 @@
+name: Runtime Surface Weekly
+
+# 运行面漏洞周检：拉取已发布平台镜像，检查 Node 运行时与 Alpine apk 是否落后于公开安全数据源。
+# 口径见 docs/design/governance/runtime-surface-weekly-scan.md。
+# - 只报告 / 失败，不自动升级、不自动开 PR（豁免与基座抬升由人工确认）；
+# - 数据源不可达 / 解析失败 → 脚本 exit 2 → job 失败（fail-closed，不得当作 PASS）；
+# - 命中 findings → exit 1 → job 失败，Job Summary 列出包 / 版本 / 数据源。
+
+on:
+  schedule:
+    # 每周一 UTC 01:00（北京时间 09:00）——Node / Alpine 安全公告按周节奏，周检足够
+    - cron: "0 1 * * 1"
+  workflow_dispatch:
+    inputs:
+      image:
+        description: "被测镜像 ref（默认 caomeiyouren/dependfix:latest）"
+        required: false
+        default: "caomeiyouren/dependfix:latest"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: runtime-surface-weekly
+  cancel-in-progress: false
+
+jobs:
+  scan:
+    name: Runtime surface check
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      IMAGE: ${{ inputs.image || 'caomeiyouren/dependfix:latest' }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: lts/*
+      - name: Validate image ref
+        run: |
+          set -euo pipefail
+          # dispatch 可传任意 ref，但采集面会在 runner 上以 sh -c 执行容器内命令：
+          # 只允许 dependfix 的发布形态镜像名，避免误传第三方镜像被当作被测对象。
+          case "$IMAGE" in
+            caomeiyouren/dependfix*|ghcr.io/*/dependfix*|registry.cn-hangzhou.aliyuncs.com/*/dependfix*) ;;
+            *) echo "::error::镜像 ref 只允许 dependfix 发布形态：$IMAGE"; exit 1 ;;
+          esac
+      - name: Pull image
+        run: |
+          set -euo pipefail
+          docker pull "$IMAGE"
+          echo "### 被测镜像" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- ref: \`$IMAGE\`" >> "$GITHUB_STEP_SUMMARY"
+          # 本地构建 ref 没有 RepoDigest：给显式占位，避免模板取 index 0 报错使 job 失败
+          docker image inspect "$IMAGE" \
+            --format '- digest: `{{if .RepoDigests}}{{index .RepoDigests 0}}{{else}}（本地镜像，无 RepoDigest）{{end}}`' \
+            >> "$GITHUB_STEP_SUMMARY"
+      - name: Check runtime surface
+        run: |
+          set -euo pipefail
+          node scripts/check-runtime-surface.mjs --image "$IMAGE" --summary "$GITHUB_STEP_SUMMARY" | tee /tmp/runtime-surface.log
+      - name: Job summary (exit code)
+        if: ${{ always() }}
+        run: |
+          set -euo pipefail
+          {
+            echo ""
+            echo "### 说明"
+            echo ""
+            echo "- findings / 数据源异常一律非零退出（fail-closed），不自动升级依赖或提 PR"
+            echo "- 基座抬升：改 apps/platform/Dockerfile 的 FROM tag + digest 后按发布流程重建"
+            echo "- 豁免清单：scripts/check-runtime-surface-baseline.json（人工确认 + 到期复核）"
+          } >> "$GITHUB_STEP_SUMMARY"

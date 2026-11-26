@@ -3,7 +3,7 @@
 #
 # 目的：验证已发布的 `dependfix-sandbox` / `dependfix-sandbox-full` 镜像在**没有 workspace
 # node_modules** 的前提下仍可跑自包含 CLI，并区分 slim / full 的工具链姿态。
-# 口径见 docs/design/governance/executor-sandbox.md 与 docs/guide/deployment.md。
+# 口径见 docs/design/governance/executor-sandbox-implementation.md §7.2。
 #
 # 用法：
 #   SMOKE_IMAGE=caomeiyouren/dependfix-sandbox:latest sh apps/platform/docker/sandbox-smoke.sh
@@ -13,14 +13,15 @@
 # 环境变量：
 #   SMOKE_IMAGE      被测沙箱镜像（必填）
 #   SMOKE_TOOLCHAIN  工具链姿态：slim（默认，三项必须全缺）/ full（三项必须齐全）
-#   SMOKE_ARCH       仅用于日志标识（amd64 / arm64 / local）
+#   SMOKE_ARCH       架构标识：amd64 / arm64 时强校验镜像架构；local* 等仅用于日志
 #
 # 断言：
-#   1. `bin.mjs --version` 非空且不是 `0.0.0-unknown`（自包含版本可解析）
-#   2. skills 目录完整（SKILL.md / REFERENCES.md）且 `skills doctor` 通过
+#   1. `bin.mjs --version` 非空且不是 unknown 占位（自包含版本可解析）
+#   2. skills 目录完整（SKILL.md / REFERENCES.md）且 `skills doctor` 输出 `0 error`
 #   3. 容器以非 root 运行（uid 100）
 #   4. 工具链姿态与变体一致（逐项探测，多参数 command -v 不可靠）
-#   5. 无宿主 workspace 依赖也能跑：断言镜像内不存在 /app/node_modules
+#   5. 自包含：镜像内无 /app/node_modules 与 /app/packages（未复制 workspace 依赖树）
+# 探针都不需要网络：除取运行身份（id）外均加 `--network none` 缩小执行面。
 set -eu
 
 IMAGE="${SMOKE_IMAGE:-}"
@@ -29,6 +30,19 @@ ARCH="${SMOKE_ARCH:-local}"
 
 log() { printf '[sandbox-smoke] %s\n' "$*"; }
 fail() { printf '[sandbox-smoke] FAIL(%s): %s\n' "$ARCH" "$*" >&2; exit 1; }
+
+# docker run 的退出码 125 是「docker 自身失败」（镜像不存在 / daemon 不可用），
+# 与容器内命令失败必须区分：否则工具链探针会把环境错误当成「工具缺失」而误绿 slim 断言。
+run_in_image() {
+    set +e
+    "$@"
+    code=$?
+    set -e
+    if [ "$code" -eq 125 ]; then
+        fail "docker run 失败（daemon / 镜像不可用，exit 125）：$*"
+    fi
+    return "$code"
+}
 
 [ -n "$IMAGE" ] || fail "SMOKE_IMAGE 必填"
 case "$TOOLCHAIN" in
@@ -39,35 +53,50 @@ docker image inspect "$IMAGE" >/dev/null 2>&1 || fail "镜像不存在：$IMAGE�
 
 log "镜像 $IMAGE（arch=$ARCH / toolchain=$TOOLCHAIN）"
 
-# 1. 自包含版本
-version=$(docker run --rm --user 100:100 --entrypoint node "$IMAGE" /app/sandbox/bin.mjs --version) \
-    || fail "bin.mjs --version 执行失败"
+# 0. 架构（仅在明确给出 amd64 / arm64 时强校验；CI 用原生 runner，避免「拉错架构仍能 exec」的假通过）
+case "$ARCH" in
+    amd64|arm64)
+        actual=$(docker image inspect "$IMAGE" --format '{{.Architecture}}') \
+            || fail "无法读取镜像架构"
+        [ "$actual" = "$ARCH" ] || fail "镜像架构 ${actual} 与期望 ${ARCH} 不一致"
+        ;;
+esac
+
+# 1. 自包含版本（unknown 占位允许带前缀 / 后缀，按包含判断）
+version=$(run_in_image docker run --rm --network none --user 100:100 --entrypoint node \
+    "$IMAGE" /app/sandbox/bin.mjs --version) || fail "bin.mjs --version 执行失败"
 [ -n "$version" ] || fail "bin.mjs --version 输出为空"
 case "$version" in
-    0.0.0-unknown) fail "bin.mjs --version = 0.0.0-unknown（自包含产物未注入版本）" ;;
+    *0.0.0-unknown*) fail "bin.mjs --version 含 unknown 占位（自包含产物未注入版本）：$version" ;;
 esac
 log "版本：$version"
 
 # 2. skills 完整 + doctor
-docker run --rm --user 100:100 --entrypoint sh "$IMAGE" -c '
+run_in_image docker run --rm --network none --user 100:100 --entrypoint sh "$IMAGE" -c '
     set -eu
     [ -s /app/sandbox/skills/dependfix-remediator/SKILL.md ]
     [ -s /app/sandbox/skills/dependfix-remediator/REFERENCES.md ]
 ' || fail "skills 目录不完整（SKILL.md / REFERENCES.md 缺失）"
-doctor_out=$(DEPENDFIX_SKILLS_DIR=/app/sandbox/skills \
-    docker run --rm --user 100:100 -e DEPENDFIX_SKILLS_DIR=/app/sandbox/skills --entrypoint node \
-    "$IMAGE" /app/sandbox/bin.mjs skills doctor 2>&1) || { printf '%s\n' "$doctor_out"; fail "skills doctor 失败"; }
+doctor_out=$(run_in_image docker run --rm --network none --user 100:100 \
+    -e DEPENDFIX_SKILLS_DIR=/app/sandbox/skills --entrypoint node \
+    "$IMAGE" /app/sandbox/bin.mjs skills doctor 2>&1) || {
+    printf '%s\n' "$doctor_out"
+    fail "skills doctor 失败"
+}
+printf '%s\n' "$doctor_out" | grep -Eq '(^|[^0-9])0 error' \
+    || { printf '%s\n' "$doctor_out"; fail "skills doctor 未报告 0 error"; }
 log "skills doctor：$(printf '%s' "$doctor_out" | tail -n 1)"
 
 # 3. 非 root
-uid=$(docker run --rm --entrypoint id "$IMAGE" -u) || fail "无法读取容器 uid"
+uid=$(run_in_image docker run --rm --entrypoint id "$IMAGE" -u) || fail "无法读取容器 uid"
 [ "$uid" = "100" ] || fail "容器默认运行身份应为 uid 100，实际 ${uid}"
 
 # 4. 工具链姿态
 present=""
 absent=""
 for tool in python3 make g++; do
-    if docker run --rm --user 100:100 --entrypoint sh "$IMAGE" -c "command -v ${tool} >/dev/null 2>&1"; then
+    if run_in_image docker run --rm --network none --user 100:100 --entrypoint sh "$IMAGE" \
+        -c "command -v ${tool} >/dev/null 2>&1"; then
         present="$present $tool"
     else
         absent="$absent $tool"
@@ -81,9 +110,12 @@ else
     log "工具链：全部缺失（slim）"
 fi
 
-# 5. 自包含：镜像内不应有 workspace node_modules
-if docker run --rm --user 100:100 --entrypoint sh "$IMAGE" -c 'test -d /app/node_modules'; then
-    fail "镜像内含 /app/node_modules（说明复制了 workspace 依赖树，与自包含设计冲突）"
-fi
+# 5. 自包含：镜像内不应有 workspace 依赖树
+for path in /app/node_modules /app/packages; do
+    if run_in_image docker run --rm --network none --user 100:100 --entrypoint sh "$IMAGE" \
+        -c "test -d ${path}"; then
+        fail "镜像内含 ${path}（说明复制了 workspace 依赖树，与自包含设计冲突）"
+    fi
+done
 
 log "PASS：$IMAGE 自包含入口与工具链姿态符合预期"

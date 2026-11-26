@@ -57,18 +57,19 @@ export interface SandboxHandle {
 
 ### 7.2 镜像策略
 
-**双镜像（2026-11-14 起）**：平台镜像与沙箱镜像由同一 `apps/platform/Dockerfile` 的两个 target 产出，共享 `executor-base`（Node + pnpm 11.18.0 + git + python3/make/g++ 执行工具链）：
+**双镜像（2026-11-14 起；2026-11-26 M68.1 起平台默认 slim）**：平台镜像与沙箱镜像由同一 `apps/platform/Dockerfile` 的多个 target 产出，按工具链切分基底——`executor-base-slim`（Node + pnpm 11.18.0 + git）与 `executor-base`（+ python3/make/g++ 执行工具链）：
 
 | 镜像 | 内容 | 用途 |
 |:--|:--|:--|
-| 平台镜像（默认 target） | `.output`（Nuxt + 引擎）+ `/app/sandbox` + 控制面 | 平台自身部署；`ContainerExecutor` 在同一进程内执行 |
+| 平台镜像（默认 target，slim） | `executor-base-slim` + `.output`（Nuxt + 引擎）+ `/app/sandbox` + 控制面 | 平台自身部署；`ContainerExecutor` 在同一进程内执行。默认不含编译链 |
+| 平台镜像 full 变体 | `executor-base` + 同上 | 目标仓库原生模块需源码编译时：`--build-arg PLATFORM_VARIANT=full`，或对已发布镜像叠加 [Dockerfile.toolchain](../../../apps/platform/docker/Dockerfile.toolchain) |
 | 沙箱镜像 `sandbox`（默认，slim） | `executor-base-slim`（Node + pnpm + git）+ `/app/sandbox` | 外置 rootless daemon 内跑 `node /app/sandbox/bin.mjs`；体积最小 |
 | 沙箱镜像 `sandbox-full` | `executor-base`（+ python3 / make / g++）+ `/app/sandbox` | 目标仓库原生模块无 prebuild、需 node-gyp 源码编译时使用 |
 
 - **构建**：沙箱 target 只依赖 `cli-builder`（core → engine → cli + `build:sandbox`），不触发 Nuxt 构建；`docker.yml` 按架构分别构建两个 target 并各自合成多架构 manifest。
 - **registry 可控**：沙箱容器不继承宿主 `~/.npmrc`；`SANDBOX_NPM_REGISTRY` 注入 `pnpm_config_registry`（pnpm 11 只认该前缀）/ `npm_config_registry`（npm / yarn），HTTPS 且无内嵌凭据时自动并入出站白名单（阻断 npmjs 的网络必须设置，否则安装停在 TCP 连接）。超时结果回传容器输出末尾 + `logs_json`，避免"结果缺失"。
 - **发布名**：slim 为 `…/dependfix-sandbox`、full 为 `…/dependfix-sandbox-full`（docker.io / ghcr.io / ACR 三处同名）；tag 与平台镜像一致（`latest`、`YYYY-MM-DD`、`sha-*`、发布时 `platform-x.y.z`），沙箱镜像**额外发裸版本 tag**（如 `1.0.0`）供默认解析使用。构建期自检 `--version` 非 unknown + skills doctor。
-- **体积取舍（2026-11-14 实测）**：平台镜像 815MB；slim 沙箱约 320MB（Node + git + pnpm + bundle），full 约 744MB（多出编译工具链）。默认 slim；需要源码编译回退的仓库改用 full（仓库级 `sandboxImage` 或 `SANDBOX_IMAGE_REPO` 指向 `-full`）。
+- **体积取舍（2026-11-14 实测；平台镜像当前 slim 读数为 408MB，见 [platform-image-variants.md](./platform-image-variants.md#_5-实测读数-2026-11-26-linux-amd64-本机-docker-29-7-2)）**：平台镜像 815MB（历史值）；slim 沙箱约 320MB（Node + git + pnpm + bundle），full 约 744MB（多出编译工具链）。默认 slim；需要源码编译回退的仓库改用 full（仓库级 `sandboxImage` 或 `SANDBOX_IMAGE_REPO` 指向 `-full`）。
 - **默认解析（三源）**：`Repository.sandboxImage` → `SANDBOX_IMAGE` → `SANDBOX_IMAGE_REPO` + `SANDBOX_IMAGE_TAG`；未显式指定时按「**平台镜像同 registry**（由 `DEPENDFIX_IMAGE` 推导 `dependfix-sandbox`）→ Docker Hub → ghcr → ACR（ACR 置末以减少其负荷）」生成候选，执行前逐个 inspect / pull（`SANDBOX_IMAGE_PULL_TIMEOUT_MS`，默认 300s/个），首个可用即用。平台走 ACR 时沙箱自动走 ACR，避免跨网慢速；全部失败才报 `sandbox_image_unavailable`（消息列出已尝试镜像）。不再把 `DEPENDFIX_IMAGE` 本身当沙箱镜像。
 - **约束**：镜像必须包含与平台版本匹配的 `/app/sandbox/bin.mjs` 与 skills；发布 tag 同源，仓库级自定义镜像由配置者承担版本同源责任（建议 digest 或固定发布 tag）。镜像缺失 / 不可拉取以 `sandbox_image_unavailable` 判 `failed`（runtime / deterministic）。
 

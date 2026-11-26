@@ -79,6 +79,26 @@ docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
 > SMOKE_IMAGE=caomeiyouren/dependfix:latest sh apps/platform/docker/smoke-test.sh
 > ```
 
+### Image variants: slim by default, full toolchain on demand
+
+Since 2026-11-26 the published platform image is the **slim** variant: it ships `git` (needed for clone) but no `python3` / `make` / `g++` toolchain. Native modules use prebuilt binaries first; only when **no prebuilt exists and node-gyp must compile from source** is the toolchain needed. Then pick one:
+
+| Option | Command | When |
+|:--|:--|:--|
+| Overlay layer (recommended, no rebuild) | see below | Official image already pulled; adds one apk layer |
+| Full local build | `PLATFORM_VARIANT=full docker compose -f docker-compose.yml -f docker-compose.build.yml build` | Building the image yourself |
+| Repo-level sandbox image | point `Repository.sandboxImage` / `SANDBOX_IMAGE_REPO` at `dependfix-sandbox-full` | Sandbox executor only; no in-container compile needed |
+
+```bash
+# Overlay the full toolchain: the tag must equal your DEPENDFIX_IMAGE (sandbox image resolution derives from it)
+docker build -f apps/platform/docker/Dockerfile.toolchain \
+  --build-arg BASE_IMAGE=caomeiyouren/dependfix:latest \
+  -t caomeiyouren/dependfix:latest .
+DEPENDFIX_IMAGE=caomeiyouren/dependfix:latest docker compose up -d
+```
+
+Inspection (the `org.opencontainers.image.dependfix.toolchain` label and the in-container `dependfix-check-toolchain.mjs --variant=<slim|full>` assertion), failure diagnostics and **rollback** (`docker compose pull` back to the official slim image; the compose service contract is unchanged) are in the [platform image toolchain variant design](../../../design/governance/platform-image-variants.md).
+
 ## Environment variables
 
 Compose reads `apps/platform/.env` and injects variables into the container. Core settings:
@@ -465,6 +485,7 @@ See the [release guide](../../../guide/release.md) "Auto-release enablement chec
 | Startup log `数据库为空且未开启迁移` | Empty database with migrations explicitly disabled. Set `DATABASE_MIGRATIONS_RUN=true`, or run `./docker/init-db.sh` (from source: `pnpm db:init`) |
 | Page / API `Server Error`, log `no such column: <table>.<column>`, `/api/health` shows `schema=drift` | Existing database is missing columns (pending migrations not applied). Follow the [schema drift recovery checklist](#schema-drift-recovery-checklist-no-such-column): stop writes → `./docker/init-db.sh` → verify; do not hand-add one column |
 | Container restarts / permission errors | `PUID` / `PGID` mismatch with volume ownership; set them to the host user uid:gid, or let the entrypoint chown (default root start path) |
+| Install / verify log `gyp ERR! find Python` (verify stage) or `native module build failed` (install stage) | The default slim image ships no native build toolchain and the module has no usable prebuilt. Switch to the full variant ([image variants](#image-variants-slim-by-default-full-toolchain-on-demand)) or to a version with prebuilt binaries |
 | Cannot register the first user | `REGISTRATION_DISABLED=true` and the database has no user; register the first admin while registration is open |
 | Credential save fails with a key error | `NUXT_ENCRYPTION_KEY` is not set (32 random bytes) |
 | Login callback 404 / redirect issues | `NUXT_PUBLIC_BETTER_AUTH_URL` differs from the public proxy URL, or the proxy does not forward `Host` |

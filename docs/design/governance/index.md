@@ -52,6 +52,7 @@
 | [平台页面体量治理与组件 / 组合式分层设计](./platform-page-decomposition.md) | 专项设计（M60：三列表页 max-lines 治理 + 展示块 / 组合式 / 纯函数分层口径） | 🔶 进行中（2026-11-15，M60.1 落地） |
 | [平台对外 API 与远程 MCP 设计](./platform-public-api.md) | 专项设计（日志可消费化 + 只读观测接口 `/api/v1` + `@dependfix/mcp` remote 后端；写能力分两期后置） | ✅ 只读面已实施（2026-11-20；期 3 / 4 后置） |
 | [pnpm store 双份并存与无界增长治理](./pnpm-store-hygiene.md) | 专项治理（per-filesystem store 成因 / 遗留判定 / 清理 runbook / 入口检出告警） | ✅ 已落地（2026-11-24，入口检出告警 + zh / en-US 文档更正；一次性清理属运维动作） |
+| [平台镜像工具链变体（slim 默认 / full 回退）](./platform-image-variants.md) | 专项设计（M68.1：运行镜像去编译链 + full 变体可获取 / 可判读 + 构建期与冒烟双向断言） | ✅ 已落地（2026-11-26） |
 
 ## 使用约定
 

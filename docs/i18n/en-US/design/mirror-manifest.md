@@ -121,6 +121,7 @@
 | `docs/design/governance/override-protect-policy.md` | 未重译（结构映射口径见文档规范 §6；全量镜像属 1.0 后评估项） |
 | `docs/design/governance/platform-ai-integration-governance.md` | 部分镜像：§8-§13 已译入 en `platform-ai-integration.md`（见 §English-side sections）；其余未译 |
 | `docs/design/governance/platform-auth-users.md` | 未重译（结构映射口径见文档规范 §6；全量镜像属 1.0 后评估项） |
+| `docs/design/governance/platform-image-variants.md` | 未重译（结构映射口径见文档规范 §6；全量镜像属 1.0 后评估项） |
 | `docs/design/governance/platform-logging.md` | 未重译（结构映射口径见文档规范 §6；全量镜像属 1.0 后评估项） |
 | `docs/design/governance/platform-notification.md` | 未重译（结构映射口径见文档规范 §6；全量镜像属 1.0 后评估项） |
 | `docs/design/governance/platform-observability.md` | 未重译（结构映射口径见文档规范 §6；全量镜像属 1.0 后评估项） |

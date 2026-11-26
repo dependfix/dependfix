@@ -81,6 +81,26 @@ docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
 > SMOKE_IMAGE=caomeiyouren/dependfix:latest sh apps/platform/docker/smoke-test.sh
 > ```
 
+### 镜像变体：默认 slim 与 full 工具链
+
+自 2026-11-26 起，**发布平台镜像为 slim 变体**：只带 `git`（clone 必需），不再内置 `python3` / `make` / `g++`。目标仓库的原生模块优先用 prebuilt；**没有 prebuilt、必须 node-gyp 源码编译**时才需要编译链，此时按以下任一方式取得 full 变体：
+
+| 方式 | 命令 | 适用 |
+|:--|:--|:--|
+| 叠加层（推荐，免重建） | 见下 | 已拉取官方镜像，只补一个 apk 层 |
+| 本地全量构建 full | `PLATFORM_VARIANT=full docker compose -f docker-compose.yml -f docker-compose.build.yml build` | 本机自建镜像 |
+| 仓库级沙箱镜像 | `Repository.sandboxImage` / `SANDBOX_IMAGE_REPO` 指向 `dependfix-sandbox-full` | 只用沙箱执行器、平台容器执行器不需要编译 |
+
+```bash
+# 叠加 full 工具链：tag 必须与部署用的 DEPENDFIX_IMAGE 一致（沙箱镜像按它推导同 registry 仓库）
+docker build -f apps/platform/docker/Dockerfile.toolchain \
+  --build-arg BASE_IMAGE=caomeiyouren/dependfix:latest \
+  -t caomeiyouren/dependfix:latest .
+DEPENDFIX_IMAGE=caomeiyouren/dependfix:latest docker compose up -d
+```
+
+判读（`docker inspect` 的 `org.opencontainers.image.dependfix.toolchain` label、容器内 `dependfix-check-toolchain.mjs --variant=<slim|full>` 断言）、失败诊断与**回滚**（`docker compose pull` 拉回官方 slim 镜像，compose 服务契约不变）见[平台镜像工具链变体设计](../design/governance/platform-image-variants.md)。
+
 ## 环境变量
 
 Compose 从 `apps/platform/.env` 读取变量并注入容器。核心项：
@@ -468,6 +488,7 @@ docker compose up -d
 | 启动日志 `数据库为空且未开启迁移` | 空库 + 迁移被显式关闭。设 `DATABASE_MIGRATIONS_RUN=true`，或执行 `./docker/init-db.sh`（源码环境 `pnpm db:init`） |
 | 页面 / 接口 `Server Error`，日志 `no such column: <表>.<列>`，`/api/health` 的 `schema=drift` | 存量库缺列（pending migration 未执行）。按「[schema 漂移恢复清单](#schema-漂移恢复清单-no-such-column)」停写 → `./docker/init-db.sh` → 复核；不要手工只补一列 |
 | 容器反复重启 / 权限错误 | `PUID` / `PGID` 与数据卷归属不匹配；设为宿主用户 uid:gid，或让入口自动 chown（默认 root 启动路径） |
+| 安装 / 验证日志 `gyp ERR! find Python`（验证阶段）或 `native module build failed`（安装阶段） | 默认 slim 镜像不含原生编译链，且该模块无可用 prebuilt。改用 full 变体（[镜像变体](#镜像变体-默认-slim-与-full-工具链)），或改用带 prebuilt 的版本 |
 | 无法注册首个用户 | `REGISTRATION_DISABLED=true` 且库中无用户；开放注册期完成首个管理员注册后再关闭 |
 | 凭据保存报密钥错误 | 未设置 `NUXT_ENCRYPTION_KEY`（32 字节随机值） |
 | 登录回调 404 / 重定向异常 | `NUXT_PUBLIC_BETTER_AUTH_URL` 与反代对外地址不一致，或反代未透传 `Host` |

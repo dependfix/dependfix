@@ -45,7 +45,7 @@
 |:--|:--|:--|:--|:--|:--|
 | M68.1 独立 installer 容器与 runtime 工具链移出 | — | ✅ 已闭环 | 4 commits（`C1`-`C4`，见执行记录） | 分区 A deep R1 Pass（0B/5W）→ R2 Pass；分区 B standard R1 Reject（1B/8W）→ R2 Pass | 实际 4 commits / 18 files / 约 520 行（含新增 497 行文档与脚本） |
 | M68.2 运行面漏洞检测最小周检 | 2（M68.2.1-M68.2.2） | ✅ 已闭环 | 5 commits（`C5`-`C9`，见执行记录） | deep R1 Reject（2B/8W）→ R2 Pass（2W 已修） | 实际 5 commits / 10 files / 1,158 行新增（超计划，原因见执行记录） |
-| M68.3 沙箱镜像双架构自包含冒烟与安全姿态 | — | ⬜ 待开始（阻塞：需发布派发取证） | — | — | 计划 4-6 commits / 6-10 files / 300-550 行 |
+| M68.3 沙箱镜像双架构自包含冒烟与安全姿态 | — | ✅ 已闭环（替代方案：拉取式双架构冒烟） | 3 commits（见执行记录） | 待审计 | 实际 3 commits / 5 files / 约 215 行 |
 | M68.4 镜像构建去重与发布构建复用 | — | ⬜ 待开始（阻塞：需发布派发取证） | — | — | 计划 3-4 commits / 3-5 files / 150-300 行 |
 | M68.5 发布安全输出采集时点 | — | ✅ 已闭环 | 2 commits（见执行记录） | deep R1 Pass（1W 已修） | 实际 2 commits / 5 files / 123 行新增 |
 
@@ -125,13 +125,18 @@
 - **残余**：secdb 无 severity；仅检查发布的 `latest` ref（full / sandbox 当前共用基底，变体分叉时需加矩阵）；周检节奏下 0-7 天暴露窗口。
 - **首跑 finding 处理（2026-11-26，用户授权）**：基座 digest 无可抬升值（上游该 tag 未重建）→ 改用构建期 `apk upgrade`，本地重建后 `zlib 1.4-r0`、周检 PASS；镜像随 `b54f9be8` 重新发布后，对 `latest` 手动 dispatch 周检（run `45869838313`）PASS——修复已进入已发布镜像（口径见 [platform-image-variants.md §3.1](../design/governance/platform-image-variants.md)）。
 
-#### M68.3 / M68.4 阻塞说明（2026-11-26 记录）
+#### M68.3 / M68.4 阻塞根因与处置（2026-11-26 记录，2026-11-27 更新）
 
-- **阻塞点**：两者的验收证据都来自「带 `platform_version` 的发布派发」——M68.3 的 AC1 需要 `post-release-smoke` 的
-  amd64 + arm64 × `sandbox` / `sandbox-full` 矩阵结果；M68.4 的 AC3 需要 cold / warm 构建读数与 4 tag × 3 registry 回读矩阵。
-  当前 `post-release-smoke` 仅在 `inputs.platform_version != ''` 时运行，自行 dispatch 会产出 `platform-x.y.z` 发布 tag，
-  等同发布，必须由项目所有者授权发布窗口后执行。
-- **解除条件**：用户授权发布窗口（或明确只做冒烟、不产出发布 tag 的替代派发方案）后按 M68.3 → M68.4 顺序实现并取证。
+- **根因**：双架构冒烟的既有唯一入口 `docker.yml#post-release-smoke` 同时绑定三件事——① `needs: merge`（发布构造成果）、② `if: inputs.platform_version != ''`（只认发布派发）、③ 镜像 ref 取 `platform-${platform_version}`（发布 tag）。三者使「验证已发布镜像」与「发布」耦合：没有发布计划就没有 arm 证据。arm runner 可用性不是瓶颈（arm64 构建持续成功）。
+- **M68.3 处置（✅ 已闭环）**：改用独立 `image-smoke` workflow（拉取式冒烟，dispatch + 每周；只拉已发布镜像并断言，不构建不发布），原生 amd64 / arm64 × `sandbox` / `sandbox-full` 四组合实测通过（run `45874403657`）。派发首跑还暴露 workflow 自身两处缺陷（`SMOKE_IMAGE` 未注入、`script | tee` 吞掉退出码），已修复并复跑四绿。
+- **M68.4 处置（待用户决策）**：AC1 / AC2 可在 push 腿取证（每镜像每架构构建次数、三 registry 同 digest 回读、skip 决策单测）；AC3 的「4 tag × 3 registry」中 `platform-x.y.z` 是发布轮专有 tag，非发布轮只能回读 latest / 日期 / sha 三类。需批准把 AC3 调整为「非发布轮回读本轮全部产出 tag，发布 tag 由下一次发布回填」后再实施。
+
+#### M68.3 执行记录（2026-11-26 闭环，2026-11-27 取证）
+
+- **替代方案（用户裁定「没有 release 计划，改用别的方案验证」）**：新增 `apps/platform/docker/sandbox-smoke.sh`（自包含入口 / skills / 非 root / 工具链姿态 / 无 `/app/node_modules`）+ `image-smoke.yml`（dispatch + 每周，原生双架构 × 双镜像，只拉取与断言）。
+- **证据**：dispatch run `45874403657` 四组合全绿（arm64 原生 runner 真实执行），日志含 `PASS：…sandbox(-full):latest`、`版本：1.2.0`、`skills doctor 0 warning/0 error`、工具链 slim 全缺 / full 齐全；本地双向负例（slim 按 full 期望、full 按 slim 期望）均在工具链断言处失败（灵敏度）。
+- **派生修复**：派发首跑发现 workflow 两处缺陷——`SMOKE_IMAGE` 未注入（脚本读不到镜像）、`script | tee` 在无 `pipefail` 时吞掉退出码（四个 job 报 success 但日志 FAIL），已修（commit `dceeda02`）并复跑。
+- **残余**：断言覆盖「已发布镜像可用」，不覆盖构建产物内容差异（由 `docker.yml` 构建期自检 + 平台镜像冒烟承担）；未引入 QEMU / 未改镜像架构。
 
 ### M68.3 沙箱镜像双架构自包含冒烟与安全姿态（P2 🚀📚）
 

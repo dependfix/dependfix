@@ -1,0 +1,109 @@
+name: Sandbox Image Smoke
+
+# 沙箱镜像双架构自包含冒烟（发布无关）：直接拉取已发布镜像，在原生 amd64 / arm64 runner 上验证
+# `dependfix-sandbox`（slim）与 `dependfix-sandbox-full` 的自包含入口、skills 与工具链姿态。
+#
+# 为什么独立成 workflow（而不是挂在 docker.yml 的 post-release-smoke）：
+# - `post-release-smoke` 只在带 `platform_version` 的发布派发时运行（会产出发布 tag），无发布计划时
+#   拿不到 arm 证据；本 workflow 只做「拉取 + 断言」，不构建、不发布、不需要发布窗口。
+# - 可在任意时刻 dispatch 复跑，也可按周巡检已发布镜像是否仍可用。
+#
+# 口径见 docs/design/governance/executor-sandbox.md 与 docs/design/governance/platform-image-variants.md。
+
+on:
+  schedule:
+    # 每周一 UTC 02:00（北京时间 10:00）：与运行面周检错开，验证已发布沙箱镜像仍可启动
+    - cron: "0 2 * * 1"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "被测镜像 tag（默认 latest）"
+        required: false
+        default: "latest"
+      repo_prefix:
+        description: "镜像仓库前缀（默认 Docker Hub）"
+        required: false
+        default: "caomeiyouren"
+
+permissions:
+  contents: read
+  packages: read
+
+concurrency:
+  group: sandbox-image-smoke-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  smoke:
+    name: Sandbox smoke (${{ matrix.arch }} / ${{ matrix.variant }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+            variant: sandbox
+            toolchain: slim
+          - arch: amd64
+            runner: ubuntu-latest
+            variant: sandbox-full
+            toolchain: full
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            variant: sandbox
+            toolchain: slim
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            variant: sandbox-full
+            toolchain: full
+    env:
+      TAG: ${{ inputs.tag || 'latest' }}
+      REPO_PREFIX: ${{ inputs.repo_prefix || 'caomeiyouren' }}
+      IMAGE: ${{ (inputs.repo_prefix || 'caomeiyouren') }}/dependfix-${{ matrix.variant }}:${{ inputs.tag || 'latest' }}
+      SMOKE_TOOLCHAIN: ${{ matrix.toolchain }}
+      SMOKE_ARCH: ${{ matrix.arch }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Validate image ref
+        run: |
+          set -euo pipefail
+          case "$IMAGE" in
+            caomeiyouren/dependfix-*|ghcr.io/caomeiyouren/dependfix-*|registry.cn-hangzhou.aliyuncs.com/caomeiyouren/dependfix-*) ;;
+            *) echo "::error::镜像 ref 只允许 dependfix 发布形态：$IMAGE"; exit 1 ;;
+          esac
+      - name: Pull image
+        run: |
+          set -euo pipefail
+          docker pull "$IMAGE"
+          {
+            echo "### 被测镜像（${{ matrix.arch }} / ${{ matrix.variant }}）"
+            echo ""
+            echo "- ref: \`$IMAGE\`"
+            docker image inspect "$IMAGE" \
+              --format '- digest: `{{if .RepoDigests}}{{index .RepoDigests 0}}{{else}}（本地镜像，无 RepoDigest）{{end}}`'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Run sandbox self-contained smoke
+        id: smoke
+        run: sh apps/platform/docker/sandbox-smoke.sh 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Write summary
+        if: ${{ always() }}
+        env:
+          ARCH: ${{ matrix.arch }}
+          VARIANT: ${{ matrix.variant }}
+          SMOKE_OUTCOME: ${{ steps.smoke.outcome }}
+        run: |
+          set -euo pipefail
+          {
+            echo ""
+            echo "### 结论（$ARCH / $VARIANT）"
+            echo ""
+            if [ "${SMOKE_OUTCOME:-}" = "success" ]; then
+              echo "- **通过**：自包含入口 / skills / 非 root / 工具链姿态符合预期"
+            else
+              echo "- **失败**：见本 job 日志；失败即视为该架构该变体未证实，不得当作通过"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

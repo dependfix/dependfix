@@ -649,6 +649,51 @@ jobs:
             ${TAGS_SANDBOX_DOCKERHUB} ${TAGS_SANDBOX_GHCR} ${TAGS_SANDBOX_ACR} \
             ${TAGS_SANDBOX_FULL_DOCKERHUB} ${TAGS_SANDBOX_FULL_GHCR} ${TAGS_SANDBOX_FULL_ACR}; do verify "$t"; done
 
+      # 跨 registry digest 一致性（M68.4）：一次构建推三 registry 后，同一镜像同一 tag 在三个 registry
+      # 必须引用同一组 per-arch manifest digest；不一致说明「复用同一构建产物」没有真正成立。
+      # 只读 registry，不构建、不发布，任何时间可复核（release-free）。
+      - name: Verify cross-registry digest equality
+        env:
+          TAGS_DOCKERHUB: ${{ steps.metadata-dockerhub.outputs.tags }}
+          TAGS_GHCR: ${{ steps.metadata-ghcr.outputs.tags }}
+          TAGS_ACR: ${{ steps.metadata-acr.outputs.tags }}
+          TAGS_SANDBOX_DOCKERHUB: ${{ steps.metadata-sandbox-dockerhub.outputs.tags }}
+          TAGS_SANDBOX_GHCR: ${{ steps.metadata-sandbox-ghcr.outputs.tags }}
+          TAGS_SANDBOX_ACR: ${{ steps.metadata-sandbox-acr.outputs.tags }}
+          TAGS_SANDBOX_FULL_DOCKERHUB: ${{ steps.metadata-sandbox-full-dockerhub.outputs.tags }}
+          TAGS_SANDBOX_FULL_GHCR: ${{ steps.metadata-sandbox-full-ghcr.outputs.tags }}
+          TAGS_SANDBOX_FULL_ACR: ${{ steps.metadata-sandbox-full-acr.outputs.tags }}
+        run: |
+          set -euo pipefail
+          signature() {
+            docker buildx imagetools inspect "$1" --raw \
+              | jq -r '.manifests[] | select(.platform.os == "linux") | "\(.platform.architecture)=\(.digest)"' \
+              | sort | tr '\n' ' '
+          }
+          compare() {
+            label="$1"; dh_repo="$2"; gh_repo="$3"; acr_repo="$4"; shift 4
+            echo "### ${label}" >> "$GITHUB_STEP_SUMMARY"
+            for tag in "$@"; do
+              [ -z "$tag" ] && continue
+              dh=$(signature "${dh_repo}:${tag}")
+              gh=$(signature "${gh_repo}:${tag}")
+              acr=$(signature "${acr_repo}:${tag}")
+              printf '%s\n' "- \`${tag}\` → \`${dh}\`" >> "$GITHUB_STEP_SUMMARY"
+              echo "inspect ${label} ${tag} → ${dh}"
+              if [ "$dh" != "$gh" ] || [ "$dh" != "$acr" ]; then
+                echo "::error::${label} tag ${tag} 跨 registry digest 不一致（dh=${dh} gh=${gh} acr=${acr}）"
+                exit 1
+              fi
+            done
+          }
+          tag_names() { printf '%s\n' "$1" | sed 's/^.*://' | tr '\n' ' '; }
+          compare "platform" caomeiyouren/dependfix ghcr.io/dependfix/dependfix \
+            registry.cn-hangzhou.aliyuncs.com/caomeiyouren/dependfix $(tag_names "$TAGS_DOCKERHUB")
+          compare "sandbox" caomeiyouren/dependfix-sandbox ghcr.io/dependfix/dependfix-sandbox \
+            registry.cn-hangzhou.aliyuncs.com/caomeiyouren/dependfix-sandbox $(tag_names "$TAGS_SANDBOX_DOCKERHUB")
+          compare "sandbox-full" caomeiyouren/dependfix-sandbox-full ghcr.io/dependfix/dependfix-sandbox-full \
+            registry.cn-hangzhou.aliyuncs.com/caomeiyouren/dependfix-sandbox-full $(tag_names "$TAGS_SANDBOX_FULL_DOCKERHUB")
+
       - name: Docker Hub README & description sync
         uses: meeDamian/sync-readme@v1.0.6
         with:

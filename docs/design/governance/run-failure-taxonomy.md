@@ -258,6 +258,13 @@
 - **外层超时输出回传**：`RuntimeAdapter.run` 支持 `onOutput` 增量回调；`SandboxExecutor` 保留输出尾部，外层 `withTimeout`（adapter 卡死）触发时 `execution_timeout` 消息带 `容器输出末尾：…`。
 - **UI**：运行详情失败码与阶段按既有 `failure_code/stage/kind` 展示：`registry_unreachable` 落 install/transient（可重试）；`sandbox_probe_unavailable` 落 runtime/deterministic（镜像版本不匹配，不可重试，需换镜像）。
 
+### 5.14 孤儿运行无执行日志证据（2026-11-27）
+
+- **问题**：`orphan_run` 只记录「超过阈值未到终态」，无法区分「跑超时」（`execution_timeout` 会带回日志）与「执行进程未走完收尾即被终止」。后者零日志且 `oom_killed` 可能为 null（宿主级 OOM 不写 cgroup `oom_kill`），运维只能靠猜。
+- **落库**：stale cleanup 判 `running` → `orphan_run` 前读取 `logsJson`；一条日志都没有且执行器非 `github-action` 时，`errorJson` 写 **`noExecutionLogs: true`**，message 追加「（无执行日志）」。`pending` 孤儿（未开始执行）与 `github-action`（不采集日志）恒写 `false`，不据此推断。`logsJson` 为 `'[]'` / 非法 JSON 与 null 同按无日志处理。
+- **展示**：运行详情弹窗与扫描历史以 **落库证据** 为唯一判据（`errorJson.noExecutionLogs === true` + 空日志；旧行无该字段不提示），命中时显示 `runs.orphanNoLogsHint`：未设容器内存上限时 cgroup 不记录 `oom_kill`，需结合宿主机 `journalctl -k` 与峰值内存排查。判定口径见 `app/utils/run-view.ts#isOrphanRunWithoutLogs`。
+- **边界**：`logsJson` 只在执行器收尾落库，零日志只能证明「未走完收尾即被终止」，**不能定位被杀时点**（启动阶段与运行中段无法区分）；本证据不提供最后一条日志时间（需运行期增量日志，未在本批范围）。
+
 ## 6. 验收标准（草案 → 实现结果）
 
 - [x] `classifyRunFailure` 纯函数 + 单测覆盖全部已知 code / category（含 `unknown` 兜底）——`server/services/run-failure-classify.ts` + 全映射表逐码用例。

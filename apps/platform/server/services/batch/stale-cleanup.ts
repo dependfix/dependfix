@@ -8,6 +8,7 @@ import { persistBatchFailedIfRunning } from './batch-writeback'
 import { ScanRun } from '#server/entities/scan-run'
 import { BatchRun } from '#server/entities/batch-run'
 import { ensureDatabaseInitialized } from '#server/database'
+import { parseLogEntries } from '#server/utils/memory-logger'
 
 /**
  * 孤儿运行兜底清理：
@@ -215,10 +216,19 @@ export const cleanupStaleRuns = async (options: CleanupOptions = {}): Promise<Cl
             }
         }
 
+        // 进程被杀判定：running 阶段结束却一条日志都没有 → 执行进程未走完收尾即被终止
+        // （SIGKILL / 容器被杀 / 宿主级 OOM）；日志只在执行器收尾落库，故无法区分「启动阶段被杀」
+        // 与「运行中段被杀」——只记录事实，不推断时点。超时路径会带回执行日志，二者可区分。
+        // pending 孤儿从未开始执行、github-action 执行器不采集日志，两者都不据此推断。
+        const noExecutionLogs = run.status === 'running'
+            && run.executorKind !== 'github-action'
+            && parseLogEntries(run.logsJson).length === 0
         const timeoutMs = run.status === 'running' ? scanRunTimeoutMs + runningGraceMs : pendingOrphanAgeMs
         const orphanFailure = {
             code: 'orphan_run',
-            message: `超过 ${describeTimeoutMinutes(timeoutMs)} 分钟未到达终态，已被 stale cleanup 自动标记为失败`,
+            message: `超过 ${describeTimeoutMinutes(timeoutMs)} 分钟未到达终态，已被 stale cleanup 自动标记为失败${noExecutionLogs ? '（无执行日志）' : ''}`,
+            /** 结构化证据：true = running 孤儿未留下任何日志即终止（不是跑超时） */
+            noExecutionLogs,
         }
         // 先按终态写回内存实体（供失败分类派生），再条件更新——条件更新避免覆盖并发完成的 run
         run.status = 'failed'

@@ -88,6 +88,8 @@ const createScanRun = async (params: {
     startedAt?: Date | null
     finishedAt?: Date | null
     errorJson?: string | null
+    logsJson?: string | null
+    executorKind?: string
     executionTimeoutMs?: number | null
 }): Promise<ScanRun> => {
     const ds = await ensureDatabaseInitialized()
@@ -96,12 +98,13 @@ const createScanRun = async (params: {
         repositoryId: params.repositoryId,
         mode: 'report-only',
         severityThreshold: 'high',
-        executorKind: 'container',
+        executorKind: params.executorKind ?? 'container',
         batchRunId: params.batchRunId,
         status: params.status,
         startedAt: params.startedAt ?? null,
         finishedAt: params.finishedAt ?? null,
         errorJson: params.errorJson ?? null,
+        logsJson: params.logsJson ?? null,
         executionTimeoutMs: params.executionTimeoutMs ?? null,
     }))
 }
@@ -274,6 +277,112 @@ describe('cleanupStaleRuns', () => {
         expect(reloaded?.failureCode).toBe('orphan_run')
         expect(reloaded?.failureStage).toBe('runtime')
         expect(reloaded?.failureKind).toBe('transient')
+    })
+
+    it('stale running ScanRun 无执行日志：errorJson 记录 noExecutionLogs 证据 + message 追加说明', async () => {
+        const ds = await ensureDatabaseInitialized()
+        const organizationId = await resolveOrganizationId(ds)
+        await createRepo('repo-orphan-no-logs')
+        const batch = await createBatchRun(organizationId)
+        const scan = await createScanRun({
+            repositoryId: 'repo-orphan-no-logs',
+            batchRunId: batch.id,
+            status: 'running',
+            startedAt: new Date(),
+        })
+        await backdateScanRun(scan.id, new Date(Date.now() - 31 * 60 * 1000))
+
+        await runCleanup()
+        const reloaded = await ds.getRepository(ScanRun).findOne({ where: { id: scan.id } })
+        const error = JSON.parse(reloaded?.errorJson ?? '{}')
+        expect(error).toMatchObject({ code: 'orphan_run', noExecutionLogs: true })
+        expect(error.message).toContain('无执行日志')
+    })
+
+    it('stale running ScanRun 有执行日志：noExecutionLogs=false 且 message 不追加无日志说明', async () => {
+        const ds = await ensureDatabaseInitialized()
+        const organizationId = await resolveOrganizationId(ds)
+        await createRepo('repo-orphan-with-logs')
+        const batch = await createBatchRun(organizationId)
+        const scan = await createScanRun({
+            repositoryId: 'repo-orphan-with-logs',
+            batchRunId: batch.id,
+            status: 'running',
+            startedAt: new Date(),
+            logsJson: JSON.stringify([{ timestamp: new Date().toISOString(), level: 'info', message: '[clone] start' }]),
+        })
+        await backdateScanRun(scan.id, new Date(Date.now() - 31 * 60 * 1000))
+
+        await runCleanup()
+        const reloaded = await ds.getRepository(ScanRun).findOne({ where: { id: scan.id } })
+        const error = JSON.parse(reloaded?.errorJson ?? '{}')
+        expect(error).toMatchObject({ code: 'orphan_run', noExecutionLogs: false })
+        expect(error.message).not.toContain('无执行日志')
+    })
+
+    it('logsJson 为 "[]" / 非法 JSON：按无日志处理（parseLogEntries 统一归零）', async () => {
+        const ds = await ensureDatabaseInitialized()
+        const organizationId = await resolveOrganizationId(ds)
+        await createRepo('repo-orphan-empty-array')
+        await createRepo('repo-orphan-bad-json')
+        const batch = await createBatchRun(organizationId, 'running', 2)
+        const emptyArray = await createScanRun({
+            repositoryId: 'repo-orphan-empty-array',
+            batchRunId: batch.id,
+            status: 'running',
+            startedAt: new Date(),
+            logsJson: '[]',
+        })
+        const badJson = await createScanRun({
+            repositoryId: 'repo-orphan-bad-json',
+            batchRunId: batch.id,
+            status: 'running',
+            startedAt: new Date(),
+            logsJson: 'not-json',
+        })
+        const staleAt = new Date(Date.now() - 31 * 60 * 1000)
+        await backdateScanRun(emptyArray.id, staleAt)
+        await backdateScanRun(badJson.id, staleAt)
+
+        await runCleanup()
+        for (const id of [emptyArray.id, badJson.id]) {
+            const reloaded = await ds.getRepository(ScanRun).findOne({ where: { id } })
+            expect(JSON.parse(reloaded?.errorJson ?? '{}')).toMatchObject({
+                code: 'orphan_run',
+                noExecutionLogs: true,
+            })
+        }
+    })
+
+    it('pending 孤儿 / github-action 孤儿：不推断「进程被杀」（noExecutionLogs=false）', async () => {
+        const ds = await ensureDatabaseInitialized()
+        const organizationId = await resolveOrganizationId(ds)
+        await createRepo('repo-pending-orphan')
+        await createRepo('repo-action-orphan')
+        const batch = await createBatchRun(organizationId, 'running', 2)
+        const pending = await createScanRun({
+            repositoryId: 'repo-pending-orphan',
+            batchRunId: batch.id,
+            status: 'pending',
+            startedAt: null,
+        })
+        await backdateScanRunCreatedAt(pending.id, new Date(Date.now() - 31 * 60 * 1000))
+        const action = await createScanRun({
+            repositoryId: 'repo-action-orphan',
+            batchRunId: batch.id,
+            status: 'running',
+            startedAt: new Date(),
+            executorKind: 'github-action',
+        })
+        await backdateScanRun(action.id, new Date(Date.now() - 31 * 60 * 1000))
+
+        await runCleanup()
+        for (const id of [pending.id, action.id]) {
+            const reloaded = await ds.getRepository(ScanRun).findOne({ where: { id } })
+            const error = JSON.parse(reloaded?.errorJson ?? '{}')
+            expect(error).toMatchObject({ code: 'orphan_run', noExecutionLogs: false })
+            expect(error.message).not.toContain('无执行日志')
+        }
     })
 
     it('pending ScanRun（无 startedAt）+ createdAt backdated >30min：force failed', async () => {

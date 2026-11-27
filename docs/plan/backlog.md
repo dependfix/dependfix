@@ -414,7 +414,7 @@
 - **M68.4 AC2 / AC3 未取证**：发布窗口口径的构建复用取证（skip 条件 + cold / warm 读数 + 4 tag × 3 registry 回读矩阵）已移出阶段，条目与恢复条件见本文件「候选评估中」的「发布窗口发布构建复用取证」。
 - **沙箱镜像发布轮不自动验证**：M68.3 改为拉取式周检 + dispatch 后，发布轮不再自动跑双镜像冒烟，默认只验 `latest`（周检窗口 ≤ 7 天）；GHCR 私有包 `GITHUB_TOKEN` 登录链路已于 2026-11-27 实证（run `46026162768`，四组合 PASS）。恢复条件：需要发布轮自动验证，或发布流程调整时重新接线。
 - **M68.1 原生模块端到端未取证**：变体只改安装期可执行文件面（`packages/engine` 的 fix / verify 链无代码改动，按等价论证判定）；恢复条件：以 gated docker 批次用 `PLATFORM_VARIANT=full` 跑一次 report-only 运行后回填。
-- **CodeQL alert #31 待远端关闭**：`scripts/release/verify-cross-registry-digests.test.mjs` 的 host 子串判定已在阶段收尾修正（`437432c8` / `e26e8fa9`），告警需推送后 CodeQL 复跑自动转 closed。
+- **CodeQL alert #31（已闭环，记录保留）**：`scripts/release/verify-cross-registry-digests.test.mjs` 的 host 子串判定已在阶段收尾修正（`437432c8` / `e26e8fa9`）；2026-11-28 推送 master 后 CodeQL 复跑，远端 code-scanning open 告警归零（实测 `state=open` 返回空集）。
 
 ## 文档位置速查
 

@@ -133,10 +133,10 @@
 
 #### M68.3 执行记录（2026-11-26 闭环，2026-11-27 取证）
 
-- **替代方案（用户裁定「没有 release 计划，改用别的方案验证」）**：新增 `apps/platform/docker/sandbox-smoke.sh`（自包含入口 / skills / 非 root / 工具链姿态 / 架构 / 无 workspace 依赖树）+ `image-smoke.yml`（dispatch + 每周，原生双架构 × 双镜像，只拉取与断言）。**AC1 口径据此改为「周检 + dispatch」**：发布轮不再自动验证沙箱镜像；默认只验 `latest`，`platform-x.y.z` 需 `workflow_dispatch -f tag=platform-x.y.z` 人工指定；GHCR 需显式 `repo_prefix=ghcr.io/dependfix`（登录已支持，CI 未实证）。
+- **替代方案（用户裁定「没有 release 计划，改用别的方案验证」）**：新增 `apps/platform/docker/sandbox-smoke.sh`（自包含入口 / skills / 非 root / 工具链姿态 / 架构 / 无 workspace 依赖树）+ `image-smoke.yml`（dispatch + 每周，原生双架构 × 双镜像，只拉取与断言）。**AC1 口径据此改为「周检 + dispatch」**：发布轮不再自动验证沙箱镜像；默认只验 `latest`，`platform-x.y.z` 需 `workflow_dispatch -f tag=platform-x.y.z` 人工指定；GHCR 需显式 `repo_prefix=ghcr.io/dependfix`（登录已支持；2026-11-27 run `46026162768` 实证，见本条「残余」③）。
 - **证据**：dispatch run `45874403657` 四组合全绿（arm64 原生 runner 真实执行），日志含 `PASS：…sandbox(-full):latest`、`版本：1.2.0`、`skills doctor` 无异常、工具链 slim 全缺 / full 齐全；本地双向负例（slim 按 full 期望、full 按 slim 期望）均在工具链断言失败，架构负例（amd64 镜像按 arm64 期望）在架构断言失败。
 - **派生修复**：派发首跑发现 `SMOKE_IMAGE` 未注入与 `script | tee` 无 pipefail 吞退出码（四 job 报 success 但日志 FAIL），已修（`dceeda02`）；R2 复审又收口 6 处沙箱入口 / fix 放行 stale 表述（`73bc112b`）、GHCR 发布名与失败注解位置（`167da76b`）、脚本架构与失败区分断言（`fa931353`）。
-- **残余**：① 发布轮不自动验证沙箱镜像（替代方案的等价性损失）；② 默认只验 `latest`，周检窗口 ≤ 7 天；③ GHCR 私有包用 `GITHUB_TOKEN` 登录未在 CI 实证；④ 断言覆盖「已发布镜像可用」，不覆盖内容同源（由 M68.4 的 digest 回读承担）。文件数 12 超 10 文件阈值的原因：stale 清扫跨 6 篇文档（zh / en 镜像）+ 脚本 / workflow / 记录，属同一安全姿态口径收口，不再拆分。容量范围 `9c90eda7^..fa931353` 不含本记录 commit。
+- **残余**：① 发布轮不自动验证沙箱镜像（替代方案的等价性损失）；② 默认只验 `latest`，周检窗口 ≤ 7 天；③ ~~GHCR 私有包用 `GITHUB_TOKEN` 登录未在 CI 实证~~ —— **2026-11-27 已实证**：dispatch `repo_prefix=ghcr.io/dependfix`（run `46026162768`）`Login Succeeded!` 后四组合（amd64 / arm64 × `sandbox` / `sandbox-full`）全绿，镜像 `版本：1.2.0`、slim 工具链全缺 / full 齐全、amd64 slim digest `sha256:ef0f736c…`；④ 断言覆盖「已发布镜像可用」，不覆盖内容同源（由 M68.4 的 digest 回读承担）。文件数 12 超 10 文件阈值的原因：stale 清扫跨 6 篇文档（zh / en 镜像）+ 脚本 / workflow / 记录，属同一安全姿态口径收口，不再拆分。容量范围 `9c90eda7^..fa931353` 不含本记录 commit。
 
 ### M68.3 沙箱镜像双架构自包含冒烟与安全姿态（P2 🚀📚）
 
@@ -181,6 +181,7 @@
 - **证据（release-free）**：dispatch run `45920025726` 全绿；构建腿每架构 3 条（旧实现 9 条，run `45856011048` 对照）；merge 常驻「跨 registry digest 一致」断言在 run `45924069512` 复跑通过，三镜像 × 三 tag 的 dh / gh / acr 签名逐字相同（platform 例：`amd64=sha256:143f2994…` / `arm64=sha256:f75b9d63…`）。耗时参考（口径：run 页面 Job 总时长 startedAt→completedAt）：arm64 4m19s → 1m15s、amd64 3m13s（上次 72m45s 含 ACR 推送停滞），非同缓存口径，仅作量级参考。
 - **语义边界**：单 registry 推送失败会使该镜像该架构整条腿失败（旧实现是独立腿）；已发布 tag 不受影响、不跨 registry 污染；回滚 = revert `995ed824` / `ed8cd695`。
 - **残余**：AC2 / AC3 未取证（需发布派发）；dedupe 的收益以「构建次数」为主，层上传带宽仍为 3 份。
+- **派生修复（2026-11-27）**：上一批 `128768e1` 的 digest 断言单测被 CodeQL 报 `js/incomplete-url-substring-sanitization`（alert #31，`scripts/release/verify-cross-registry-digests.test.mjs:201` 用 `ref.includes('ghcr.io')` 模拟单 registry drift）。改为与该环境的 `env.TAGS_GHCR` 完整 ref 精确相等判定——语义更贴合「单 registry 漂移」，且不再依赖 host 子串。验证：定向 vitest 11 passed、`lint:check` 0 error（8 warning 全部存量）、`typecheck` 通过；告警需推送后由 CodeQL 复跑自动关闭（随本次提交落地，待推送确认）。
 
 ### M68.5 发布安全输出采集时点（P3 🛠️）
 

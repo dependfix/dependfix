@@ -198,7 +198,8 @@ describe('verify-cross-registry-digests', () => {
         await expect(
             main([], {
                 ...base,
-                inspect: (ref) => (ref.includes('ghcr.io') ? index([linux('amd64', 'sha256:zzz')]) : SAME),
+                // 按完整 ref 精确匹配模拟单 registry drift（不用 host 子串判定，避免 CodeQL alert #31 的 URL 子串告警口径）
+                inspect: (ref) => (ref === env.TAGS_GHCR ? index([linux('amd64', 'sha256:zzz')]) : SAME),
             }),
         ).resolves.toBe(1)
         expect(log.error).toHaveBeenCalledWith(expect.stringContaining('跨 registry digest 不一致'))

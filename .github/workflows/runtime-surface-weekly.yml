@@ -19,6 +19,8 @@ on:
 
 permissions:
   contents: read
+  # 私有 GHCR 包匿名拉取返回 403：dispatch 传 ghcr.io ref 时 GITHUB_TOKEN 必须具备 packages: read
+  packages: read
 
 concurrency:
   group: runtime-surface-weekly

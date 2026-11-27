@@ -3,6 +3,7 @@ import {
     compareTag,
     ensureTagSets,
     inspectWithBuildx,
+    isTransientError,
     main,
     parseArgs,
     signatureFromIndex,
@@ -66,6 +67,104 @@ describe('verify-cross-registry-digests', () => {
         ).rejects.toThrow('跨 registry digest 不一致')
         expect(sleep).toHaveBeenCalledTimes(1)
         expect(calls).toBe(6) // 2 次尝试 × 3 registry
+    })
+
+    it('compareTag：单次读取的网络抖动按 3 次退避重试，不误判为 digest 不一致', async () => {
+        let remainingFailures = 2
+        const inspectFlaky = (ref) => {
+            if (ref.startsWith('c/') && remainingFailures > 0) {
+                remainingFailures -= 1
+                throw new Error('read: connection reset by peer')
+            }
+            return SAME
+        }
+        const sleep = vi.fn(async () => {})
+        await expect(
+            compareTag({
+                label: 'platform',
+                tag: 'latest',
+                repos: ['a/x', 'b/x', 'c/x'],
+                inspect: inspectFlaky,
+                sleep,
+                log: { warn: () => {} },
+            }),
+        ).resolves.toMatchObject({
+            signatures: [
+                'amd64=sha256:aaa arm64=sha256:bbb ',
+                'amd64=sha256:aaa arm64=sha256:bbb ',
+                'amd64=sha256:aaa arm64=sha256:bbb ',
+            ],
+        })
+        expect(sleep).toHaveBeenCalledTimes(2) // 2 次抖动 × 退避
+        expect(sleep).toHaveBeenNthCalledWith(1, 3_000)
+        expect(sleep).toHaveBeenNthCalledWith(2, 6_000)
+        expect(remainingFailures).toBe(0)
+    })
+
+    it('compareTag：读取持续失败时 3 次后 fail-closed 并点名 ref', async () => {
+        let calls = 0
+        const inspectDown = () => {
+            calls += 1
+            throw new Error('failed to fetch oauth token: read tcp: connection reset by peer')
+        }
+        const sleep = vi.fn(async () => {})
+        await expect(
+            compareTag({ label: 'platform', tag: 'latest', repos: ['a/x'], inspect: inspectDown, sleep, log: { warn: () => {} } }),
+        ).rejects.toThrow('a/x:latest 读取失败：failed to fetch oauth token: read tcp: connection reset by peer')
+        expect(calls).toBe(3)
+        expect(sleep).toHaveBeenCalledTimes(2)
+    })
+
+    it('compareTag：确定性失败（401/403、非 JSON）不重试，立即 fail-closed', async () => {
+        let calls = 0
+        const forbidden = () => {
+            calls += 1
+            throw new Error('unexpected status from HEAD request to https://ghcr.io/v2/x: 403 Forbidden')
+        }
+        const sleep = vi.fn(async () => {})
+        const warn = vi.fn()
+        await expect(
+            compareTag({ label: 'platform', tag: 'latest', repos: ['a/x'], inspect: forbidden, sleep, log: { warn } }),
+        ).rejects.toThrow('a/x:latest 读取失败：unexpected status from HEAD request to https://ghcr.io/v2/x: 403 Forbidden')
+        expect(calls).toBe(1)
+        expect(sleep).not.toHaveBeenCalled()
+        expect(warn).not.toHaveBeenCalled() // 确定性失败不打「传输层抖动」warn
+
+        let notJsonCalls = 0
+        const notJson = () => {
+            notJsonCalls += 1
+            return 'not-json'
+        }
+        await expect(
+            compareTag({ label: 'platform', tag: 'latest', repos: ['a/x'], inspect: notJson, sleep, log: { warn } }),
+        ).rejects.toThrow('a/x:latest 读取失败')
+        expect(notJsonCalls).toBe(1)
+        expect(sleep).not.toHaveBeenCalled()
+    })
+
+    it('isTransientError：按报文分类（ACR reset / 5xx / 超时 重试；403 / 非 JSON / 证书过期 不重试）', () => {
+        const transient = [
+            // 2026-11-27 Publish Docker Image 实际报文
+            'failed to authorize: failed to fetch oauth token: Post "https://dockerauth.cn-hangzhou.aliyuncs.com/auth": '
+            + 'read tcp 10.0.142.222:45708->120.55.35.34:443: read: connection reset by peer',
+            'unexpected status from HEAD request: 503 Service Unavailable',
+            'dial tcp 1.2.3.4:443: i/o timeout',
+            'net/http: TLS handshake timeout',
+        ]
+        const deterministic = [
+            'unexpected status from HEAD request to https://ghcr.io/v2/x: 403 Forbidden',
+            '401 Unauthorized',
+            'Unexpected token \'o\', "not-json" is not valid JSON',
+            'index 中没有 linux 平台的 manifest 条目（形态变化或权限不足？）',
+            'x509: certificate has expired or is not yet valid',
+        ]
+        for (const message of transient) {
+            expect(isTransientError(new Error(message)), message).toBe(true)
+        }
+        for (const message of deterministic) {
+            expect(isTransientError(new Error(message)), message).toBe(false)
+        }
+        expect(isTransientError('raw string 500 Internal Server Error')).toBe(true)
     })
 
     it('参数解析支持 = 与空格两种形态', () => {

@@ -10,7 +10,9 @@
  * 断言分两层（任一失败即非零）：
  * 1. tag 集合三向相等且非空（三处 metadata 规则是重复字面量，漂移不会体现在 digest 上）；
  * 2. 每个 tag 在三个 registry 的 `linux/<arch>=<digest>` 签名逐字相同；不一致时短退避复读一次
- *    （push 腿与 release 派发并发发布会造成窗口内瞬时不一致），仍不一致才失败。
+ *    （push 腿与 release 派发并发发布会造成窗口内瞬时不一致），仍不一致才失败；
+ *   单次读取的传输层抖动（registry auth 端点 reset / 5xx）另按 3 次退避（3s / 6s）重试，不误判为不一致；
+ *   401/403、非 JSON、index 形态变化等确定性失败不重试，直接 fail-closed。
  *
  * 用法（CI）：
  *   node scripts/release/verify-cross-registry-digests.mjs --summary "$GITHUB_STEP_SUMMARY"
@@ -122,16 +124,66 @@ export function ensureTagSets(label, tagLists) {
     return tagNames(first)
 }
 
+/** 单次 inspect 的网络抖动重试上限（如 ACR oauth 端点 reset、registry 5xx）。 */
+export const INSPECT_ATTEMPTS = 3
+
+/**
+ * 传输层抖动特征（大小写不敏感）。401/403、非 JSON、index 形态变化等确定性失败不重试——
+ * 重试只会拉长门禁且在日志里把权限问题伪装成网络抖动。
+ */
+const TRANSIENT_ERROR = /reset by peer|econnreset|etimedout|timeout|timed out|unexpected eof|\beof\b|\btls\b|connection (?:refused|closed|reset)|temporarily unavailable|no such host|i\/o timeout|\b(?:429|5\d\d)\b/i
+
+/**
+ * 判断一次读取失败是否值得重试。
+ * @param {unknown} error
+ * @returns {boolean}
+ */
+export function isTransientError(error) {
+    return TRANSIENT_ERROR.test(error instanceof Error ? error.message : String(error))
+}
+
+/**
+ * 读取单个镜像 ref 的签名；传输层抖动时短退避重试。
+ *
+ * 抖动不得被当成 digest 不一致：2026-11-27 的 Publish Docker Image 因
+ * `dockerauth.cn-hangzhou.aliyuncs.com` 连接被 reset 使整条发布门禁判红（镜像本身已发布成功）。
+ * 确定性失败立即抛出、重试耗尽仍抛错 → 上层 fail-closed，不放宽判定。
+ * @param {string} ref
+ * @param {(ref: string) => string} inspect
+ * @param {{attempts?: number, sleep?: (ms: number) => Promise<void>, log?: Pick<Console, 'warn'>}} [options]
+ * @returns {Promise<string>}
+ */
+export async function readSignatureWithRetry(ref, inspect, { attempts = INSPECT_ATTEMPTS, sleep = defaultSleep, log = console } = {}) {
+    let lastError
+    for (let attempt = 1; attempt <= attempts; attempt += 1) {
+        try {
+            return readSignature(ref, inspect)
+        } catch (error) {
+            lastError = error
+            if (attempt === attempts || !isTransientError(error)) {
+                break
+            }
+            const reason = error instanceof Error ? error.message : String(error)
+            log.warn?.(`[digest] ${ref} 读取失败（第 ${attempt}/${attempts} 次，传输层抖动），重试：${reason}`)
+            await sleep(3_000 * attempt)
+        }
+    }
+    throw new Error(`${ref} 读取失败：${lastError instanceof Error ? lastError.message : String(lastError)}`)
+}
+
 /**
  * 比较同镜像同 tag 在三 registry 的签名；不一致时退避复读一次。
- * @param {{label: string, tag: string, repos: string[], inspect: (ref: string) => string, sleep?: (ms: number) => Promise<void>}} options
+ * @param {{label: string, tag: string, repos: string[], inspect: (ref: string) => string, sleep?: (ms: number) => Promise<void>, log?: Pick<Console, 'warn'>}} options
  * @returns {Promise<{label: string, tag: string, signatures: string[]}>}
  */
-export async function compareTag({ label, tag, repos, inspect, sleep = defaultSleep }) {
+export async function compareTag({ label, tag, repos, inspect, sleep = defaultSleep, log = console }) {
     let signatures = []
     const consistent = () => signatures.length > 0 && signatures.every((item) => item === signatures[0])
     for (let attempt = 1; attempt <= 2; attempt += 1) {
-        signatures = repos.map((repo) => readSignature(`${repo}:${tag}`, inspect))
+        signatures = []
+        for (const repo of repos) {
+            signatures.push(await readSignatureWithRetry(`${repo}:${tag}`, inspect, { sleep, log }))
+        }
         if (consistent()) {
             return { label, tag, signatures }
         }
@@ -192,7 +244,7 @@ export function parseArgs(argv) {
 /**
  * 主流程。
  * @param {string[]} argv
- * @param {{env?: NodeJS.ProcessEnv, inspect?: (ref: string) => string, sleep?: (ms: number) => Promise<void>, log?: Pick<Console, 'log' | 'error'>, appendSummary?: (text: string) => void}} [deps]
+ * @param {{env?: NodeJS.ProcessEnv, inspect?: (ref: string) => string, sleep?: (ms: number) => Promise<void>, log?: Pick<Console, 'log' | 'error'> & Partial<Pick<Console, 'warn'>>, appendSummary?: (text: string) => void}} [deps]
  * @returns {Promise<number>} 退出码（0 一致 / 1 不一致或读不到）
  */
 export async function main(argv, deps = {}) {
@@ -227,7 +279,7 @@ export async function main(argv, deps = {}) {
                     tagNames(env[group.envKeys.acr] ?? ''),
                 ])
             for (const tag of tags) {
-                const result = await compareTag({ label: group.label, tag, repos: group.repos, inspect, sleep })
+                const result = await compareTag({ label: group.label, tag, repos: group.repos, inspect, sleep, log })
                 const line = `${group.label} ${tag} → ${result.signatures[0]} `
                 log.log(`[digest] ${line}`)
                 appendSummary(`- \`${group.label}\` \`${tag}\` → dh/gh/acr 一致：\`${result.signatures[0].trim()}\`\n`)

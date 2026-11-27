@@ -95,6 +95,78 @@ test.describe('批量扫描（sync 降级模式）', () => {
         await expect(resumeButton).toHaveAttribute('title', /没有可继续执行的子项/)
     })
 
+    test('批次通知深链（/batch-runs/<id>）重定向到 ?id= 并自动展开目标批次', async ({ page }) => {
+        await page.goto('/repos')
+        await waitForHydration(page)
+        const cookieHeader = (await page.context().cookies())
+            .map((c) => `${c.name}=${c.value}`)
+            .join('; ')
+
+        const stamp = Date.now()
+        const owner = `e2e-deeplink-${stamp}`
+        const batchId = `deeplink-batch-${stamp}`
+        // 目标 createdAt = 本次运行时刻；11 条固定 id 的「远期」占位批次（每页 10 条）→
+        // 目标恒位于第 2 页、且不随重复运行累积（固定 id 走 fixtures 的 save 复用同一行）。
+        const fillerBatches = Array.from({ length: 11 }, (_, index) => ({
+            id: `e2e-deeplink-filler-${index}`,
+            createdAt: `2030-01-01T00:00:${String(index).padStart(2, '0')}.000Z`,
+            source: 'manual',
+            mode: 'report-only',
+            severityThreshold: 'high',
+            status: 'completed',
+            repositoryCount: 1,
+            finishedCount: 1,
+            completedCount: 1,
+            failedCount: 0,
+            pendingCount: 0,
+        }))
+        const seed = await page.request.post('/api/e2e/fixtures', {
+            headers: { cookie: cookieHeader },
+            data: {
+                repos: [{ owner, name: 'repo-a' }],
+                batchRuns: [
+                    {
+                        id: batchId,
+                        createdAt: new Date(stamp).toISOString(),
+                        source: 'manual',
+                        mode: 'report-only',
+                        severityThreshold: 'high',
+                        status: 'completed',
+                        repositoryCount: 1,
+                        finishedCount: 1,
+                        completedCount: 0,
+                        failedCount: 1,
+                        pendingCount: 0,
+                    },
+                    ...fillerBatches,
+                ],
+                scanRuns: [{
+                    repositoryOwner: owner,
+                    repositoryName: 'repo-a',
+                    batchRunId: batchId,
+                    mode: 'report-only',
+                    severityThreshold: 'high',
+                    status: 'failed',
+                    failureCode: 'ETIMEDOUT',
+                    failureStage: 'clone',
+                    failureKind: 'transient',
+                    startedAt: new Date().toISOString(),
+                    finishedAt: new Date().toISOString(),
+                }],
+            },
+        })
+        expect(seed.status()).toBe(200)
+
+        // 旧通知链接形态：兼容路由应重定向到列表页深链
+        await page.goto(`/batch-runs/${batchId}`)
+        await waitForHydration(page)
+        await expect(page).toHaveURL(new RegExp(`/batch-runs\\?id=${batchId}`))
+
+        // 深链自动翻到目标所在页并展开（第 1 页只有占位批次，展开区只可能来自目标行）
+        await expect(page.locator('.batch-runs__detail')).toBeVisible({ timeout: 15000 })
+        await expect(page.locator('.batch-runs__detail')).toContainText(owner)
+    })
+
     test('可续跑批次：继续 → 派生新批次 → 终态', async ({ page }) => {
         await page.goto('/repos')
         await waitForHydration(page)

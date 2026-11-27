@@ -11,10 +11,12 @@
 // - sortable 字段：sortable + removableSort 三态（asc/desc/none）；与增量 reconcile 并存——
 //   reconcile 只替换 updatedAt 变化行引用，不重排已排序数组；用户手动排序状态保留
 import { severityLabel } from '#shared/severity-labels'
+import { BATCH_DEEP_LINK_QUERY_KEY } from '#shared/batch-routes'
 import { CircleStop, RefreshCw, RotateCcw } from '@lucide/vue'
 import type { DataTableColumn } from 'caomei-ui'
 import type { BatchRunRun, BatchRunSummary, BatchRunView } from '~/types/platform'
 import { useTablePagination } from '~/composables/use-table-pagination'
+import { resolveBatchDeepLinkTarget } from '~/utils/batch-deep-link'
 import { reconcileBatchRuns } from '~/utils/reconcile-batch-runs'
 import { runModeLabel } from '~/utils/run-view'
 import { scanSeverityLabel } from '~/utils/scan-options'
@@ -25,6 +27,7 @@ definePageMeta({
 })
 
 const { t, d } = useI18n()
+const route = useRoute()
 
 // 破坏性操作二次确认（caomei 内置 Confirm Dialog，provider 挂载在 app.vue）
 const confirmDialog = useConfirm()
@@ -279,9 +282,15 @@ const stopPolling = () => {
 
 onMounted(async () => {
     await fetchBatchRuns()
+    await focusBatchFromDeepLink()
     if (runningIds.value.length > 0) {
         startPolling()
     }
+})
+
+// 站内再次点击通知深链（同页仅 query 变化）时也要定位；首次加载由 onMounted 处理
+watch(() => route.query[BATCH_DEEP_LINK_QUERY_KEY], () => {
+    void focusBatchFromDeepLink({ refreshOnMiss: true })
 })
 
 onUnmounted(stopPolling)
@@ -336,6 +345,56 @@ const filteredBatchRuns = computed(() => batchRuns.value.filter((run) => {
 const batchRunsEmptyText = computed(() => (
     hasActiveBatchFilter.value ? t('batchRuns.emptyFiltered') : t('batchRuns.empty')
 ))
+
+/** 展开指定批次并拉取详情；目标不在给定列表时返回 false */
+const openBatchFromDeepLink = async (runs: BatchRunView[], id: string | null): Promise<boolean> => {
+    const target = resolveBatchDeepLinkTarget(runs, id, batchRows.value)
+    if (!target) {
+        return false
+    }
+    batchPage.value = target.page
+    const rowId = runs[target.index]!.id
+    if (!expandedRows.value.includes(rowId)) {
+        expandedRows.value = [...expandedRows.value, rowId]
+    }
+    await fetchDetail(rowId)
+    return true
+}
+
+/** 定位并展开深链目标：命中已加载列表后翻页 + 展开；被筛选隐藏时清空筛选重试 */
+const tryOpenBatchDeepLink = async (id: string): Promise<boolean> => {
+    if (await openBatchFromDeepLink(filteredBatchRuns.value, id)) {
+        return true
+    }
+    if (!batchRuns.value.some((run) => run.id === id)) {
+        return false
+    }
+    resetBatchFilters()
+    return openBatchFromDeepLink(filteredBatchRuns.value, id)
+}
+
+/**
+ * 通知深链：`/batch-runs?id=<id>`（旧链接 `/batch-runs/<id>` 由兼容路由重定向到本形态）。
+ * 目标被当前筛选隐藏时清空筛选再定位；不在当前组织列表内则保持列表原样。
+ *
+ * `refreshOnMiss`：站内二次导航（同页 query 变化）时列表可能尚未包含新批次（最多滞后一个轮询
+ * 周期），刷新后重试一次；首屏已由 onMounted 先 fetch，无需重复请求。
+ */
+const focusBatchFromDeepLink = async (options: { refreshOnMiss?: boolean } = {}): Promise<void> => {
+    const raw = route.query[BATCH_DEEP_LINK_QUERY_KEY]
+    const id = typeof raw === 'string' ? raw : null
+    if (!id) {
+        return
+    }
+    if (await tryOpenBatchDeepLink(id)) {
+        return
+    }
+    if (!options.refreshOnMiss) {
+        return
+    }
+    await fetchBatchRuns()
+    await tryOpenBatchDeepLink(id)
+}
 
 const columns = computed<DataTableColumn<BatchRunView>[]>(() => [
     { key: 'expander', width: '3rem', expander: true },

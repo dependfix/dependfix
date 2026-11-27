@@ -46,7 +46,7 @@
 | M68.1 独立 installer 容器与 runtime 工具链移出 | — | ✅ 已闭环 | 4 commits（`C1`-`C4`，见执行记录） | 分区 A deep R1 Pass（0B/5W）→ R2 Pass；分区 B standard R1 Reject（1B/8W）→ R2 Pass | 实际 4 commits / 18 files / 约 520 行（含新增 497 行文档与脚本） |
 | M68.2 运行面漏洞检测最小周检 | 2（M68.2.1-M68.2.2） | ✅ 已闭环 | 5 commits（`C5`-`C9`，见执行记录） | deep R1 Reject（2B/8W）→ R2 Pass（2W 已修） | 实际 5 commits / 10 files / 1,158 行新增（超计划，原因见执行记录） |
 | M68.3 沙箱镜像双架构自包含冒烟与安全姿态 | — | ✅ 已闭环（替代方案：拉取式双架构冒烟） | 7 commits（`9c90eda7` / `cf8836cf` / `dceeda02` / `c65caf85` / `73bc112b` / `167da76b` / `fa931353`） | deep R1 Reject（1B/4W）→ R2 Reject（1B/3S）→ R2′ Pass | 实际 7 commits / 12 files / +286 −20（`git diff --shortstat 9c90eda7^..fa931353`） |
-| M68.4 镜像构建去重与发布构建复用 | — | 🟡 进行中（AC1 已落地；AC2 / AC3 阻塞：需发布派发） | 2 commits（`995ed824` / `ed8cd695`） | 待审计 | 实际 2 commits / 2 files / +88 −122（`git diff --shortstat 85dce428..ed8cd695`，不含记录 commit） |
+| M68.4 镜像构建去重与发布构建复用 | — | 🟡 进行中（AC1 已落地；AC2 / AC3 阻塞：需发布派发） | 2 commits（`995ed824` / `ed8cd695`） | deep R1 Pass（7W/4S，断言收紧与口径已修） | 实际 2 commits / 2 files / +88 −122（`git diff --shortstat 85dce428..ed8cd695`，不含记录 commit） |
 | M68.5 发布安全输出采集时点 | — | ✅ 已闭环 | 2 commits（见执行记录） | deep R1 Pass（1W 已修） | 实际 2 commits / 5 files / 123 行新增 |
 
 > 状态 / 提交 / 审计由执行与归档批次回填；`提交` 列填该条目自身 commit 区间与数量，`审计` 列填 Review Gate 轮次结论。
@@ -178,7 +178,7 @@
 
 - **用户裁定**：「只做构建去重，其余继续阻塞」——AC2（发布派发不再重建）与 AC3（cold / warm 读数 + 4 tag × 3 registry 回读）仍需发布窗口，保持阻塞。
 - **AC1 已落地**：`docker.yml` 的 per-arch 构建由「每 registry 一条腿」（3 镜像 × 3 registry = 9 次）收敛为「每镜像一次构建 + `type=image` 多 name 同时推三 registry」（3 次）；`merge` 仍按 registry 各取一份 digest（文件写同值），tag 语义不变。
-- **证据（release-free）**：dispatch run `45920025726` 全绿；build-push 腿每架构 3 条（旧实现 9 条，run `45856011048` 对照）；merge 新增「跨 registry digest 一致」断言，三镜像 × 三 tag（`latest` / `2026-11-27` / `sha-ed8cd69`）在三 registry 引用同一组 per-arch digest（如 platform `amd64=sha256:7d4d05e5…` / `arm64=sha256:8f962ecf…`）。耗时参考（口径：run 页面 Job 总时长 startedAt→completedAt）：arm64 4m19s → 1m15s、amd64 3m13s（上次 72m45s 含 ACR 推送停滞），非同缓存口径，仅作量级参考。
+- **证据（release-free）**：dispatch run `45920025726` 全绿；构建腿每架构 3 条（旧实现 9 条，run `45856011048` 对照）；merge 常驻「跨 registry digest 一致」断言在 run `45924069512` 复跑通过，三镜像 × 三 tag 的 dh / gh / acr 签名逐字相同（platform 例：`amd64=sha256:143f2994…` / `arm64=sha256:f75b9d63…`）。耗时参考（口径：run 页面 Job 总时长 startedAt→completedAt）：arm64 4m19s → 1m15s、amd64 3m13s（上次 72m45s 含 ACR 推送停滞），非同缓存口径，仅作量级参考。
 - **语义边界**：单 registry 推送失败会使该镜像该架构整条腿失败（旧实现是独立腿）；已发布 tag 不受影响、不跨 registry 污染；回滚 = revert `995ed824` / `ed8cd695`。
 - **残余**：AC2 / AC3 未取证（需发布派发）；dedupe 的收益以「构建次数」为主，层上传带宽仍为 3 份。
 

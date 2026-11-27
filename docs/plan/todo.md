@@ -45,8 +45,8 @@
 |:--|:--|:--|:--|:--|:--|
 | M68.1 独立 installer 容器与 runtime 工具链移出 | — | ✅ 已闭环 | 4 commits（`C1`-`C4`，见执行记录） | 分区 A deep R1 Pass（0B/5W）→ R2 Pass；分区 B standard R1 Reject（1B/8W）→ R2 Pass | 实际 4 commits / 18 files / 约 520 行（含新增 497 行文档与脚本） |
 | M68.2 运行面漏洞检测最小周检 | 2（M68.2.1-M68.2.2） | ✅ 已闭环 | 5 commits（`C5`-`C9`，见执行记录） | deep R1 Reject（2B/8W）→ R2 Pass（2W 已修） | 实际 5 commits / 10 files / 1,158 行新增（超计划，原因见执行记录） |
-| M68.3 沙箱镜像双架构自包含冒烟与安全姿态 | — | ✅ 已闭环（替代方案：拉取式双架构冒烟） | 7 commits（`9c90eda7` / `cf8836cf` / `dceeda02` / `c65caf85` / `73bc112b` / `167da76b` / `fa931353`） | deep R1 Reject（1B/4W）→ R2 Reject（1B/3S）→ R2′ | 实际 7 commits / 12 files / +286 −20（`git diff --shortstat 9c90eda7^..fa931353`） |
-| M68.4 镜像构建去重与发布构建复用 | — | ⬜ 待开始（阻塞：需发布派发取证） | — | — | 计划 3-4 commits / 3-5 files / 150-300 行 |
+| M68.3 沙箱镜像双架构自包含冒烟与安全姿态 | — | ✅ 已闭环（替代方案：拉取式双架构冒烟） | 7 commits（`9c90eda7` / `cf8836cf` / `dceeda02` / `c65caf85` / `73bc112b` / `167da76b` / `fa931353`） | deep R1 Reject（1B/4W）→ R2 Reject（1B/3S）→ R2′ Pass | 实际 7 commits / 12 files / +286 −20（`git diff --shortstat 9c90eda7^..fa931353`） |
+| M68.4 镜像构建去重与发布构建复用 | — | 🟡 进行中（AC1 已落地；AC2 / AC3 阻塞：需发布派发） | 2 commits（`995ed824` / `ed8cd695`） | 待审计 | 实际 2 commits / 2 files / +88 −122（`git diff --shortstat 85dce428..ed8cd695`） |
 | M68.5 发布安全输出采集时点 | — | ✅ 已闭环 | 2 commits（见执行记录） | deep R1 Pass（1W 已修） | 实际 2 commits / 5 files / 123 行新增 |
 
 > 状态 / 提交 / 审计由执行与归档批次回填；`提交` 列填该条目自身 commit 区间与数量，`审计` 列填 Review Gate 轮次结论。
@@ -136,7 +136,7 @@
 - **替代方案（用户裁定「没有 release 计划，改用别的方案验证」）**：新增 `apps/platform/docker/sandbox-smoke.sh`（自包含入口 / skills / 非 root / 工具链姿态 / 架构 / 无 workspace 依赖树）+ `image-smoke.yml`（dispatch + 每周，原生双架构 × 双镜像，只拉取与断言）。**AC1 口径据此改为「周检 + dispatch」**：发布轮不再自动验证沙箱镜像；默认只验 `latest`，`platform-x.y.z` 需 `workflow_dispatch -f tag=platform-x.y.z` 人工指定；GHCR 需显式 `repo_prefix=ghcr.io/dependfix`（登录已支持，CI 未实证）。
 - **证据**：dispatch run `45874403657` 四组合全绿（arm64 原生 runner 真实执行），日志含 `PASS：…sandbox(-full):latest`、`版本：1.2.0`、`skills doctor` 无异常、工具链 slim 全缺 / full 齐全；本地双向负例（slim 按 full 期望、full 按 slim 期望）均在工具链断言失败，架构负例（amd64 镜像按 arm64 期望）在架构断言失败。
 - **派生修复**：派发首跑发现 `SMOKE_IMAGE` 未注入与 `script | tee` 无 pipefail 吞退出码（四 job 报 success 但日志 FAIL），已修（`dceeda02`）；R2 复审又收口 6 处沙箱入口 / fix 放行 stale 表述（`73bc112b`）、GHCR 发布名与失败注解位置（`167da76b`）、脚本架构与失败区分断言（`fa931353`）。
-- **残余**：① 发布轮不自动验证沙箱镜像（替代方案的等价性损失）；② 默认只验 `latest`，周检窗口 ≤ 7 天；③ GHCR 私有包用 `GITHUB_TOKEN` 登录未在 CI 实证；④ 断言覆盖「已发布镜像可用」，不覆盖内容同源（由 M68.4 的 digest 回读承担）。文件数 12 超 10 文件阈值的原因：stale 清扫跨 6 篇文档（zh / en 镜像）+ 脚本 / workflow / 记录，属同一安全姿态口径收口，不再拆分。
+- **残余**：① 发布轮不自动验证沙箱镜像（替代方案的等价性损失）；② 默认只验 `latest`，周检窗口 ≤ 7 天；③ GHCR 私有包用 `GITHUB_TOKEN` 登录未在 CI 实证；④ 断言覆盖「已发布镜像可用」，不覆盖内容同源（由 M68.4 的 digest 回读承担）。文件数 12 超 10 文件阈值的原因：stale 清扫跨 6 篇文档（zh / en 镜像）+ 脚本 / workflow / 记录，属同一安全姿态口径收口，不再拆分。容量范围 `9c90eda7^..fa931353` 不含本记录 commit。
 
 ### M68.3 沙箱镜像双架构自包含冒烟与安全姿态（P2 🚀📚）
 
@@ -173,6 +173,14 @@
 - **依赖**：M58.4 / M58.5 镜像通道口径；`docker.yml:78-400`；`release.yml` 派发步骤。
 - **交付物**：3-4 commits / 3-5 files / 150-300 行。
 - **风险与缓解**：跨 registry digest 不可复用 → D3 允许保留 per-registry push 但去重 tag / 构建；manifest 错配 → 回读矩阵；缓存 scope 漂移 → 固定 cache scope 并记录读数。
+
+#### M68.4 第一期执行记录（2026-11-27，AC1 闭环）
+
+- **用户裁定**：「只做构建去重，其余继续阻塞」——AC2（发布派发不再重建）与 AC3（cold / warm 读数 + 4 tag × 3 registry 回读）仍需发布窗口，保持阻塞。
+- **AC1 已落地**：`docker.yml` 的 per-arch 构建由「每 registry 一条腿」（3 镜像 × 3 registry = 9 次）收敛为「每镜像一次构建 + `type=image` 多 name 同时推三 registry」（3 次）；`merge` 仍按 registry 各取一份 digest（文件写同值），tag 语义不变。
+- **证据（release-free）**：dispatch run `45920025726` 全绿；build-push 腿每架构 3 条（旧实现 9 条，run `45856011048` 对照）；merge 新增「跨 registry digest 一致」断言，三镜像 × 三 tag（`latest` / `2026-11-27` / `sha-ed8cd69`）在三 registry 引用同一组 per-arch digest（如 platform `amd64=sha256:7d4d05e5…` / `arm64=sha256:8f962ecf…`）。耗时参考：arm64 4m19s → 1m15s、amd64 3m13s（上次 72m45s 含 ACR 推送停滞），非同缓存口径，仅作量级参考。
+- **语义边界**：单 registry 推送失败会使该镜像该架构整条腿失败（旧实现是独立腿）；已发布 tag 不受影响、不跨 registry 污染；回滚 = revert `995ed824` / `ed8cd695`。
+- **残余**：AC2 / AC3 未取证（需发布派发）；dedupe 的收益以「构建次数」为主，层上传带宽仍为 3 份。
 
 ### M68.5 发布安全输出采集时点（P3 🛠️）
 

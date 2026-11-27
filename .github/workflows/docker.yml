@@ -649,7 +649,7 @@ jobs:
             ${TAGS_SANDBOX_DOCKERHUB} ${TAGS_SANDBOX_GHCR} ${TAGS_SANDBOX_ACR} \
             ${TAGS_SANDBOX_FULL_DOCKERHUB} ${TAGS_SANDBOX_FULL_GHCR} ${TAGS_SANDBOX_FULL_ACR}; do verify "$t"; done
 
-      # 跨 registry digest 一致性（M68.4）：一次构建推三 registry 后，同一镜像同一 tag 在三个 registry
+      # 跨 registry digest 一致性：一次构建推三 registry 后，同一镜像同一 tag 在三个 registry
       # 必须引用同一组 per-arch manifest digest；不一致说明「复用同一构建产物」没有真正成立。
       # 只读 registry，不构建、不发布，任何时间可复核（release-free）。
       - name: Verify cross-registry digest equality

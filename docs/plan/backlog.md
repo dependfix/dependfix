@@ -55,7 +55,7 @@
 
 ### 候选评估中（待评估 / 本阶段延后项）
 
-> **候选池概览（2026-11-26 issue #284 登记后复算）**：本区 **15 项**（`### 候选评估中` 段内 `^- \*\*` 逐行计数；M68 上收 5 条后由 20 复算）；每次上收 / 新增 / 移出后按段内实测更新本句与首行，不保留历史链路。P 标签覆盖不全（未标注者评估时补，不默认升级）；1.0 分档见 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)。
+> **候选池概览（2026-11-28 M68 归档移出登记后复算）**：本区 **17 项**（`### 候选评估中` 段内 `^- \*\*` 逐行计数；M68 上收 5 条后由 20 复算、M68 归档移出登记 2 条后由 15 复算）；每次上收 / 新增 / 移出后按段内实测更新本句与首行，不保留历史链路。P 标签覆盖不全（未标注者评估时补，不默认升级）；1.0 分档见 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)。
 > **1.0 门槛与分档**：分档、门槛判定与批次计划单点声明于 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)（2026-10-30 冻结口径，不随候选上收收缩；本文件不重复维护数字）。
 
 - **PR 回环有界重试（P2 🚀，2026-10-30 M51.3 用户裁定延后）** —— 设计稿 `pr-feedback-loop.md` §8 保留 `FeedbackRetryDispatcher` 契约（同 PR 失败后重新触发既有修复链，需配额与触发面）；平台当前无「同 PR 重试」入口，`retryFailed` 开启时每仓库每进程只 warn 一次。待评估：补触发面（API / UI）+ 配额后再实施。触发：出现「PR 红后无人处理、需自动重试」的实际需求时。
@@ -97,6 +97,10 @@
 - **backlog 容量治理：分片或健康预算复核（P3 📚 治理，2026-11-21 issue #269 研判登记）** —— 现状：健康字符余量已近零（实测见 `archive/index.md §4`），新增候选与字段规范化都会贴顶。**待评估**：① 按「长期主线 / 短期候选 / 已知边界」拆到独立文件或 archive 分片；② 或复核 §4.2 健康预算（须同源改 `doc-governance.md §4.2` 与 `archive/index.md §4`）；③ 再评估候选条目字段规范化（issue #269 本批延后项）。**验收**：拆分后 `check-doc-governance` 0 新增 warning、跨文件链接 0 死链。**不做**：不靠调高阈值绕过压缩。**触发**：下一次新增候选触发 warning。
 
 - **backlog 候选池双轴评分（重要度 × 紧急度）与前向迁移（P2 📚 治理，2026-11-26 issue #284 研判登记）** —— **目标**：候选池排序从一维 P 标签迁到 1-5 重要 / 紧急 + 四象限建议，`P0-P3` 保留为阶段内交付优先级，消除两套未分工口径。**范围**：`planning.md §2.5` 优先级条 + 新增评分小节（两轴锚点 / 象限动作 / 复评触发）；backlog 15 条候选行加行内「重要 N / 紧急 N / 建议」标签（保留 8 要素 prose，不重排为表）；快速评估象限的结论写入候选行内「结论：不采纳 / 延后 + 日期 + 证据」；阶段登记记录写分数，`todo.md` 不复制。**验收**：① 规范含评分小节与 P / 双轴分工；② 新登记候选必填两轴与建议，存量 4 条未标注按单批 ≤4 分批复补（不要求一次性全量），复评后 15 条全覆盖；③ 每行至少一项可复算依据；④ 快速评估结论有落点、不悬置；⑤ `check-doc-governance` 0 新增 warning、`gates:docs` 22；⑥ 无「象限 = 启动授权」。**不做**：不做 P↔双轴自动换算；象限不自动排期 / 启动；不改插队清单与「不自动升级」；不新增独立 standards 文件；不回改已归档阶段；不把候选列表重排成表。**依赖**：issue #284 / 上游提案 `c350725`；现有 15 条候选（11 带 P、4 未标注）与 backlog 约 3.4 万字符预算（`node scripts/check-doc-governance.mjs --json`，UTF-16 口径）。**交付物**：3-4 commits / 5-7 files / 250-450 行（planning + backlog + 候选机检 + 基线）。**风险**：字符余量约 11.1k（45,000 健康上限，见 doc-governance §4.2）→ 贴顶前先压缩历史记录；行内标签保 prose → 不丢 8 要素；分数主观 → 锚点 + 季度复评。
+
+- **发布窗口发布构建复用取证（M68.4 AC2 / AC3，P2 🚀，2026-11-28 阶段移出登记）** —— **移出原因**：AC2（发布提交不再同时触发 push 腿与 release 派发构建，或给出明确 skip 条件，且 `latest` 与版本 tag 不漂移）与 AC3（cold / warm 构建时长前后读数 + 4 tag × 3 registry 回读矩阵）都必须有一次发布派发才能取证；当前无发布计划，用户 2026-11-27 裁决「只做构建去重，其余继续阻塞」并将两者移出 M68 当前阶段（AC1 已闭环，正文与证据见 [M68 归档分片](archive/todo-archive-phases-m68.md)）。**恢复条件**：下一次发版窗口，或用户批准的「只冒烟不发布 + manifest-only dry-run」方案。**证据保留**：AC1 运行证据 run `45920025726` / `45924069512`，去重语义边界见 [release-pipeline.md §4.6.1](../design/governance/release-pipeline.md)。**已知运维输入**：ACR `sandbox-full` 推送偶发长时间停滞，取证时应一并评估。**剩余范围 / 交付物（草案）**：`docker.yml` / `release.yml` 的 skip 条件与 cold / warm 读数记录、4 tag × 3 registry 回读矩阵脚本化输出，预估 2-3 commits / 2-4 files / 100-250 行；验收沿用归档分片 M68.4 的 AC2 / AC3 原文。
+
+- **typescript-eslint 8.73.0 新规则迁移（dependabot PR #279，P3 🛠️，2026-11-28 阶段移出登记）** —— **移出原因**：8.73.0 收紧的 `@typescript-eslint/no-unsafe-class-instance-assignment` 命中 30 处既有测试 mock（跨 `apps/platform` 与 `packages/*`），PR #279 的 Test 自 2026-11-22 起为失败结论、Mergify 未合并；用户 2026-11-27 裁决暂缓，随下次发版窗口一并处理。**恢复条件**：下一次依赖批次或发版窗口；处置方向二选一——一次性迁移 30 处 mock 断言后合并，或关闭 PR 交由后续依赖批次重开。**证据保留**：失败 job `45066711660`（`pnpm --filter @dependfix/platform lint:check` exit 1，36 problems / 30 errors）。**剩余范围 / 交付物（草案）**：30 处 mock 断言的规则化迁移（测试文件为主，可能触及少量类型辅助），预估 2-4 commits / 6-12 files / 150-350 行；验收 = PR #279 的 Test 转绿且 `lint:check` / `typecheck` / `test` 通过。
 
 ### 待上收候选（评估完成，等待用户决策）
 
@@ -396,7 +400,7 @@
 ### M66 阶段残余（2026-11-25 登记，持续观察）
 
 - **engine `auth-flow.test.ts` 偶发超时**：连续全量中出现 1 次 `expected 501 to be 401` 的 10s 超时（单跑 13 passed，与 M66 改动无 import 关系）；判为既有 flake。恢复条件：CI 复现或下次触及该文件时一并定性，不阻塞发布。
-- **`docs/guide/deployment.md` 行数零余量**：实测恰好 500 行（健康窗口 ≤500），下一次新增部署内容会进入 warning 带；处置：新增前先把「提交卫生」旁支外移或等量压缩，不调阈值。
+- **`docs/guide/deployment.md` 已超行数健康线**：2026-11-28 实测 524 行（健康窗口 ≤500；M68.1 镜像变体文档同步推高），`check-doc-size` 处于 warning 带；处置：后续新增部署内容前先把「提交卫生」旁支外移或等量压缩，不调阈值。
 - **Dependabot moderate #127（minimatch）**：默认分支现存 1 个 moderate 告警，不阻断发布门禁（`check:release-security` 只拦 critical / 未豁免 high）；随下一依赖批次升级处理。该告警的豁免口径沿本文件「依赖审计豁免复核（minimatch）」小节，不在此重复。
 
 ### M67 阶段残余（2026-11-26 登记，持续观察）
@@ -405,13 +409,20 @@
 - **视觉基线随表单字段变化**：M67.2 新增字段使 `dialog-select-open` light/dark 重建；后续若调整仓库表单布局，需按 [testing §6.7](../standards/testing.md#_6-7-视觉回归-截图识别层-apps-platform) 重新取证，不把本次基线当作布局冻结。
 - **定时发布启用仍未上收**：M67.3 已提供无变更周短路（probe job），但 `release.yml` 的 `schedule` 仍按启用清单保持注释；真实无变更 / 有变更轮次对照见本文件 §待人工验收「M67.3 定时发布空跑实测」。
 
+### M68 阶段残余（2026-11-28 登记，持续观察）
+
+- **M68.4 AC2 / AC3 未取证**：发布窗口口径的构建复用取证（skip 条件 + cold / warm 读数 + 4 tag × 3 registry 回读矩阵）已移出阶段，条目与恢复条件见本文件「候选评估中」的「发布窗口发布构建复用取证」。
+- **沙箱镜像发布轮不自动验证**：M68.3 改为拉取式周检 + dispatch 后，发布轮不再自动跑双镜像冒烟，默认只验 `latest`（周检窗口 ≤ 7 天）；GHCR 私有包 `GITHUB_TOKEN` 登录链路已于 2026-11-27 实证（run `46026162768`，四组合 PASS）。恢复条件：需要发布轮自动验证，或发布流程调整时重新接线。
+- **M68.1 原生模块端到端未取证**：变体只改安装期可执行文件面（`packages/engine` 的 fix / verify 链无代码改动，按等价论证判定）；恢复条件：以 gated docker 批次用 `PLATFORM_VARIANT=full` 跑一次 report-only 运行后回填。
+- **CodeQL alert #31 待远端关闭**：`scripts/release/verify-cross-registry-digests.test.mjs` 的 host 子串判定已在阶段收尾修正（`437432c8` / `e26e8fa9`），告警需推送后 CodeQL 复跑自动转 closed。
+
 ## 文档位置速查
 
 | 内容类型 | 位置 |
 |:--|:--|
-| 当前阶段活跃任务 | M68 运行面安全与镜像供应链（2026-11-26 规划，5 原子，见 [todo.md](todo.md)）；插队容量治理见 [planning.md §3.1.1](../standards/planning.md#_3-1-1-插队后的阶段容量再平衡-hard-requirement-2026-10-19) |
-| 下一阶段（未规划） | 按本文件候选池重新评估（15 条候选 + 2 条待上收）；M59 / M60 / M63 / M65 / M67 残余留在本文件；**1.1.0 已于 2026-11-15 发布**，定时发布启用仍在「待上收候选」段等待观察窗口 |
+| 当前阶段活跃任务 | 无活跃阶段（M68 已于 2026-11-28 归档，下一阶段待规划，见 [todo.md](todo.md)）；插队容量治理见 [planning.md §3.1.1](../standards/planning.md#_3-1-1-插队后的阶段容量再平衡-hard-requirement-2026-10-19) |
+| 下一阶段（未规划） | 按本文件候选池重新评估（17 条候选 + 2 条待上收）；M59 / M60 / M63 / M65 / M67 / M68 残余留在本文件；**1.1.0 已于 2026-11-15 发布**，定时发布启用仍在「待上收候选」段等待观察窗口 |
 | 已完成阶段归档 | [todo-archive.md](todo-archive.md)（阶段索引 + [archive/](archive/) 分片） |
-| 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M0-M67 已归档） |
+| 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M0-M68 已归档） |
 | 长期主线 / 候选 / 待人工验收 / 已知边界 | 本文档（按四象限结构） |
 | 历史归档索引 | [archive/index.md](archive/index.md) |

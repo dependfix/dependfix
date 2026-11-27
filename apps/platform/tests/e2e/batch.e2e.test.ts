@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type APIRequestContext } from '@playwright/test'
 import { waitForHydration } from './helpers/hydration.helper'
 
 /**
@@ -14,7 +14,52 @@ import { waitForHydration } from './helpers/hydration.helper'
  */
 test.use({ storageState: 'tests/e2e/.auth/admin.json' })
 
+/** 深链用例的固定占位批次 id：11 条 > 每页 10 条，把目标批次挤到第 2 页 */
+const DEEP_LINK_FILLER_IDS = Array.from({ length: 11 }, (_, index) => `e2e-deeplink-filler-${index}`)
+
+const deepLinkFillerBatches = (year: 2000 | 2030) => DEEP_LINK_FILLER_IDS.map((id, index) => ({
+    id,
+    createdAt: `${year}-01-01T00:00:${String(index).padStart(2, '0')}.000Z`,
+    source: 'manual' as const,
+    mode: 'report-only' as const,
+    severityThreshold: 'high' as const,
+    status: 'completed' as const,
+    repositoryCount: 1,
+    finishedCount: 1,
+    completedCount: 1,
+    failedCount: 0,
+    pendingCount: 0,
+}))
+
+/**
+ * 占位批次降级到「过去」：fixtures 端点没有 batchRuns 删除通道，固定 id 复用会让
+ * 2030 的行永久占据列表首行（`take(50)` 内），破坏同文件其它用例「首行 = 本轮新建批次」
+ * 的假设。清理失败只告警，不得覆盖用例自身的断言错误（finally 抛错会盖掉根因）。
+ *
+ * 不注入 Cookie header：该端点双门控且无 `requireAuth`（见 `server/api/e2e/fixtures.post.ts`）；
+ * 若后续补鉴权，需与 seed 一样手动注入 `__Secure-` 会话 Cookie（http 下不会自动发送）。
+ */
+const demoteDeepLinkFillers = async (request: APIRequestContext): Promise<void> => {
+    const res = await request.post('/api/e2e/fixtures', {
+        data: { batchRuns: deepLinkFillerBatches(2000) },
+        // 与 fixtures.helper 同口径：CI 首请求偶发 ECONNRESET，重试避免清理守卫静默失效
+        maxRetries: 2,
+    }).catch((error: unknown) => {
+        console.warn('[e2e] demote deeplink fillers failed', error)
+        return null
+    })
+    if (res && !res.ok()) {
+        console.warn('[e2e] demote deeplink fillers status', res.status())
+    }
+}
+
 test.describe('批量扫描（sync 降级模式）', () => {
+    // 上一次运行若在深链用例中途超时 / 被取消，2030 占位行会残留并排在本轮首个用例之前；
+    // 开跑前先降级一次，保证任意残留自愈（fixtures 端点无 batchRuns 删除通道）。
+    test.beforeAll(async ({ request }) => {
+        await demoteDeepLinkFillers(request)
+    })
+
     test('勾选多仓库 → 批量扫描 → BatchRun 聚合统计闭环', async ({ page }) => {
         // 浏览器上下文就绪后，构造会话 Cookie header 供 API 请求使用
         await page.goto('/repos')
@@ -95,7 +140,7 @@ test.describe('批量扫描（sync 降级模式）', () => {
         await expect(resumeButton).toHaveAttribute('title', /没有可继续执行的子项/)
     })
 
-    test('批次通知深链（/batch-runs/<id>）重定向到 ?id= 并自动展开目标批次', async ({ page }) => {
+    test('批次通知深链（/batch-runs/<id>）重定向到 ?id= 并自动展开目标批次', async ({ page, request }) => {
         await page.goto('/repos')
         await waitForHydration(page)
         const cookieHeader = (await page.context().cookies())
@@ -107,19 +152,8 @@ test.describe('批量扫描（sync 降级模式）', () => {
         const batchId = `deeplink-batch-${stamp}`
         // 目标 createdAt = 本次运行时刻；11 条固定 id 的「远期」占位批次（每页 10 条）→
         // 目标恒位于第 2 页、且不随重复运行累积（固定 id 走 fixtures 的 save 复用同一行）。
-        const fillerBatches = Array.from({ length: 11 }, (_, index) => ({
-            id: `e2e-deeplink-filler-${index}`,
-            createdAt: `2030-01-01T00:00:${String(index).padStart(2, '0')}.000Z`,
-            source: 'manual',
-            mode: 'report-only',
-            severityThreshold: 'high',
-            status: 'completed',
-            repositoryCount: 1,
-            finishedCount: 1,
-            completedCount: 1,
-            failedCount: 0,
-            pendingCount: 0,
-        }))
+        const fillerBatches = deepLinkFillerBatches(2030)
+
         const seed = await page.request.post('/api/e2e/fixtures', {
             headers: { cookie: cookieHeader },
             data: {
@@ -157,14 +191,18 @@ test.describe('批量扫描（sync 降级模式）', () => {
         })
         expect(seed.status()).toBe(200)
 
-        // 旧通知链接形态：兼容路由应重定向到列表页深链
-        await page.goto(`/batch-runs/${batchId}`)
-        await waitForHydration(page)
-        await expect(page).toHaveURL(new RegExp(`/batch-runs\\?id=${batchId}`))
+        try {
+            // 旧通知链接形态：兼容路由应重定向到列表页深链
+            await page.goto(`/batch-runs/${batchId}`)
+            await waitForHydration(page)
+            await expect(page).toHaveURL(new RegExp(`/batch-runs\\?id=${batchId}`))
 
-        // 深链自动翻到目标所在页并展开（第 1 页只有占位批次，展开区只可能来自目标行）
-        await expect(page.locator('.batch-runs__detail')).toBeVisible({ timeout: 15000 })
-        await expect(page.locator('.batch-runs__detail')).toContainText(owner)
+            // 深链自动翻到目标所在页并展开（第 1 页只有占位批次，展开区只可能来自目标行）
+            await expect(page.locator('.batch-runs__detail')).toBeVisible({ timeout: 15000 })
+            await expect(page.locator('.batch-runs__detail')).toContainText(owner)
+        } finally {
+            await demoteDeepLinkFillers(request)
+        }
     })
 
     test('可续跑批次：继续 → 派生新批次 → 终态', async ({ page }) => {

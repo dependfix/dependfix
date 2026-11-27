@@ -218,3 +218,9 @@
 - **范围 / 不做什么**：只做上述链接兼容与运行证据展示；不改通知 link 形态、不改失败分类 / 重试语义、不新增运行期日志心跳（无法定位被杀时点，见边界）、不改 `/api/v1` 白名单。
 - **风险与依赖**：`logsJson` 只在执行器收尾写入，零日志只能证明「未走完收尾即被终止」，不能定位被杀时点（启动阶段 / 运行中段无法区分）；保留旧链接形态（不改通知 link）；不改失败分类 / 重试语义。
 - **容量影响**：本阶段插队批次累计 1，预估 2 commits / ≤ 20 files / ≤ 300 行，低于 [规划规范 §3.1.1](../standards/planning.md#_3-1-1-插队后的阶段容量再平衡-hard-requirement-2026-10-19) 再平衡阈值（不触发移出）。
+
+#### 追加临时待办执行记录（2026-11-27 闭环）
+
+- **交付**：3 commits（`567666db` 深链 / `06c7cef6` 服务端证据 / `eed39263` UI 提示）。
+- **证据**：platform 单测 2975 passed（定向 69）；e2e 2 passed（旧链接 302 + 第 2 页展开；running 孤儿显示 / pending 孤儿不显示，连跑两次幂等）；`lint:check` 0 error、`typecheck`、`build`、`check:docs` / `lint:md` / `gates:docs` 22 项通过；Review Gate parA quick Pass、parB standard Reject → Pass。
+- **残余 / 跟进**：「筛选隐藏回退」与「站内导航 + 轮询并发」重试短路登记为边界；离线导出 `logs-export` 未输出 `noExecutionLogs`（跟进）；存量 `orphan_run` 行无该字段不提示。

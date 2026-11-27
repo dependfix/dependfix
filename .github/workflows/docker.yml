@@ -670,23 +670,41 @@ jobs:
               | jq -r '.manifests[] | select(.platform.os == "linux") | "\(.platform.architecture)=\(.digest)"' \
               | sort | tr '\n' ' '
           }
+          tag_names() { printf '%s\n' "$1" | sed 's/^.*://' | sort | tr '\n' ' '; }
+          # tag 集合三向相等：三处 metadata 规则是重复字面量，漂移不会体现在 digest 比较里，必须先对齐。
+          ensure_tag_sets() {
+            label="$1"; dh="$2"; gh="$3"; acr="$4"
+            [ -n "${dh}${gh}${acr}" ] || { echo "::error::${label} 三个 registry 的 tag 列表全为空（metadata 输出异常？）"; exit 1; }
+            dhn=$(tag_names "$dh"); ghn=$(tag_names "$gh"); acrn=$(tag_names "$acr")
+            if [ "$dhn" != "$ghn" ] || [ "$dhn" != "$acrn" ]; then
+              echo "::error::${label} 三 registry 的 tag 集合不一致（dh=[${dhn}] gh=[${ghn}] acr=[${acrn}]）"
+              exit 1
+            fi
+          }
           compare() {
             label="$1"; dh_repo="$2"; gh_repo="$3"; acr_repo="$4"; shift 4
             echo "### ${label}" >> "$GITHUB_STEP_SUMMARY"
             for tag in "$@"; do
               [ -z "$tag" ] && continue
-              dh=$(signature "${dh_repo}:${tag}")
-              gh=$(signature "${gh_repo}:${tag}")
-              acr=$(signature "${acr_repo}:${tag}")
-              printf '%s\n' "- \`${tag}\` → \`${dh}\`" >> "$GITHUB_STEP_SUMMARY"
-              echo "inspect ${label} ${tag} → ${dh}"
-              if [ "$dh" != "$gh" ] || [ "$dh" != "$acr" ]; then
-                echo "::error::${label} tag ${tag} 跨 registry digest 不一致（dh=${dh} gh=${gh} acr=${acr}）"
-                exit 1
-              fi
+              ok=0
+              for attempt in 1 2; do
+                dh=$(signature "${dh_repo}:${tag}")
+                gh=$(signature "${gh_repo}:${tag}")
+                acr=$(signature "${acr_repo}:${tag}")
+                if [ -n "$dh" ] && [ "$dh" = "$gh" ] && [ "$dh" = "$acr" ]; then ok=1; break; fi
+                # push 腿与 release 派发分属不同 concurrency 分组，并发发布会造成窗口内的瞬时不一致：
+                # 先短退避复读一次，仍不一致才判失败（AC2 落地后此竞态消失）。
+                if [ "$attempt" = 1 ]; then sleep 15; fi
+              done
+              printf '%s\n' "- \`${tag}\` → dh:\`${dh}\`" >> "$GITHUB_STEP_SUMMARY"
+              printf '%s\n' "  gh:\`${gh}\` acr:\`${acr}\`" >> "$GITHUB_STEP_SUMMARY"
+              echo "inspect ${label} ${tag} → dh=${dh} gh=${gh} acr=${acr}"
+              [ "$ok" = 1 ] || { echo "::error::${label} tag ${tag} 跨 registry digest 不一致"; exit 1; }
             done
           }
-          tag_names() { printf '%s\n' "$1" | sed 's/^.*://' | tr '\n' ' '; }
+          ensure_tag_sets "platform" "$TAGS_DOCKERHUB" "$TAGS_GHCR" "$TAGS_ACR"
+          ensure_tag_sets "sandbox" "$TAGS_SANDBOX_DOCKERHUB" "$TAGS_SANDBOX_GHCR" "$TAGS_SANDBOX_ACR"
+          ensure_tag_sets "sandbox-full" "$TAGS_SANDBOX_FULL_DOCKERHUB" "$TAGS_SANDBOX_FULL_GHCR" "$TAGS_SANDBOX_FULL_ACR"
           compare "platform" caomeiyouren/dependfix ghcr.io/dependfix/dependfix \
             registry.cn-hangzhou.aliyuncs.com/caomeiyouren/dependfix $(tag_names "$TAGS_DOCKERHUB")
           compare "sandbox" caomeiyouren/dependfix-sandbox ghcr.io/dependfix/dependfix-sandbox \

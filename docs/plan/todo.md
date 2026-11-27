@@ -223,4 +223,5 @@
 
 - **交付**：3 commits（`567666db` 深链 / `06c7cef6` 服务端证据 / `eed39263` UI 提示）。
 - **证据**：platform 单测 2975 passed（定向 69）；e2e 2 passed（旧链接 302 + 第 2 页展开；running 孤儿显示 / pending 孤儿不显示，连跑两次幂等）；`lint:check` 0 error、`typecheck`、`build`、`check:docs` / `lint:md` / `gates:docs` 22 项通过；Review Gate parA quick Pass、parB standard Reject → Pass。
-- **残余 / 跟进**：「筛选隐藏回退」与「站内导航 + 轮询并发」重试短路登记为边界；离线导出 `logs-export` 未输出 `noExecutionLogs`（跟进）；存量 `orphan_run` 行无该字段不提示。
+- **补证（推送前整文件复跑）**：只跑新增用例会漏掉跨用例污染——深链用例注入的 2030 占位批次（固定 id 复用）永久占据 `/batch-runs` 首行，导致同文件「勾选多仓库」「可续跑批次」两个既有用例失败（CI 全量 `playwright test` 会确定性触发）。已改为用例前后把占位批次降级到 2000，并在 `beforeAll` 先降级一次兜住超时 / 取消残留（fixtures 端点无 batchRuns 删除通道）；整文件 `--workers=1` 连跑两遍 5 passed，审计 quick 复审 Pass（`955f033f`）。
+- **残余 / 跟进**：「筛选隐藏回退」与「站内导航 + 轮询并发」重试短路登记为边界；离线导出 `logs-export` 未输出 `noExecutionLogs`（跟进）；存量 `orphan_run` 行无该字段不提示；e2e fixtures 端点缺 `batchRuns` 删除通道，占位数据只能降级不能清理（候选，待用户决策）。

@@ -246,7 +246,7 @@ tag，失败前已推送的 digest 对已发布产物无实际收益——故「
 镜像（platform / sandbox / sandbox-full）靠 cache 命中再导出，不计入「构建次数」。
 
 **仍待闭环**：发布提交同时触发 push 腿与 release 派发构建（AC2）、四类 tag × 三 registry 的完整回读矩阵（AC3）
-——两者都需要一次发布派发，当前无发布计划，维持阻塞登记（见 [todo.md](../../plan/todo.md) M68.4）。
+——两者都需要一次发布派发，当前无发布计划，维持阻塞登记（见 [M68 归档分片](../../plan/archive/todo-archive-phases-m68.md) 的 M68.4 段与 [backlog](../../plan/backlog.md) 候选「发布窗口发布构建复用取证」）。
 
 ### 4.7 镜像通道矩阵与 ACR 架构边界（2026-11-12，M58.5）
 

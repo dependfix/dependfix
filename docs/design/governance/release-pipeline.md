@@ -237,9 +237,13 @@ digest（provenance 关闭、manifest 字节一致），`merge` 复用该 digest
 构建耗时前后读数。**发布轮**（`platform-x.y.z` tag）仍走同一条构建路径，但其 tag 只存在于发布派发，
 按 M68.4 的 AC2 / AC3 口径保持待发布窗口回填。
 
-**语义边界（相对旧实现）**：某 registry 推送失败会使该镜像该架构这一条构建腿失败（旧实现是单 registry 独立腿，
-其余 registry 仍可完成）；已发布 tag 不受影响、不会跨 registry 污染。若将来需要「单 registry 失败不影响其它
-registry 的新版本发布」，回退方式为改回 per-registry 构建腿（revert 本 workflow 改动）。
+**语义边界（相对旧实现）**：某 registry 推送失败会使该镜像该架构这一条构建腿失败。旧实现虽是「每 registry 一条腿」，
+但同一 job 内顺序执行且无 `continue-on-error`，失败步骤**之后**的 registry 不会执行；又因 `merge` 要求全腿成功才打
+tag，失败前已推送的 digest 对已发布产物无实际收益——故「失败粒度更粗」并未损失可用性保障，也不会跨 registry 污染
+已发布 tag。若确需「单 registry 失败不影响其它 registry 的新版本发布」，回退方式为改回 per-registry 构建腿。
+
+**AC1 口径**：统计对象是 build-push 腿（每镜像每架构一次构建、推三 registry）；`build` job 里为冒烟单独加载的 amd64
+镜像（platform / sandbox / sandbox-full）靠 cache 命中再导出，不计入「构建次数」。
 
 **仍待闭环**：发布提交同时触发 push 腿与 release 派发构建（AC2）、四类 tag × 三 registry 的完整回读矩阵（AC3）
 ——两者都需要一次发布派发，当前无发布计划，维持阻塞登记（见 [todo.md](../../plan/todo.md) M68.4）。

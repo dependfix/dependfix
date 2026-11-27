@@ -48,6 +48,13 @@ jobs:
             caomeiyouren/dependfix*|ghcr.io/dependfix/dependfix*) ;;
             *) echo "::error::镜像 ref 只允许 dependfix 发布形态：$IMAGE"; exit 1 ;;
           esac
+      - name: Login to GHCR (only for ghcr.io refs)
+        if: ${{ contains(inputs.image || 'caomeiyouren', 'ghcr.io') }}
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       - name: Pull image
         run: |
           set -euo pipefail

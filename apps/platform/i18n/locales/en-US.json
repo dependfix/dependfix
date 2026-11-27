@@ -1035,6 +1035,7 @@
         "unfixedAlertsHint": "Alerts not fixed in this run (failed / skipped / not auto-fixable); not attributed as a regression from this run",
         "resultMissing": "Result missing",
         "resultMissingHint": "This run produced no result (e.g. execution timeout); no alert count is shown to avoid misreading it as zero alerts",
+        "orphanNoLogsHint": "No execution logs at all: the process was terminated before its completion step (it may have died at startup or mid-run), most likely by SIGKILL / OOM. Logs are only persisted at completion, so the kill point cannot be located; cgroup does not record oom_kill without a container memory limit — check the host journal (journalctl -k) and peak memory.",
         "breakdown": {
             "headline": "Unfixed {unfixed} / {total}",
             "headlineHint": "Total includes truncated alerts; unfixed excludes truncated; skipped alerts are included in unfixed",

@@ -201,3 +201,20 @@
 - **交付**：`formatCollectionTime()` 让 `check-release-security-alerts.mjs` 的所有路径首行输出 `[release-security] 采集时点 <UTC ISO 8601>`（PASS / FAIL / token 缺失 / 台账不可读或非法 / 拉取异常；参数错误路径经 stderr），判定与退出码不变。
 - **证据**：无 token 实跑 → 首行为采集时点、exit 1；单测覆盖 7 条返回路径 + 参数错误路径的首行与格式（可注入时钟）；`gates:docs` 22 项；发布指南与门禁设计稿同步。
 - **残余**：`--help` 不输出采集时点（非门禁运行，无证据语义）；时点语义为「输出 / 汇总时刻」，不表示发起时刻；顶层 catch 的首行无单测（v8 ignore 区）。
+
+---
+
+### 追加临时待办（不占阶段条目编号）：批次通知死链与孤儿运行可观测性（2026-11-27 用户授权）
+
+- **来源**：用户 2026-11-27 依据平台运行日志（`rss-to-memos-sync` 的 `orphan_run`）与 `dependfix.dev/batch-runs/6886ca3eaf001020` 404 现场，明确要求「① 修 404 ② 补可观测性」；属 [规划规范 §3.1](../standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement)「清单外经用户授权追加」口径。
+- **目标**：
+  - A：批次终态通知里的 `/batch-runs/<id>` 链接不再 404，并能直接定位到目标批次；
+  - B：`orphan_run` 能区分「跑超时（会带回日志）」与「执行进程未走完收尾即被终止（零执行日志，被杀时点不可定位）」，并在详情给出排查入口。
+- **验收标准**：
+  - AC1：新增兼容路由 `/batch-runs/[id]` → 重定向 `/batch-runs?id=<id>`；列表页消费 `?id=` 翻到目标页 + 展开 + 拉取详情；目标被筛选隐藏时清空筛选定位，不在当前组织列表则保持原样；
+  - AC2：stale cleanup 对 running 且无日志（非 `github-action`）的孤儿写 `errorJson.noExecutionLogs=true` 并在 message 追加「（无执行日志）」；`pending` / `github-action` 恒为 `false`；
+  - AC3：运行详情 / 扫描历史以落库证据为唯一判据，`noExecutionLogs=true` 时展示宿主 OOM / `journalctl -k` 排查提示（zh-CN / en-US），`pending` 来源不误报；
+  - AC4：单测覆盖深链定位 / 证据判定 / stale cleanup 证据分支，e2e 覆盖旧链接重定向 + 自动展开 + 提示显示 / 不显示；`lint:check` / `typecheck` 通过。
+- **范围 / 不做什么**：只做上述链接兼容与运行证据展示；不改通知 link 形态、不改失败分类 / 重试语义、不新增运行期日志心跳（无法定位被杀时点，见边界）、不改 `/api/v1` 白名单。
+- **风险与依赖**：`logsJson` 只在执行器收尾写入，零日志只能证明「未走完收尾即被终止」，不能定位被杀时点（启动阶段 / 运行中段无法区分）；保留旧链接形态（不改通知 link）；不改失败分类 / 重试语义。
+- **容量影响**：本阶段插队批次累计 1，预估 2 commits / ≤ 20 files / ≤ 300 行，低于 [规划规范 §3.1.1](../standards/planning.md#_3-1-1-插队后的阶段容量再平衡-hard-requirement-2026-10-19) 再平衡阈值（不触发移出）。

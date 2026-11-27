@@ -89,6 +89,8 @@ const scanRunSchema = z.object({
     error: z.object({
         code: z.string().max(64),
         message: z.string().max(500),
+        /** 孤儿运行证据（stale cleanup 落库；UI 判定只认该字段） */
+        noExecutionLogs: z.boolean().optional(),
     }).optional(),
     mode: z.enum(['report-only', 'fix', 'fix-and-pr']).default('report-only'),
     severityThreshold: z.enum(['low', 'medium', 'high', 'critical']).default('high'),

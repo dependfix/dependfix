@@ -74,7 +74,7 @@ interface RunDetailView {
         samples?: number
         sigkillDetected?: boolean
     } | null
-    error: { code: string, message: string } | null
+    error: { code: string, message: string, noExecutionLogs?: boolean | null } | null
     /** 失败分类三列（口径见 docs/design/governance/run-failure-taxonomy.md §5.5）：非失败终态为 null */
     failureCode: string | null
     failureStage: string | null
@@ -575,6 +575,7 @@ watch(() => props.runId, (runId) => {
                 <p v-else class="run-detail__error-message text-muted">
                     {{ t('runs.errorNoDetail') }}
                 </p>
+                <run-orphan-hint :run="detail" />
             </CaomeiMessage>
             <div
                 v-if="detail.status === 'failed'"

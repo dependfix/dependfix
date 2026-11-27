@@ -158,6 +158,72 @@ test.describe('/scans 独立页面', () => {
     })
 
     /**
+     * 孤儿运行无日志提示：只认落库证据 `errorJson.noExecutionLogs`——running 孤儿（true）显示，
+     * pending 孤儿（false，从未开始执行）不得误报「进程被杀」。
+     */
+    test('case 3c: 孤儿运行无日志提示 — running 孤儿显示 / pending 孤儿不显示', async ({ page }) => {
+        const stamp = Date.now()
+        const owner = `e2e-scans-orphan-${stamp}`
+        const cookies = (await page.context().cookies()).map((c) => `${c.name}=${c.value}`).join('; ')
+        const runningRunId = `orphan-run-${stamp}`
+        const pendingRunId = `orphan-pend-${stamp}`
+        const orphanEvidence = {
+            failureCode: 'orphan_run',
+            failureStage: 'runtime',
+            failureKind: 'transient',
+            startedAt: new Date().toISOString(),
+            finishedAt: new Date().toISOString(),
+        }
+        const seeded = await page.request.post('/api/e2e/fixtures', {
+            headers: { cookie: cookies },
+            data: {
+                repos: [{ owner, name: 'app' }],
+                scanRuns: [
+                    {
+                        ...orphanEvidence,
+                        id: runningRunId,
+                        repositoryOwner: owner,
+                        repositoryName: 'app',
+                        status: 'failed',
+                        error: {
+                            code: 'orphan_run',
+                            message: '超过 35 分钟未到达终态，已被 stale cleanup 自动标记为失败（无执行日志）',
+                            noExecutionLogs: true,
+                        },
+                    },
+                    {
+                        ...orphanEvidence,
+                        id: pendingRunId,
+                        repositoryOwner: owner,
+                        repositoryName: 'app',
+                        status: 'failed',
+                        startedAt: null,
+                        error: {
+                            code: 'orphan_run',
+                            message: '超过 5 分钟未到达终态，已被 stale cleanup 自动标记为失败',
+                            noExecutionLogs: false,
+                        },
+                    },
+                ],
+            },
+        })
+        expect(seeded.status()).toBe(200)
+
+        // running 孤儿：显示「无任何执行日志」+ 排查提示
+        await page.goto(`/scans?run=${runningRunId}`)
+        await waitForHydration(page)
+        await expect(page.locator('.caomei-dialog__content')).toBeVisible({ timeout: 15000 })
+        await expect(page.locator('.repo-history__error-banner')).toContainText('无任何执行日志')
+
+        // pending 孤儿：同一横幅只有 orphan_run 事实，不得出现「进程被杀 / 无执行日志」归因
+        await page.goto(`/scans?run=${pendingRunId}`)
+        await waitForHydration(page)
+        await expect(page.locator('.caomei-dialog__content')).toBeVisible({ timeout: 15000 })
+        await expect(page.locator('.repo-history__error-banner')).toContainText('orphan_run')
+        await expect(page.locator('.repo-history__error-banner')).not.toContainText('无任何执行日志')
+    })
+
+    /**
      * 运行失败分类筛选：状态列「失败 · {阶段}」+ 失败阶段筛选生效。
      * 用 e2e fixtures 端点注入两条确定性失败 run（verify / clone），避免依赖无 token 扫描的真实分类。
      */

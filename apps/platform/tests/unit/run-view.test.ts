@@ -8,6 +8,7 @@ import {
     failureKindLabel,
     failureStageLabel,
     formatRunDuration,
+    isOrphanRunWithoutLogs,
     RUN_FAILURE_KIND_OPTIONS,
     RUN_FAILURE_STAGE_OPTIONS,
     runExecutorLabel,
@@ -180,6 +181,38 @@ describe('utils/run-view', () => {
                     disabled: true,
                 },
             ])
+        })
+    })
+
+    describe('isOrphanRunWithoutLogs', () => {
+        const orphan = { status: 'failed', error: { code: 'orphan_run', noExecutionLogs: true } }
+
+        it('running 孤儿（落库证据 true）+ 无日志 → true', () => {
+            expect(isOrphanRunWithoutLogs({ ...orphan, logs: [] })).toBe(true)
+            expect(isOrphanRunWithoutLogs({ ...orphan, logs: null })).toBe(true)
+            expect(isOrphanRunWithoutLogs(orphan)).toBe(true)
+        })
+
+        it('pending 孤儿（证据 false）+ 无日志 → false（从未开始执行，不得误报进程被杀）', () => {
+            expect(isOrphanRunWithoutLogs({
+                status: 'failed',
+                error: { code: 'orphan_run', noExecutionLogs: false },
+                logs: [],
+            })).toBe(false)
+        })
+
+        it('旧行缺证据字段 → false（宁可不提示也不误报）', () => {
+            expect(isOrphanRunWithoutLogs({ status: 'failed', error: { code: 'orphan_run' }, logs: [] })).toBe(false)
+        })
+
+        it('有日志 / 非 orphan_run / 非 failed / error 缺失 → false', () => {
+            expect(isOrphanRunWithoutLogs({
+                ...orphan,
+                logs: [{ timestamp: 't', level: 'info', message: 'm' }],
+            })).toBe(false)
+            expect(isOrphanRunWithoutLogs({ ...orphan, logs: [], error: { code: 'execution_timeout' } })).toBe(false)
+            expect(isOrphanRunWithoutLogs({ ...orphan, status: 'completed', logs: [] })).toBe(false)
+            expect(isOrphanRunWithoutLogs({ status: 'failed', logs: [] })).toBe(false)
         })
     })
 })

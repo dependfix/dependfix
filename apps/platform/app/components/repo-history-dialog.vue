@@ -86,7 +86,7 @@ interface DetailView {
     /** 运行结果可信度：旧数据 / B 模式为 null */
     exitCode?: number | null
     environmentalFailureCount?: number | null
-    error: { code: string, message: string } | null
+    error: { code: string, message: string, noExecutionLogs?: boolean | null } | null
     results: unknown[]
     logs?: Array<{ timestamp: string, level: string, message: string }>
     logsText?: string | null
@@ -383,6 +383,7 @@ watch(() => route.query[props.queryKey], async (newVal) => {
                     <p v-else class="repo-history__error-message text-muted">
                         {{ t('runs.errorNoDetail') }}
                     </p>
+                    <run-orphan-hint :run="detail" />
                 </CaomeiMessage>
                 <!-- PR 链接（右手边） -->
                 <a

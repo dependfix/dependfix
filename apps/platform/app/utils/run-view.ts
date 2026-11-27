@@ -428,6 +428,28 @@ export const isRunResultMissing = (run: RunOutcomeView) => {
 export const runModeLabel = (mode: string, t: Translator) =>
     scanModeOptions(t).find((option) => option.value === mode)?.label ?? mode
 
+/** 孤儿运行证据所需的最小切片（与详情 DTO 结构兼容） */
+export interface RunLogEvidenceView {
+    status: string
+    logs?: unknown[] | null
+    error?: { code?: string | null, noExecutionLogs?: boolean | null } | null
+}
+
+/**
+ * 「孤儿运行且没有执行日志」——以落库证据 `errorJson.noExecutionLogs` 为唯一事实源。
+ *
+ * - stale cleanup 只在 **running** 孤儿零日志时写 `true`；`pending` 孤儿（从未开始执行）与
+ *   `github-action`（执行器不采集日志）恒写 `false`，因此不会把「从未开始」误报为「进程被杀」。
+ * - 旧行（本字段上线前）不命中，宁可少提示也不误报。
+ * - `logsJson` 只在执行器收尾落库：零日志只能说明「未走完收尾即被终止」，不能定位被杀时点
+ *   （启动阶段被杀与运行中段被杀都无法区分），文案不得超出该范围。
+ */
+export const isOrphanRunWithoutLogs = (run: RunLogEvidenceView) =>
+    run.status === 'failed'
+    && run.error?.code === 'orphan_run'
+    && run.error?.noExecutionLogs === true
+    && (run.logs?.length ?? 0) === 0
+
 export const runExecutorLabel = (executorKind: string, t: Translator) => {
     switch (executorKind) {
         case 'github-action':

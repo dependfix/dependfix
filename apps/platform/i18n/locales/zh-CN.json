@@ -1035,6 +1035,7 @@
         "unfixedAlertsHint": "有告警本次未修复（含失败 / 跳过 / 不可自动修复）；不计入本次运行的代码回归归因",
         "resultMissing": "结果缺失",
         "resultMissingHint": "本次运行未产出结果（如执行超时）；不展示告警 0，避免被误读为「扫描无告警」",
+        "orphanNoLogsHint": "无任何执行日志：进程未走完收尾即被终止（可能是启动阶段，也可能是运行中段），最可能是 SIGKILL / OOM。日志只在收尾落库，无法定位被杀时点；未设置容器内存上限时 cgroup 不记录 oom_kill，请结合宿主机 journalctl -k 与峰值内存排查。",
         "breakdown": {
             "headline": "未修复 {unfixed} / {total}",
             "headlineHint": "总数含截断；未修复不含截断；跳过告警包含在未修复内",

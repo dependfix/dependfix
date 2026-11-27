@@ -268,21 +268,23 @@ jobs:
             --format '{{index .Config.Labels "org.opencontainers.image.dependfix.toolchain"}}')
           [ "$label" = "full" ] || { echo "::error::叠加层 label 为 '${label}'（期望 full）"; exit 1; }
 
-      # ── 按 digest 推送（每个 registry 一次，共用层缓存）─────────────────
-      # 三个 registry 的镜像名不同（Docker Hub / ACR 为 caomeiyouren/dependfix，GHCR 为
-      # dependfix/dependfix），digest 各自独立，故每个 registry 各推一次并在 merge job
-      # 用各自的 digest 组装 manifest list。
+      # ── 按 digest 推送（每架构每镜像只构建一次，单次构建推三个 registry）──────
+      # 三 registry 的镜像名不同（Docker Hub / ACR 为 caomeiyouren/dependfix，GHCR 为
+      # dependfix/dependfix）。旧实现每个 registry 各跑一条构建腿（3 镜像 × 3 registry = 9 次/架构），
+      # 现在用 type=image 的多个 name 一次性推送同一 manifest：构建（含原生编译 / Nuxt 打包）只做一次，
+      # 三个 registry 得到**同一内容 digest**（provenance 关闭，manifest 字节一致），merge job 复用该 digest。
+      # 语义边界：某 registry 推送失败会使该镜像该架构这一条腿失败（此前是单 registry 独立腿），
+      # 已发布 tag 不受影响、不会跨 registry 污染；不做 tag 级灰度，回滚 = revert 本 workflow。
       # provenance 统一关闭：ACR 个人版拒绝 OCI attestation artifact
-      # （application/vnd.oci.empty.v1+json → unknown manifest class），
-      # 且 `imagetools create` 不支持跨 registry 传递 attestation，三处口径保持一致。
-      - name: Build and push by digest (Docker Hub)
-        id: build-dockerhub
+      # （application/vnd.oci.empty.v1+json → unknown manifest class）。
+      - name: Build and push platform by digest (3 registries)
+        id: build-platform
         uses: docker/build-push-action@v7
         with:
           context: .
           file: apps/platform/Dockerfile
           platforms: ${{ matrix.platform }}
-          outputs: type=image,name=caomeiyouren/dependfix,push-by-digest=true,name-canonical=true,push=true
+          outputs: type=image,"name=caomeiyouren/dependfix,ghcr.io/dependfix/dependfix,registry.cn-hangzhou.aliyuncs.com/caomeiyouren/dependfix",push-by-digest=true,name-canonical=true,push=true
           labels: ${{ steps.metadata.outputs.labels }}
           provenance: false
           build-args: |
@@ -290,45 +292,16 @@ jobs:
             BUILD_VERSION=${{ steps.platform-version.outputs.platform_version }}
           cache-from: type=gha,scope=${{ matrix.arch }}
           cache-to: type=gha,mode=max,scope=${{ matrix.arch }}
-      - name: Build and push by digest (GHCR)
-        id: build-ghcr
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          file: apps/platform/Dockerfile
-          platforms: ${{ matrix.platform }}
-          outputs: type=image,name=ghcr.io/dependfix/dependfix,push-by-digest=true,name-canonical=true,push=true
-          labels: ${{ steps.metadata.outputs.labels }}
-          provenance: false
-          build-args: |
-            BUILD_COMMIT=${{ github.sha }}
-            BUILD_VERSION=${{ steps.platform-version.outputs.platform_version }}
-          cache-from: type=gha,scope=${{ matrix.arch }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.arch }}
-      - name: Build and push by digest (Alibaba Cloud ACR)
-        id: build-acr
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          file: apps/platform/Dockerfile
-          platforms: ${{ matrix.platform }}
-          outputs: type=image,name=registry.cn-hangzhou.aliyuncs.com/caomeiyouren/dependfix,push-by-digest=true,name-canonical=true,push=true
-          labels: ${{ steps.metadata.outputs.labels }}
-          provenance: false
-          build-args: |
-            BUILD_COMMIT=${{ github.sha }}
-            BUILD_VERSION=${{ steps.platform-version.outputs.platform_version }}
-          cache-from: type=gha,scope=${{ matrix.arch }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.arch }}
-      - name: Build and push sandbox by digest (Docker Hub)
-        id: build-sandbox-dockerhub
+
+      - name: Build and push sandbox by digest (3 registries)
+        id: build-sandbox
         uses: docker/build-push-action@v7
         with:
           context: .
           file: apps/platform/Dockerfile
           target: sandbox
           platforms: ${{ matrix.platform }}
-          outputs: type=image,name=caomeiyouren/dependfix-sandbox,push-by-digest=true,name-canonical=true,push=true
+          outputs: type=image,"name=caomeiyouren/dependfix-sandbox,ghcr.io/dependfix/dependfix-sandbox,registry.cn-hangzhou.aliyuncs.com/caomeiyouren/dependfix-sandbox",push-by-digest=true,name-canonical=true,push=true
           labels: ${{ steps.metadata-sandbox.outputs.labels }}
           provenance: false
           build-args: |
@@ -338,49 +311,16 @@ jobs:
             type=gha,scope=${{ matrix.arch }}
             type=gha,scope=${{ matrix.arch }}-sandbox
           cache-to: type=gha,mode=max,scope=${{ matrix.arch }}-sandbox
-      - name: Build and push sandbox by digest (GHCR)
-        id: build-sandbox-ghcr
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          file: apps/platform/Dockerfile
-          target: sandbox
-          platforms: ${{ matrix.platform }}
-          outputs: type=image,name=ghcr.io/dependfix/dependfix-sandbox,push-by-digest=true,name-canonical=true,push=true
-          labels: ${{ steps.metadata-sandbox.outputs.labels }}
-          provenance: false
-          build-args: |
-            BUILD_COMMIT=${{ github.sha }}
-            BUILD_VERSION=${{ steps.platform-version.outputs.platform_version }}
-          cache-from: |
-            type=gha,scope=${{ matrix.arch }}
-            type=gha,scope=${{ matrix.arch }}-sandbox
-      - name: Build and push sandbox by digest (Alibaba Cloud ACR)
-        id: build-sandbox-acr
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          file: apps/platform/Dockerfile
-          target: sandbox
-          platforms: ${{ matrix.platform }}
-          outputs: type=image,name=registry.cn-hangzhou.aliyuncs.com/caomeiyouren/dependfix-sandbox,push-by-digest=true,name-canonical=true,push=true
-          labels: ${{ steps.metadata-sandbox.outputs.labels }}
-          provenance: false
-          build-args: |
-            BUILD_COMMIT=${{ github.sha }}
-            BUILD_VERSION=${{ steps.platform-version.outputs.platform_version }}
-          cache-from: |
-            type=gha,scope=${{ matrix.arch }}
-            type=gha,scope=${{ matrix.arch }}-sandbox
-      - name: Build and push sandbox-full by digest (Docker Hub)
-        id: build-sandbox-full-dockerhub
+
+      - name: Build and push sandbox-full by digest (3 registries)
+        id: build-sandbox-full
         uses: docker/build-push-action@v7
         with:
           context: .
           file: apps/platform/Dockerfile
           target: sandbox-full
           platforms: ${{ matrix.platform }}
-          outputs: type=image,name=caomeiyouren/dependfix-sandbox-full,push-by-digest=true,name-canonical=true,push=true
+          outputs: type=image,"name=caomeiyouren/dependfix-sandbox-full,ghcr.io/dependfix/dependfix-sandbox-full,registry.cn-hangzhou.aliyuncs.com/caomeiyouren/dependfix-sandbox-full",push-by-digest=true,name-canonical=true,push=true
           labels: ${{ steps.metadata-sandbox-full.outputs.labels }}
           provenance: false
           build-args: |
@@ -390,53 +330,17 @@ jobs:
             type=gha,scope=${{ matrix.arch }}
             type=gha,scope=${{ matrix.arch }}-sandbox-full
           cache-to: type=gha,mode=max,scope=${{ matrix.arch }}-sandbox-full
-      - name: Build and push sandbox-full by digest (GHCR)
-        id: build-sandbox-full-ghcr
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          file: apps/platform/Dockerfile
-          target: sandbox-full
-          platforms: ${{ matrix.platform }}
-          outputs: type=image,name=ghcr.io/dependfix/dependfix-sandbox-full,push-by-digest=true,name-canonical=true,push=true
-          labels: ${{ steps.metadata-sandbox-full.outputs.labels }}
-          provenance: false
-          build-args: |
-            BUILD_COMMIT=${{ github.sha }}
-            BUILD_VERSION=${{ steps.platform-version.outputs.platform_version }}
-          cache-from: |
-            type=gha,scope=${{ matrix.arch }}
-            type=gha,scope=${{ matrix.arch }}-sandbox-full
-      - name: Build and push sandbox-full by digest (Alibaba Cloud ACR)
-        id: build-sandbox-full-acr
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          file: apps/platform/Dockerfile
-          target: sandbox-full
-          platforms: ${{ matrix.platform }}
-          outputs: type=image,name=registry.cn-hangzhou.aliyuncs.com/caomeiyouren/dependfix-sandbox-full,push-by-digest=true,name-canonical=true,push=true
-          labels: ${{ steps.metadata-sandbox-full.outputs.labels }}
-          provenance: false
-          build-args: |
-            BUILD_COMMIT=${{ github.sha }}
-            BUILD_VERSION=${{ steps.platform-version.outputs.platform_version }}
-          cache-from: |
-            type=gha,scope=${{ matrix.arch }}
-            type=gha,scope=${{ matrix.arch }}-sandbox-full
+
       - name: Export digests
         run: |
           set -euo pipefail
           mkdir -p "${RUNNER_TEMP}/digests"
-          printf '%s' "${{ steps.build-dockerhub.outputs.digest }}" > "${RUNNER_TEMP}/digests/dockerhub-${{ matrix.arch }}.digest"
-          printf '%s' "${{ steps.build-ghcr.outputs.digest }}" > "${RUNNER_TEMP}/digests/ghcr-${{ matrix.arch }}.digest"
-          printf '%s' "${{ steps.build-acr.outputs.digest }}" > "${RUNNER_TEMP}/digests/acr-${{ matrix.arch }}.digest"
-          printf '%s' "${{ steps.build-sandbox-dockerhub.outputs.digest }}" > "${RUNNER_TEMP}/digests/sandbox-dockerhub-${{ matrix.arch }}.digest"
-          printf '%s' "${{ steps.build-sandbox-ghcr.outputs.digest }}" > "${RUNNER_TEMP}/digests/sandbox-ghcr-${{ matrix.arch }}.digest"
-          printf '%s' "${{ steps.build-sandbox-acr.outputs.digest }}" > "${RUNNER_TEMP}/digests/sandbox-acr-${{ matrix.arch }}.digest"
-          printf '%s' "${{ steps.build-sandbox-full-dockerhub.outputs.digest }}" > "${RUNNER_TEMP}/digests/sandbox-full-dockerhub-${{ matrix.arch }}.digest"
-          printf '%s' "${{ steps.build-sandbox-full-ghcr.outputs.digest }}" > "${RUNNER_TEMP}/digests/sandbox-full-ghcr-${{ matrix.arch }}.digest"
-          printf '%s' "${{ steps.build-sandbox-full-acr.outputs.digest }}" > "${RUNNER_TEMP}/digests/sandbox-full-acr-${{ matrix.arch }}.digest"
+          # 一次构建推三 registry：同一内容 digest，三个文件写同值（merge job 按 registry 各取一份）
+          for repo in dockerhub ghcr acr; do
+            printf '%s' "${{ steps.build-platform.outputs.digest }}" > "${RUNNER_TEMP}/digests/${repo}-${{ matrix.arch }}.digest"
+            printf '%s' "${{ steps.build-sandbox.outputs.digest }}" > "${RUNNER_TEMP}/digests/sandbox-${repo}-${{ matrix.arch }}.digest"
+            printf '%s' "${{ steps.build-sandbox-full.outputs.digest }}" > "${RUNNER_TEMP}/digests/sandbox-full-${repo}-${{ matrix.arch }}.digest"
+          done
           # 空 digest 会让 merge 阶段拼出 `image@` 的晦涩报错，这里提前失败
           for f in "${RUNNER_TEMP}"/digests/*.digest; do
             [ -s "$f" ] || { echo "::error::digest 为空：${f}"; exit 1; }

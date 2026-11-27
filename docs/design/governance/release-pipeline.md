@@ -227,6 +227,23 @@ release.yml Push release tags（全量推送，含 v tag，推送后核验）
 
 **已验证（2026-11-15，1.1.0 发布 run `43696172095`）**：`ubuntu-24.04-arm` 原生 runner 实跑 success；私有 GHCR `packages: read` 登录与拉取 success；历史 tag 巡检在 amd64 腿 success（工作流条件 `matrix.arch == 'amd64'`，arm64 腿不执行该步；全量历史 checkout）；两架构 `/api/health` 均为 `{"version":"1.1.0","commit":"80883880…","schema":"ok"}`。**仍未证实**：冒烟失败分支的 Job Summary / `::warning::` 可见性（本轮无失败样本）。本地无 GHCR 凭证时巡检输出 401 Unauthorized 的「未证实」（已实跑，fail-open 生效）。
 
+### 4.6.1 镜像构建去重（2026-11-27，M68.4 第一期）
+
+**改动**：`docker.yml` 的 per-arch 构建由「每个 registry 一条构建腿」（3 镜像 × 3 registry = 9 次/架构）收敛为
+「每镜像一次构建、`type=image` 多个 `name` 同时推送三个 registry」（3 次/架构）。三 registry 得到同一内容
+digest（provenance 关闭、manifest 字节一致），`merge` 复用该 digest 分别合成各 registry 的 tag。
+
+**验证口径（非发布轮）**：构建腿数量（9 → 3）、三 registry `latest` / 日期 / `sha-*` 回读 digest 是否一致、
+构建耗时前后读数。**发布轮**（`platform-x.y.z` tag）仍走同一条构建路径，但其 tag 只存在于发布派发，
+按 M68.4 的 AC2 / AC3 口径保持待发布窗口回填。
+
+**语义边界（相对旧实现）**：某 registry 推送失败会使该镜像该架构这一条构建腿失败（旧实现是单 registry 独立腿，
+其余 registry 仍可完成）；已发布 tag 不受影响、不会跨 registry 污染。若将来需要「单 registry 失败不影响其它
+registry 的新版本发布」，回退方式为改回 per-registry 构建腿（revert 本 workflow 改动）。
+
+**仍待闭环**：发布提交同时触发 push 腿与 release 派发构建（AC2）、四类 tag × 三 registry 的完整回读矩阵（AC3）
+——两者都需要一次发布派发，当前无发布计划，维持阻塞登记（见 [todo.md](../../plan/todo.md) M68.4）。
+
 ### 4.7 镜像通道矩阵与 ACR 架构边界（2026-11-12，M58.5）
 
 | 通道 | 按 tag 获取 | 双架构 | 定位 |
